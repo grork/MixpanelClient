@@ -1,23 +1,17 @@
 #include "pch.h"
 #include "CppUnitTest.h"
-#include "MixpanelClient.h"
 #include "PayloadEncoder.h"
 
+using namespace Platform;
 using namespace CodevoidN::Utilities::Mixpanel;
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace Windows::Data::Json;
+using namespace Windows::Foundation::Collections;
 
-namespace CodevoidN { namespace Tests { namespace Mixpanel
-{
-    TEST_CLASS(ClientTests)
+namespace CodevoidN { namespace Tests { namespace Mixpanel {
+    TEST_CLASS(EncoderTests)
     {
     public:
-        TEST_METHOD(CanInstantiate)
-        {
-            auto client = ref new MixpanelClient();
-            Assert::IsNotNull(client, "Couldn't instantiate client");
-        }
-
         TEST_METHOD(CanEncodePayloadCorrectly)
         {
             JsonObject^ payload = JsonObject::Parse(L"{ \"event\": \"Signed Up\", \"properties\": { \"distinct_id\": \"13793\", \"token\": \"e3bc4100330c35722740fb8c6f5abddc\", \"Referred By\": \"Friend\" } }");

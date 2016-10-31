@@ -14,8 +14,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="UnitTestApp.xaml.cpp" />
-    <ClCompile Include="UnitTest.cpp" />
     <ClCompile Include="pch.cpp" />
+    <ClCompile Include="MixPanelTests.cpp" />
+    <ClCompile Include="EncoderTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
