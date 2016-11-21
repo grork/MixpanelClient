@@ -7,6 +7,16 @@ using namespace Windows::Data::Json;
 using namespace Windows::Foundation;
 using namespace Windows::Foundation::Collections;
 
+#define WINDOWS_TICK 10000000
+#define SEC_TO_UNIX_EPOCH 11644473600LL
+
+// Sourced from:
+// http://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
+unsigned CodevoidN::Utilities::Mixpanel::WindowsTickToUnixSeconds(long long windowsTicks)
+{
+    return (unsigned)(windowsTicks / WINDOWS_TICK - SEC_TO_UNIX_EPOCH);
+}
+
 MixpanelClient::MixpanelClient()
 {
 
@@ -34,39 +44,52 @@ JsonObject^ MixpanelClient::GenerateJsonPayload(_In_ String^ eventName, _In_ IPr
         //
         // Anything else will cause a big bang, and hellfire raining from the sky.
         // Maybe, one day, this should support richer, more interesting types.
-        String^ isString = dynamic_cast<String^>(kvp->Value);
-        if (!isString->IsEmpty())
+        String^ candidateString = dynamic_cast<String^>(kvp->Value);
+        if (!candidateString->IsEmpty())
         {
+            auto stringValue = JsonValue::CreateStringValue(candidateString);
+            result->Insert(kvp->Key, stringValue);
             continue;
         }
 
-        IBox<bool>^ isBool = dynamic_cast<IBox<bool>^>(kvp->Value);
-        if (isBool != nullptr)
+        IBox<bool>^ candidateBool = dynamic_cast<IBox<bool>^>(kvp->Value);
+        if (candidateBool != nullptr)
         {
+            auto boolValue = JsonValue::CreateBooleanValue(candidateBool->Value);
+            result->Insert(kvp->Key, boolValue);
             continue;
         }
 
-        IBox<int>^ isInt = dynamic_cast<IBox<int>^>(kvp->Value);
-        if (isInt != nullptr)
+        IBox<int>^ candidateInt = dynamic_cast<IBox<int>^>(kvp->Value);
+        if (candidateInt != nullptr)
         {
+            auto intValue = JsonValue::CreateNumberValue(candidateInt->Value);
+            result->Insert(kvp->Key, intValue);
             continue;
         }
 
-        IBox<double>^ isDouble = dynamic_cast<IBox<double>^>(kvp->Value);
-        if (isDouble != nullptr)
+        IBox<double>^ candidateDouble = dynamic_cast<IBox<double>^>(kvp->Value);
+        if (candidateDouble != nullptr)
         {
+            auto doubleValue = JsonValue::CreateNumberValue(candidateDouble->Value);
+            result->Insert(kvp->Key, doubleValue);
             continue;
         }
 
-        IBox<float>^ isFloat = dynamic_cast<IBox<float>^>(kvp->Value);
-        if (isFloat != nullptr)
+        IBox<float>^ candidateFloat = dynamic_cast<IBox<float>^>(kvp->Value);
+        if (candidateFloat != nullptr)
         {
+            auto floatValue = JsonValue::CreateNumberValue(candidateFloat->Value);
+            result->Insert(kvp->Key, floatValue);
             continue;
         }
 
-        IBox<DateTime>^ isDateTime = dynamic_cast<IBox<DateTime>^>(kvp->Value);
-        if(isDateTime != nullptr)
+        IBox<DateTime>^ candidateDateTime = dynamic_cast<IBox<DateTime>^>(kvp->Value);
+        if(candidateDateTime != nullptr)
         {
+            auto timeAsJsonDateTime = WindowsTickToUnixSeconds(candidateDateTime->Value.UniversalTime);
+            auto dataTimeValue = JsonValue::CreateNumberValue(timeAsJsonDateTime);
+            result->Insert(kvp->Key, dataTimeValue);
             continue;
         }
 

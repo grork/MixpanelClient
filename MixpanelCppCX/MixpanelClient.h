@@ -10,4 +10,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     internal:
         Windows::Data::Json::JsonObject^ GenerateJsonPayload(_In_ Platform::String^ eventName, _In_ Windows::Foundation::Collections::IPropertySet^ properties);
     };
+
+    unsigned WindowsTickToUnixSeconds(long long windowsTicks);
 } } }
