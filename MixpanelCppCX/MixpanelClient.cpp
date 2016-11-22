@@ -3,6 +3,7 @@
 
 using namespace CodevoidN::Utilities::Mixpanel;
 using namespace Platform;
+using namespace std;
 using namespace Windows::Data::Json;
 using namespace Windows::Foundation;
 using namespace Windows::Foundation::Collections;
@@ -34,8 +35,18 @@ JsonObject^ MixpanelClient::GenerateJsonPayload(_In_ String^ eventName, _In_ IPr
 {
     auto result = ref new JsonObject();
     
-    for(auto kvp : properties)
+    for(const auto& kvp : properties)
     {
+        // MixPanel explicilty disallows properties prefixed with mp_
+        // So check each key and throw if it is unacceptable.
+        wstring key(kvp->Key->Data());
+
+        size_t prefixPos = key.find(L"mp_");
+        if ((prefixPos != wstring::npos) && (prefixPos == 0))
+        {
+            throw ref new InvalidArgumentException(L"Arguments cannot start with mp_.");
+        }
+
         // Work out which type this thing actually is.
         // We only support:
         // * Strings
