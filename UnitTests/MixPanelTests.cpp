@@ -10,7 +10,7 @@ using namespace Windows::Foundation::Collections;
 
 #define DEFAULT_TOKEN L"DEFAULT_TOKEN"
 
-namespace CodevoidN { namespace Tests { namespace Mixpanel
+namespace CodevoidN { namespace  Tests { namespace Mixpanel
 {
     TEST_CLASS(MixpanelTests)
     {
