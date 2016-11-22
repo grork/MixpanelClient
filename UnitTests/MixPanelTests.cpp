@@ -127,5 +127,23 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
             double dateTime = static_cast<double>(result->GetNamedNumber(L"DateTimeValue"));
             Assert::AreEqual(static_cast<double>(WindowsTickToUnixSeconds(insertedDateTime.UniversalTime)), dateTime, L"DateTimeValue didn't match");
         }
+
+        TEST_METHOD(ExceptionThrownWhenIncludingMpPrefixInPropertySet)
+        {
+            IPropertySet^ properties = ref new PropertySet();
+            properties->Insert(L"mp_Foo", L"Value");
+
+            bool exceptionThrown = false;
+            try
+            {
+                m_client->GenerateJsonPayload("TestEventName", properties);
+            }
+            catch (InvalidArgumentException^ ex)
+            {
+                exceptionThrown = true;
+            }
+
+            Assert::IsTrue(exceptionThrown, L"Didn't get exception for mp_ prefixed property in property set");
+        }
     };
 } } }
