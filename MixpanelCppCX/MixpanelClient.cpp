@@ -28,23 +28,62 @@ MixpanelClient::MixpanelClient(::Platform::String^ token)
     m_token = token;
 }
 
-void MixpanelClient::Track(_In_ ::Platform::String^ name, _In_ IPropertySet^ properties)
+void MixpanelClient::Track(_In_ String^ name, _In_ IPropertySet^ properties)
 {
     this->GenerateTrackingJsonPayload(name, properties);
 }
 
-JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(_In_ ::Platform::String^ name, _In_ IPropertySet^ properties)
+void MixpanelClient::SetSuperProperty(_In_ String^ name, _In_ String^ value)
+{
+    this->InitializeSuperPropertyCollection();
+    m_superProperties->Insert(name, value);
+}
+
+void MixpanelClient::SetSuperProperty(_In_ String^ name, _In_ double value)
+{
+    this->InitializeSuperPropertyCollection();
+    m_superProperties->Insert(name, value);
+}
+
+void MixpanelClient::SetSuperProperty(_In_ String^ name, _In_ bool value)
+{
+    this->InitializeSuperPropertyCollection();
+    m_superProperties->Insert(name, value);
+}
+
+void MixpanelClient::InitializeSuperPropertyCollection()
+{
+    if (m_superProperties != nullptr)
+    {
+        return;
+    }
+
+    m_superProperties = ref new ValueSet();
+}
+
+void MixpanelClient::ClearSuperProperties()
+{
+    m_superProperties = nullptr;
+}
+
+JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(_In_::Platform::String^ name, _In_ IPropertySet^ properties)
 {
     if (name->IsEmpty())
     {
         throw ref new NullReferenceException(L"Name cannot be empty or null");
     }
 
-    JsonObject^ propertiesPayload = this->GenerateJsonPayloadFromPropertySet(properties);
+    JsonObject^ propertiesPayload = ref new JsonObject();
+    MixpanelClient::AppendPropertySetToJsonPayload(properties, propertiesPayload);
 
     // The properties payload is expected to have the API Token, rather than
     // in the general payload properties. So, lets explicitly add it.
     propertiesPayload->Insert(L"token", JsonValue::CreateStringValue(m_token));
+
+    if (m_superProperties)
+    {
+        MixpanelClient::AppendPropertySetToJsonPayload(m_superProperties, propertiesPayload);
+    }
 
     JsonObject^ trackPayload = ref new JsonObject();
     trackPayload->Insert(L"event", JsonValue::CreateStringValue(name));
@@ -53,11 +92,9 @@ JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(_In_ ::Platform::String^
     return trackPayload;
 }
 
-JsonObject^ MixpanelClient::GenerateJsonPayloadFromPropertySet(_In_ IPropertySet ^ properties)
+void MixpanelClient::AppendPropertySetToJsonPayload(_In_ IPropertySet^ properties, _In_ JsonObject^ toAppendTo)
 {
-    auto result = ref new JsonObject();
-    
-    for(const auto& kvp : properties)
+    for (const auto& kvp : properties)
     {
         // MixPanel explicilty disallows properties prefixed with mp_
         // So check each key and throw if it is unacceptable.
@@ -81,7 +118,7 @@ JsonObject^ MixpanelClient::GenerateJsonPayloadFromPropertySet(_In_ IPropertySet
         if (!candidateString->IsEmpty())
         {
             auto stringValue = JsonValue::CreateStringValue(candidateString);
-            result->Insert(kvp->Key, stringValue);
+            toAppendTo->Insert(kvp->Key, stringValue);
             continue;
         }
 
@@ -89,7 +126,7 @@ JsonObject^ MixpanelClient::GenerateJsonPayloadFromPropertySet(_In_ IPropertySet
         if (candidateBool != nullptr)
         {
             auto boolValue = JsonValue::CreateBooleanValue(candidateBool->Value);
-            result->Insert(kvp->Key, boolValue);
+            toAppendTo->Insert(kvp->Key, boolValue);
             continue;
         }
 
@@ -97,7 +134,7 @@ JsonObject^ MixpanelClient::GenerateJsonPayloadFromPropertySet(_In_ IPropertySet
         if (candidateInt != nullptr)
         {
             auto intValue = JsonValue::CreateNumberValue(candidateInt->Value);
-            result->Insert(kvp->Key, intValue);
+            toAppendTo->Insert(kvp->Key, intValue);
             continue;
         }
 
@@ -105,7 +142,7 @@ JsonObject^ MixpanelClient::GenerateJsonPayloadFromPropertySet(_In_ IPropertySet
         if (candidateDouble != nullptr)
         {
             auto doubleValue = JsonValue::CreateNumberValue(candidateDouble->Value);
-            result->Insert(kvp->Key, doubleValue);
+            toAppendTo->Insert(kvp->Key, doubleValue);
             continue;
         }
 
@@ -113,21 +150,19 @@ JsonObject^ MixpanelClient::GenerateJsonPayloadFromPropertySet(_In_ IPropertySet
         if (candidateFloat != nullptr)
         {
             auto floatValue = JsonValue::CreateNumberValue(candidateFloat->Value);
-            result->Insert(kvp->Key, floatValue);
+            toAppendTo->Insert(kvp->Key, floatValue);
             continue;
         }
 
         IBox<DateTime>^ candidateDateTime = dynamic_cast<IBox<DateTime>^>(kvp->Value);
-        if(candidateDateTime != nullptr)
+        if (candidateDateTime != nullptr)
         {
             auto timeAsJsonDateTime = WindowsTickToUnixSeconds(candidateDateTime->Value.UniversalTime);
             auto dataTimeValue = JsonValue::CreateNumberValue(timeAsJsonDateTime);
-            result->Insert(kvp->Key, dataTimeValue);
+            toAppendTo->Insert(kvp->Key, dataTimeValue);
             continue;
         }
 
         throw ref new InvalidCastException(L"Property set includes unsupported data type: " + kvp->Key);
     }
-
-    return result;
 }

@@ -68,9 +68,10 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
             auto calendar = ref new Windows::Globalization::Calendar();
             properties->Insert(L"DateTimeValue", calendar->GetDateTime());
 
+            JsonObject^ result = ref new JsonObject();
             try
             {
-                m_client->GenerateJsonPayloadFromPropertySet(properties);
+                MixpanelClient::AppendPropertySetToJsonPayload(properties, result);
             }
             catch (...)
             {
@@ -90,10 +91,11 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
             properties->Insert(L"BooleanValue", true);
             properties->Insert(L"BadValue", ref new Windows::Foundation::Uri(L"http://foo.com"));
 
+            JsonObject^ result = ref new JsonObject();
             bool exceptionThrown = false;
             try
             {
-                m_client->GenerateJsonPayloadFromPropertySet(properties);
+                MixpanelClient::AppendPropertySetToJsonPayload(properties, result);
             }
             catch(InvalidCastException^ ex)
             {
@@ -115,7 +117,9 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
             auto insertedDateTime = calendar->GetDateTime();
             properties->Insert(L"DateTimeValue", insertedDateTime);
 
-            auto result = m_client->GenerateJsonPayloadFromPropertySet(properties);
+
+            auto result = ref new JsonObject();
+            MixpanelClient::AppendPropertySetToJsonPayload(properties, result);
 
             // Validate StringValue is present, and matches
             Assert::IsTrue(result->HasKey(L"StringValue"), L"StringValue key not present in JSON");
@@ -154,9 +158,11 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
             properties->Insert(L"mp_Foo", L"Value");
 
             bool exceptionThrown = false;
+            JsonObject^ result = ref new JsonObject();
+
             try
             {
-                m_client->GenerateJsonPayloadFromPropertySet(properties);
+                MixpanelClient::AppendPropertySetToJsonPayload(properties, result);
             }
             catch (InvalidArgumentException^ ex)
             {
@@ -189,6 +195,72 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
             // Validate that the API Token is present
             Assert::IsTrue(propertiesPayload->HasKey(L"token"), L"No token in properties payload");
             Assert::AreEqual(DEFAULT_TOKEN, propertiesPayload->GetNamedString(L"token"), L"Token had incorrect value");
+        }
+
+        TEST_METHOD(TrackingPayloadIncludesTokenAndSuperPropertiesPayload)
+        {
+            IPropertySet^ properties = ref new PropertySet();
+            properties->Insert(L"StringValue", L"Value");
+            m_client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
+            m_client->SetSuperProperty(L"SuperPropertyB", 7.0);
+            m_client->SetSuperProperty(L"SuperPropertyC", true);
+
+            auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+
+            // Check that the event data is correct
+            Assert::IsTrue(trackPayload->HasKey(L"event"), L"Didn't have event key");
+            Assert::AreEqual(L"TestEvent", trackPayload->GetNamedString("event"), L"Event name incorrect");
+
+            // Check that the actual properties we passed in are present
+            Assert::IsTrue(trackPayload->HasKey(L"properties"), L"No properties payload");
+            auto propertiesPayload = trackPayload->GetNamedObject("properties");
+
+            // Validate StringValue is present, and matches
+            Assert::IsTrue(propertiesPayload->HasKey(L"StringValue"), L"StringValue key not present in JSON");
+            auto stringValue = propertiesPayload->GetNamedString(L"StringValue");
+            Assert::AreEqual(L"Value", stringValue, L"Inserted string values didn't match");
+
+            // Validate that the API Token is present
+            Assert::IsTrue(propertiesPayload->HasKey(L"token"), L"No token in properties payload");
+            Assert::AreEqual(DEFAULT_TOKEN, propertiesPayload->GetNamedString(L"token"), L"Token had incorrect value");
+
+            // Validate that Super Property A is present
+            Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyA"), L"No SuperPropertyA in properties payload");
+            Assert::AreEqual(L"SuperValueA", propertiesPayload->GetNamedString(L"SuperPropertyA"), L"Token had incorrect value");
+
+            // Validate that Super Property B is present
+            Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyB"), L"No SuperPropertyB in properties payload");
+            Assert::AreEqual(7.0, propertiesPayload->GetNamedNumber(L"SuperPropertyB"), L"Token had incorrect value");
+
+            // Validate that Super Property C is present
+            Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyC"), L"No SuperPropertyC in properties payload");
+            Assert::AreEqual(true, propertiesPayload->GetNamedBoolean(L"SuperPropertyC"), L"Token had incorrect value");
+        }
+
+        TEST_METHOD(ClearingSuperPropertiesWorks)
+        {
+            IPropertySet^ properties = ref new PropertySet();
+            m_client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
+
+            auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+
+            // Check that the actual properties we passed in are present
+            Assert::IsTrue(trackPayload->HasKey(L"properties"), L"No properties payload");
+            auto propertiesPayload = trackPayload->GetNamedObject("properties");
+
+            // Validate that Super Property is present
+            Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyA"), L"No token in properties payload");
+            Assert::AreEqual(L"SuperValueA", propertiesPayload->GetNamedString(L"SuperPropertyA"), L"Token had incorrect value");
+
+            // Clear the super properties, and generate the payload again
+            m_client->ClearSuperProperties();
+
+            // Validate payload again
+            trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+            propertiesPayload = trackPayload->GetNamedObject("properties");
+
+            // Validate that Super Property is present
+            Assert::IsFalse(propertiesPayload->HasKey(L"SuperPropertyA"), L"SuperPropertyA present, when it should have been cleared");
         }
     };
 } } }
