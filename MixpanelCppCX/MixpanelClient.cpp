@@ -18,20 +18,42 @@ unsigned CodevoidN::Utilities::Mixpanel::WindowsTickToUnixSeconds(long long wind
     return (unsigned)(windowsTicks / WINDOWS_TICK - SEC_TO_UNIX_EPOCH);
 }
 
-MixpanelClient::MixpanelClient()
+MixpanelClient::MixpanelClient(::Platform::String^ token)
 {
+    if (token->IsEmpty())
+    {
+        throw ref new InvalidArgumentException(L"Must provide a token for sending data");
+    }
 
+    m_token = token;
 }
 
-void MixpanelClient::Track(_In_ ::Platform::String^ name, _In_ Windows::Foundation::Collections::IPropertySet^ properties)
+void MixpanelClient::Track(_In_ ::Platform::String^ name, _In_ IPropertySet^ properties)
+{
+    this->GenerateTrackingJsonPayload(name, properties);
+}
+
+JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(_In_ ::Platform::String^ name, _In_ IPropertySet^ properties)
 {
     if (name->IsEmpty())
     {
-        throw ref new NullReferenceException("Name cannot be empty or null");
+        throw ref new NullReferenceException(L"Name cannot be empty or null");
     }
+
+    JsonObject^ propertiesPayload = this->GenerateJsonPayloadFromPropertySet(properties);
+
+    // The properties payload is expected to have the API Token, rather than
+    // in the general payload properties. So, lets explicitly add it.
+    propertiesPayload->Insert(L"token", JsonValue::CreateStringValue(m_token));
+
+    JsonObject^ trackPayload = ref new JsonObject();
+    trackPayload->Insert(L"event", JsonValue::CreateStringValue(name));
+    trackPayload->Insert(L"properties", propertiesPayload);
+
+    return trackPayload;
 }
 
-JsonObject^ MixpanelClient::GenerateJsonPayload(_In_ String^ eventName, _In_ IPropertySet ^ properties)
+JsonObject^ MixpanelClient::GenerateJsonPayloadFromPropertySet(_In_ IPropertySet ^ properties)
 {
     auto result = ref new JsonObject();
     
@@ -44,7 +66,7 @@ JsonObject^ MixpanelClient::GenerateJsonPayload(_In_ String^ eventName, _In_ IPr
         size_t prefixPos = key.find(L"mp_");
         if ((prefixPos != wstring::npos) && (prefixPos == 0))
         {
-            throw ref new InvalidArgumentException(L"Arguments cannot start with mp_.");
+            throw ref new InvalidArgumentException(L"Arguments cannot start with mp_. Property name: " + kvp->Key);
         }
 
         // Work out which type this thing actually is.

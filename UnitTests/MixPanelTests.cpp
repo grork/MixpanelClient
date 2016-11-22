@@ -8,6 +8,8 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace Windows::Data::Json;
 using namespace Windows::Foundation::Collections;
 
+#define DEFAULT_TOKEN L"DEFAULT_TOKEN"
+
 namespace CodevoidN { namespace Tests { namespace Mixpanel
 {
     TEST_CLASS(MixpanelTests)
@@ -18,7 +20,25 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
     public:
         TEST_METHOD_INITIALIZE(InitializeClass)
         {
-            m_client = ref new MixpanelClient();
+            m_client = ref new MixpanelClient(DEFAULT_TOKEN);
+        }
+
+        TEST_METHOD(ConstructorThrowsWhenNoTokenProvided)
+        {
+            MixpanelClient^ constructedClient;
+            bool exceptionSeen = false;
+
+            try
+            {
+                constructedClient = ref new MixpanelClient(nullptr);
+            }
+            catch (InvalidArgumentException^ e)
+            {
+                exceptionSeen = true;
+            }
+
+            Assert::IsTrue(exceptionSeen, L"Didn't get exception while constructing client w/out a token");
+            Assert::IsNull(constructedClient, L"Client was constructed despite not being provided token");
         }
 
         TEST_METHOD(TrackThrowsWithMissingEventName)
@@ -50,7 +70,7 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
 
             try
             {
-                m_client->GenerateJsonPayload("TestEventName", properties);
+                m_client->GenerateJsonPayloadFromPropertySet(properties);
             }
             catch (...)
             {
@@ -73,7 +93,7 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
             bool exceptionThrown = false;
             try
             {
-                m_client->GenerateJsonPayload("TestEventName", properties);
+                m_client->GenerateJsonPayloadFromPropertySet(properties);
             }
             catch(InvalidCastException^ ex)
             {
@@ -95,7 +115,7 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
             auto insertedDateTime = calendar->GetDateTime();
             properties->Insert(L"DateTimeValue", insertedDateTime);
 
-            auto result = m_client->GenerateJsonPayload("TestEventName", properties);
+            auto result = m_client->GenerateJsonPayloadFromPropertySet(properties);
 
             // Validate StringValue is present, and matches
             Assert::IsTrue(result->HasKey(L"StringValue"), L"StringValue key not present in JSON");
@@ -136,7 +156,7 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
             bool exceptionThrown = false;
             try
             {
-                m_client->GenerateJsonPayload("TestEventName", properties);
+                m_client->GenerateJsonPayloadFromPropertySet(properties);
             }
             catch (InvalidArgumentException^ ex)
             {
@@ -144,6 +164,31 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
             }
 
             Assert::IsTrue(exceptionThrown, L"Didn't get exception for mp_ prefixed property in property set");
+        }
+
+        TEST_METHOD(TrackingPayloadIncludesTokenAndPayload)
+        {
+            IPropertySet^ properties = ref new PropertySet();
+            properties->Insert(L"StringValue", L"Value");
+
+            auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+
+            // Check that the event data is correct
+            Assert::IsTrue(trackPayload->HasKey(L"event"), L"Didn't have event key");
+            Assert::AreEqual(L"TestEvent", trackPayload->GetNamedString("event"), L"Event name incorrect");
+
+            // Check that the actual properties we passed in are present
+            Assert::IsTrue(trackPayload->HasKey(L"properties"), L"No properties payload");
+            auto propertiesPayload = trackPayload->GetNamedObject("properties");
+
+            // Validate StringValue is present, and matches
+            Assert::IsTrue(propertiesPayload->HasKey(L"StringValue"), L"StringValue key not present in JSON");
+            auto stringValue = propertiesPayload->GetNamedString(L"StringValue");
+            Assert::AreEqual(L"Value", stringValue, L"Inserted string values didn't match");
+
+            // Validate that the API Token is present
+            Assert::IsTrue(propertiesPayload->HasKey(L"token"), L"No token in properties payload");
+            Assert::AreEqual(DEFAULT_TOKEN, propertiesPayload->GetNamedString(L"token"), L"Token had incorrect value");
         }
     };
 } } }
