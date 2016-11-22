@@ -16,6 +16,11 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         [Windows::Foundation::Metadata::OverloadAttribute(L"SetSuperPropertyAsBoolean")]
         void SetSuperProperty(_In_ ::Platform::String^ name, _In_ bool value);
 
+        ::Platform::String^ GetSuperProperty(_In_ ::Platform::String^ name);
+        double GetSuperPropertyAsDouble(_In_ ::Platform::String^ name);
+        bool GetSuperPropertyAsBool(_In_ ::Platform::String^ name);
+
+        bool HasSuperProperty(_In_ ::Platform::String^ name);
         void ClearSuperProperties();
 
     internal:

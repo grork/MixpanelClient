@@ -51,6 +51,34 @@ void MixpanelClient::SetSuperProperty(_In_ String^ name, _In_ bool value)
     m_superProperties->Insert(name, value);
 }
 
+String^ MixpanelClient::GetSuperProperty(_In_ String^ name)
+{
+    this->InitializeSuperPropertyCollection();
+    return static_cast<String^>(m_superProperties->Lookup(name));
+}
+
+double MixpanelClient::GetSuperPropertyAsDouble(_In_ String^ name)
+{
+    this->InitializeSuperPropertyCollection();
+    return static_cast<double>(m_superProperties->Lookup(name));
+}
+
+bool MixpanelClient::GetSuperPropertyAsBool(_In_ String^ name)
+{
+    this->InitializeSuperPropertyCollection();
+    return static_cast<bool>(m_superProperties->Lookup(name));
+}
+
+bool MixpanelClient::HasSuperProperty(_In_ String^ name)
+{
+    if (!m_superProperties)
+    {
+        return false;
+    }
+
+    return m_superProperties->HasKey(name);
+}
+
 void MixpanelClient::InitializeSuperPropertyCollection()
 {
     if (m_superProperties != nullptr)

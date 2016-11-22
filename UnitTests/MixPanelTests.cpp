@@ -289,5 +289,27 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
             // Validate that Super Property isn't present
             Assert::IsFalse(propertiesPayload->HasKey(L"SuperPropertyA"), L"SuperPropertyA present, when it should have been cleared");
         }
+
+        TEST_METHOD(CanCheckForSuperPropertyWhenNotSet)
+        {
+            Assert::IsFalse(m_client->HasSuperProperty(L"SuperPropertyA"), L"SuperPropertyA shouldn't have been in the list");
+        }
+
+        TEST_METHOD(CanCheckForSuperPropertyWhenSet)
+        {
+            m_client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
+            Assert::IsTrue(m_client->HasSuperProperty(L"SuperPropertyA"), L"SuperPropertyA not in list");
+        }
+
+        TEST_METHOD(CanReadBackSuperProperties)
+        {
+            m_client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
+            m_client->SetSuperProperty(L"SuperPropertyB", true);
+            m_client->SetSuperProperty(L"SuperPropertyC", 7.0);
+
+            Assert::AreEqual(L"SuperValueA", m_client->GetSuperProperty(L"SuperPropertyA"), L"SuperPropertyA didn't match");
+            Assert::IsTrue(m_client->GetSuperPropertyAsBool(L"SuperPropertyB"), L"SuperPropertyB didn't match");
+            Assert::AreEqual(7.0, m_client->GetSuperPropertyAsDouble(L"SuperPropertyC"), L"SuperPropertyC didn't match");
+        }
     };
 } } }
