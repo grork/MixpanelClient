@@ -17,6 +17,7 @@
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="MixPanelTests.cpp" />
     <ClCompile Include="EncoderTests.cpp" />
+    <ClCompile Include="RequestWrapperTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
