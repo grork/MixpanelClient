@@ -226,15 +226,42 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
 
             // Validate that Super Property A is present
             Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyA"), L"No SuperPropertyA in properties payload");
-            Assert::AreEqual(L"SuperValueA", propertiesPayload->GetNamedString(L"SuperPropertyA"), L"Token had incorrect value");
+            Assert::AreEqual(L"SuperValueA", propertiesPayload->GetNamedString(L"SuperPropertyA"), L"SuperPropertyA had incorrect value");
 
             // Validate that Super Property B is present
             Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyB"), L"No SuperPropertyB in properties payload");
-            Assert::AreEqual(7.0, propertiesPayload->GetNamedNumber(L"SuperPropertyB"), L"Token had incorrect value");
+            Assert::AreEqual(7.0, propertiesPayload->GetNamedNumber(L"SuperPropertyB"), L"SuperPropertyB had incorrect value");
 
             // Validate that Super Property C is present
             Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyC"), L"No SuperPropertyC in properties payload");
-            Assert::AreEqual(true, propertiesPayload->GetNamedBoolean(L"SuperPropertyC"), L"Token had incorrect value");
+            Assert::AreEqual(true, propertiesPayload->GetNamedBoolean(L"SuperPropertyC"), L"SuperPropertyC had incorrect value");
+        }
+
+        TEST_METHOD(CanSetSuperPropertyMoreThanOnce)
+        {
+            IPropertySet^ properties = ref new PropertySet();
+            m_client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
+
+            auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+
+            // Check that the actual properties we passed in are present
+            Assert::IsTrue(trackPayload->HasKey(L"properties"), L"No properties payload");
+            auto propertiesPayload = trackPayload->GetNamedObject("properties");
+
+            // Validate that Super Property is present
+            Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyA"), L"No SuperPropertyA in properties payload");
+            Assert::AreEqual(L"SuperValueA", propertiesPayload->GetNamedString(L"SuperPropertyA"), L"SuperPropertyA had incorrect value");
+
+            // Set the super property a second time
+            m_client->SetSuperProperty(L"SuperPropertyA", L"DifferentValue");
+
+            // Validate payload again
+            trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+            propertiesPayload = trackPayload->GetNamedObject("properties");
+
+            // Validate that Super Property is present
+            Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyA"), L"No SuperPropertyA in properties payload");
+            Assert::AreEqual(L"DifferentValue", propertiesPayload->GetNamedString(L"SuperPropertyA"), L"SuperPropertyA had incorrect value");
         }
 
         TEST_METHOD(ClearingSuperPropertiesWorks)
@@ -249,8 +276,8 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
             auto propertiesPayload = trackPayload->GetNamedObject("properties");
 
             // Validate that Super Property is present
-            Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyA"), L"No token in properties payload");
-            Assert::AreEqual(L"SuperValueA", propertiesPayload->GetNamedString(L"SuperPropertyA"), L"Token had incorrect value");
+            Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyA"), L"No SuperPropertyA in properties payload");
+            Assert::AreEqual(L"SuperValueA", propertiesPayload->GetNamedString(L"SuperPropertyA"), L"SuperPropertyA had incorrect value");
 
             // Clear the super properties, and generate the payload again
             m_client->ClearSuperProperties();
@@ -259,7 +286,7 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
             trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
             propertiesPayload = trackPayload->GetNamedObject("properties");
 
-            // Validate that Super Property is present
+            // Validate that Super Property isn't present
             Assert::IsFalse(propertiesPayload->HasKey(L"SuperPropertyA"), L"SuperPropertyA present, when it should have been cleared");
         }
     };
