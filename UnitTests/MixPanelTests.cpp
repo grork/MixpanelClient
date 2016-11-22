@@ -307,7 +307,7 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel
             m_client->SetSuperProperty(L"SuperPropertyB", true);
             m_client->SetSuperProperty(L"SuperPropertyC", 7.0);
 
-            Assert::AreEqual(L"SuperValueA", m_client->GetSuperProperty(L"SuperPropertyA"), L"SuperPropertyA didn't match");
+            Assert::AreEqual(L"SuperValueA", m_client->GetSuperPropertyAsString(L"SuperPropertyA"), L"SuperPropertyA didn't match");
             Assert::IsTrue(m_client->GetSuperPropertyAsBool(L"SuperPropertyB"), L"SuperPropertyB didn't match");
             Assert::AreEqual(7.0, m_client->GetSuperPropertyAsDouble(L"SuperPropertyC"), L"SuperPropertyC didn't match");
         }
