@@ -84,7 +84,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     internal:
         static void AppendPropertySetToJsonPayload(_In_ Windows::Foundation::Collections::IPropertySet^ properties, _In_ Windows::Data::Json::JsonObject^ toAppendTo);
         Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(_In_ Platform::String^ eventName, _In_ Windows::Foundation::Collections::IPropertySet^ properties);
-
+        property bool PersistSuperPropertiesToApplicationData;
 
     private:
         void InitializeSuperPropertyCollection();

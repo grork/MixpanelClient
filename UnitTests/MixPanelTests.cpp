@@ -1,12 +1,16 @@
 #include "pch.h"
 #include "CppUnitTest.h"
 #include "MixpanelClient.h"
+#include "AsyncHelper.h"
 
 using namespace Platform;
+using namespace CodevoidN::Tests::Utilities;
 using namespace CodevoidN::Utilities::Mixpanel;
+using namespace concurrency;
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace Windows::Data::Json;
 using namespace Windows::Foundation::Collections;
+using namespace Windows::Storage;
 
 #define DEFAULT_TOKEN L"DEFAULT_TOKEN"
 
@@ -21,6 +25,10 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
         TEST_METHOD_INITIALIZE(InitializeClass)
         {
             m_client = ref new MixpanelClient(DEFAULT_TOKEN);
+            
+            // Disable Persistence of Super properties
+            // to help maintain these tests as stateless
+            m_client->PersistSuperPropertiesToApplicationData = false;
         }
 
         TEST_METHOD(ConstructorThrowsWhenNoTokenProvided)
@@ -310,6 +318,37 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::AreEqual(L"SuperValueA", m_client->GetSuperPropertyAsString(L"SuperPropertyA"), L"SuperPropertyA didn't match");
             Assert::IsTrue(m_client->GetSuperPropertyAsBool(L"SuperPropertyB"), L"SuperPropertyB didn't match");
             Assert::AreEqual(7.0, m_client->GetSuperPropertyAsDouble(L"SuperPropertyC"), L"SuperPropertyC didn't match");
+        }
+
+        TEST_METHOD(SuperPropertiesArePersistedAcrossClientInstances)
+        {
+            auto client = ref new MixpanelClient(DEFAULT_TOKEN);
+            client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
+
+            client = ref new MixpanelClient(DEFAULT_TOKEN);
+            auto superPropertyValue = client->GetSuperPropertyAsString(L"SuperPropertyA");
+            Assert::AreEqual(L"SuperValueA", superPropertyValue, "Super Property wasn't persisted");
+
+            // Since we don't want to rely on the destruction of the
+            // super properties in the clear method, lets just clear the local state
+            AsyncHelper::RunSynced(ApplicationData::Current->ClearAsync());
+
+            Assert::IsTrue(0 == ApplicationData::Current->LocalSettings->Containers->Size, L"Expected local data to be empty");
+        }
+
+        TEST_METHOD(ClearingSuperPropertiesClearsAcrossInstances)
+        {
+            auto client = ref new MixpanelClient(DEFAULT_TOKEN);
+            client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
+
+            client = ref new MixpanelClient(DEFAULT_TOKEN);
+            auto superPropertyValue = client->GetSuperPropertyAsString(L"SuperPropertyA");
+            Assert::AreEqual(L"SuperValueA", superPropertyValue, "Super Property wasn't persisted");
+
+            client->ClearSuperProperties();
+
+            client = ref new MixpanelClient(DEFAULT_TOKEN);
+            Assert::IsFalse(client->HasSuperProperty(L"SuperPropertyA"), L"Didn't expect super property to be found");
         }
 
         TEST_METHOD(CanSendTrackRequest)

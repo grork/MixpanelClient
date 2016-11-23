@@ -9,11 +9,13 @@ using namespace std;
 using namespace Windows::Data::Json;
 using namespace Windows::Foundation;
 using namespace Windows::Foundation::Collections;
+using namespace Windows::Storage;
 
 #define WINDOWS_TICK 10000000
 #define SEC_TO_UNIX_EPOCH 11644473600LL
 #define MIXPANEL_TRACK_BASE_URL L"https://api.mixpanel.com/track?data="
 #define DEFAULT_TOKEN L"DEFAULT_TOKEN"
+#define SUPER_PROPERTIES_CONTAINER_NAME L"Codevoid_Utilities_Mixpanel"
 
 // Sourced from:
 // http://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
@@ -30,6 +32,7 @@ MixpanelClient::MixpanelClient(String^ token)
     }
 
     m_token = token;
+    this->PersistSuperPropertiesToApplicationData = true;
 }
 
 void MixpanelClient::Track(_In_ String^ name, _In_ IPropertySet^ properties)
@@ -93,6 +96,7 @@ bool MixpanelClient::GetSuperPropertyAsBool(_In_ String^ name)
 
 bool MixpanelClient::HasSuperProperty(_In_ String^ name)
 {
+    this->InitializeSuperPropertyCollection();
     if (!m_superProperties)
     {
         return false;
@@ -108,11 +112,21 @@ void MixpanelClient::InitializeSuperPropertyCollection()
         return;
     }
 
-    m_superProperties = ref new ValueSet();
+    if (this->PersistSuperPropertiesToApplicationData)
+    {
+        auto localSettings = ApplicationData::Current->LocalSettings;
+        auto superProperties = localSettings->CreateContainer(SUPER_PROPERTIES_CONTAINER_NAME, ApplicationDataCreateDisposition::Always);
+        m_superProperties = superProperties->Values;
+    }
+    else
+    {
+        m_superProperties = ref new ValueSet();
+    }
 }
 
 void MixpanelClient::ClearSuperProperties()
 {
+    m_superProperties->Clear();
     m_superProperties = nullptr;
 }
 
