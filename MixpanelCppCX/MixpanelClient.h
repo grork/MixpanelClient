@@ -11,7 +11,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// Constructs a new Mixpanel Client object to tracking usage
         /// <param name="token">The Mixpanel API Token to be used for this object</param>
         /// </summary>
-        MixpanelClient(_In_ ::Platform::String^ token);
+        MixpanelClient(_In_ Platform::String^ token);
 
         /// <summary>
         /// Logs a datapoint to the Mixpanel Service with the supplied event name, and property set
@@ -23,7 +23,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// For details on what can be used in these properties, see: https://mixpanel.com/help/reference/http
         /// </param>
         /// </summary>
-        void Track(_In_ ::Platform::String^ name, _In_ Windows::Foundation::Collections::IPropertySet^ properties);
+        void Track(_In_ Platform::String^ name, _In_ Windows::Foundation::Collections::IPropertySet^ properties);
 
         /// <summary>
         /// Sets a property &amp; it's value that will be attached to all datapoints logged with
@@ -33,13 +33,13 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// <param name="value">Value to set for the super property</param>
         /// </summary>
         [Windows::Foundation::Metadata::DefaultOverload]
-        void SetSuperProperty(_In_ ::Platform::String^ name, _In_ ::Platform::String^ value);
+        void SetSuperProperty(_In_ Platform::String^ name, _In_ Platform::String^ value);
         
         [Windows::Foundation::Metadata::OverloadAttribute(L"SetSuperPropertyAsDouble")]
-        void SetSuperProperty(_In_ ::Platform::String^ name, _In_ double value);
+        void SetSuperProperty(_In_ Platform::String^ name, _In_ double value);
 
         [Windows::Foundation::Metadata::OverloadAttribute(L"SetSuperPropertyAsBoolean")]
-        void SetSuperProperty(_In_ ::Platform::String^ name, _In_ bool value);
+        void SetSuperProperty(_In_ Platform::String^ name, _In_ bool value);
 
         /// <summary>
         /// Reads a currently set super property from any set super properties, and returns it as a String.
@@ -48,7 +48,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// data type of the super property is not a String, an InvalidCastException will be thrown
         /// <param name="name">Name of the super property to read</param>
         /// </summary>
-        ::Platform::String^ GetSuperPropertyAsString(_In_ ::Platform::String^ name);
+        Platform::String^ GetSuperPropertyAsString(_In_ Platform::String^ name);
 
         /// <summary>
         /// Reads a currently set super property from any set super properties, and returns it as a Double.
@@ -57,7 +57,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// data type of the super property is not a Double, an InvalidCastException will be thrown
         /// <param name="name">Name of the super property to read</param>
         /// </summary>
-        double GetSuperPropertyAsDouble(_In_ ::Platform::String^ name);
+        double GetSuperPropertyAsDouble(_In_ Platform::String^ name);
 
         /// <summary>
         /// Reads a currently set super property from any set super properties, and returns it as a Boolean.
@@ -66,7 +66,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// data type of the super property is not a Boolean, an InvalidCastException will be thrown
         /// <param name="name">Name of the super property to read</param>
         /// </summary>
-        bool GetSuperPropertyAsBool(_In_ ::Platform::String^ name);
+        bool GetSuperPropertyAsBool(_In_ Platform::String^ name);
 
         /// <summary>
         /// Checks if the super property has been set. Primarily intended to allow people to avoid
@@ -74,7 +74,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         ///
         /// <param name="name">Super Property to check for being present</param>
         /// </summary>
-        bool HasSuperProperty(_In_ ::Platform::String^ name);
+        bool HasSuperProperty(_In_ Platform::String^ name);
         
         /// <summary>
         /// Clears any super propreties that might be present
@@ -89,7 +89,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     private:
         void InitializeSuperPropertyCollection();
 
-        ::Platform::String^ m_token;
+        Platform::String^ m_token;
         Windows::Foundation::Collections::IPropertySet^ m_superProperties;
     };
 

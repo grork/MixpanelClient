@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "MixpanelClient.h"
+#include "PayloadEncoder.h"
+#include "RequestHelper.h"
 
 using namespace CodevoidN::Utilities::Mixpanel;
 using namespace Platform;
@@ -10,6 +12,8 @@ using namespace Windows::Foundation::Collections;
 
 #define WINDOWS_TICK 10000000
 #define SEC_TO_UNIX_EPOCH 11644473600LL
+#define MIXPANEL_TRACK_BASE_URL L"https://api.mixpanel.com/track?data="
+#define DEFAULT_TOKEN L"DEFAULT_TOKEN"
 
 // Sourced from:
 // http://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
@@ -18,7 +22,7 @@ unsigned CodevoidN::Utilities::Mixpanel::WindowsTickToUnixSeconds(long long wind
     return (unsigned)(windowsTicks / WINDOWS_TICK - SEC_TO_UNIX_EPOCH);
 }
 
-MixpanelClient::MixpanelClient(::Platform::String^ token)
+MixpanelClient::MixpanelClient(String^ token)
 {
     if (token->IsEmpty())
     {
@@ -30,7 +34,25 @@ MixpanelClient::MixpanelClient(::Platform::String^ token)
 
 void MixpanelClient::Track(_In_ String^ name, _In_ IPropertySet^ properties)
 {
-    this->GenerateTrackingJsonPayload(name, properties);
+    if (name->IsEmpty())
+    {
+        throw ref new NullReferenceException(L"Name cannot be empty or null");
+    }
+
+    if (m_token == DEFAULT_TOKEN)
+    {
+        throw ref new InvalidArgumentException(L"You cannot send requests without setting an actual token");
+    }
+
+    JsonObject^ payload = this->GenerateTrackingJsonPayload(name, properties);
+    String^ encodedAndHashedPayload = EncodeJson(payload);
+
+    wstring uriData(MIXPANEL_TRACK_BASE_URL);
+    uriData.append(encodedAndHashedPayload->Data());
+
+    Uri^ uri = ref new Uri(ref new String(uriData.c_str()));
+    RequestHelper^ rh = ref new RequestHelper();
+    rh->SendRequest(uri).wait();
 }
 
 void MixpanelClient::SetSuperProperty(_In_ String^ name, _In_ String^ value)
@@ -94,13 +116,8 @@ void MixpanelClient::ClearSuperProperties()
     m_superProperties = nullptr;
 }
 
-JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(_In_::Platform::String^ name, _In_ IPropertySet^ properties)
+JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(_In_ Platform::String^ name, _In_ IPropertySet^ properties)
 {
-    if (name->IsEmpty())
-    {
-        throw ref new NullReferenceException(L"Name cannot be empty or null");
-    }
-
     JsonObject^ propertiesPayload = ref new JsonObject();
     MixpanelClient::AppendPropertySetToJsonPayload(properties, propertiesPayload);
 

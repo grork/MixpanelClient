@@ -311,5 +311,13 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::IsTrue(m_client->GetSuperPropertyAsBool(L"SuperPropertyB"), L"SuperPropertyB didn't match");
             Assert::AreEqual(7.0, m_client->GetSuperPropertyAsDouble(L"SuperPropertyC"), L"SuperPropertyC didn't match");
         }
+
+        TEST_METHOD(CanSendTrackRequest)
+        {
+            IPropertySet^ properties = ref new PropertySet();
+            properties->Insert(L"StringValue", L"Value");
+            
+            m_client->Track(L"TestEvent", properties);
+        }
     };
 } } }
