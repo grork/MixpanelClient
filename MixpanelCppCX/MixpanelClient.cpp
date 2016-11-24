@@ -2,10 +2,12 @@
 #include "MixpanelClient.h"
 #include "PayloadEncoder.h"
 #include "RequestHelper.h"
+#include <chrono>
 
 using namespace CodevoidN::Utilities::Mixpanel;
 using namespace Platform;
 using namespace std;
+using namespace std::chrono;
 using namespace Windows::Data::Json;
 using namespace Windows::Foundation;
 using namespace Windows::Foundation::Collections;
@@ -33,6 +35,7 @@ MixpanelClient::MixpanelClient(String^ token)
 
     m_token = token;
     this->PersistSuperPropertiesToApplicationData = true;
+    this->AutomaticallyAttachTimeToEvents = true;
 }
 
 void MixpanelClient::Track(_In_ String^ name, _In_ IPropertySet^ properties)
@@ -138,6 +141,12 @@ JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(_In_ Platform::String^ n
     // The properties payload is expected to have the API Token, rather than
     // in the general payload properties. So, lets explicitly add it.
     propertiesPayload->Insert(L"token", JsonValue::CreateStringValue(m_token));
+
+    if (this->AutomaticallyAttachTimeToEvents && (properties && !properties->HasKey(L"time")))
+    {
+        auto now = time_point_cast<milliseconds>(system_clock::now()).time_since_epoch().count();
+        propertiesPayload->SetNamedValue(L"time", JsonValue::CreateNumberValue(now));
+    }
 
     if (m_superProperties)
     {

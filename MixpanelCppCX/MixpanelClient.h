@@ -81,6 +81,16 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// </summary>
         void ClearSuperProperties();
 
+
+        /// <summary>
+        /// Enables control of automatic attachment of the time to outgoing events.
+        /// This is enabled by default, and places them in the track events at the point they are logged.
+        ///
+        /// If this is disabled, then the events will be assigned a time at the point at which they reach
+        /// the service.
+        /// </summary>
+        property bool AutomaticallyAttachTimeToEvents;
+
     internal:
         static void AppendPropertySetToJsonPayload(_In_ Windows::Foundation::Collections::IPropertySet^ properties, _In_ Windows::Data::Json::JsonObject^ toAppendTo);
         Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(_In_ Platform::String^ eventName, _In_ Windows::Foundation::Collections::IPropertySet^ properties);

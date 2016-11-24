@@ -351,6 +351,49 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::IsFalse(client->HasSuperProperty(L"SuperPropertyA"), L"Didn't expect super property to be found");
         }
 
+        TEST_METHOD(TimeOnlyAddedWhenAutomaticallyAttachingTimePropertyIsEnabled)
+        {
+            IPropertySet^ properties = ref new PropertySet();
+            properties->Insert(L"StringValue", L"Value");
+            m_client->AutomaticallyAttachTimeToEvents = false;
+
+            auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+            auto propertiesPayload = trackPayload->GetNamedObject("properties");
+            
+            // Validate that the time property is not present (Since it was turned
+            // off automatic attachment explicitly above)
+            Assert::IsFalse(propertiesPayload->HasKey(L"time"), L"time key shouldn't be present");
+
+            // Turn the automatic attachment of time back on
+            m_client->AutomaticallyAttachTimeToEvents = true;
+
+            trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+            propertiesPayload = trackPayload->GetNamedObject("properties");
+
+            // Validate that the time is present, and is non-zero
+            Assert::IsTrue(propertiesPayload->HasKey(L"time"), L"No time in properties payload");
+
+            auto rawTimeValue = propertiesPayload->GetNamedValue("time");
+            Assert::IsTrue(JsonValueType::Number == rawTimeValue->ValueType, L"Time was not the correct type");
+            Assert::AreNotEqual(0.0, rawTimeValue->GetNumber()); //, L"time shouldn't have been 0");
+        }
+
+        TEST_METHOD(TimeDoesNotOverrideAnAlreadyExistingValueInThePropertiesPayload)
+        {
+            IPropertySet^ properties = ref new PropertySet();
+            properties->Insert(L"StringValue", L"Value");
+            properties->Insert(L"time", L"fakevalue");
+
+            auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+            auto propertiesPayload = trackPayload->GetNamedObject("properties");
+
+            // Validate that the time is present, and is the same as our original value
+            Assert::IsTrue(propertiesPayload->HasKey(L"time"), L"No time in properties payload");
+
+            auto rawTimeValue = propertiesPayload->GetNamedValue("time");
+            Assert::IsFalse(JsonValueType::Number == rawTimeValue->ValueType, L"Time was not the correct type");
+        }
+
         TEST_METHOD(CanSendTrackRequest)
         {
             IPropertySet^ properties = ref new PropertySet();
