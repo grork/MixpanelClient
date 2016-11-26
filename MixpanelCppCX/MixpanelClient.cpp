@@ -6,6 +6,7 @@
 
 using namespace CodevoidN::Utilities::Mixpanel;
 using namespace Platform;
+using namespace Platform::Collections;
 using namespace std;
 using namespace std::chrono;
 using namespace Windows::Data::Json;
@@ -50,15 +51,28 @@ void MixpanelClient::Track(_In_ String^ name, _In_ IPropertySet^ properties)
         throw ref new InvalidArgumentException(L"You cannot send requests without setting an actual token");
     }
 
-    JsonObject^ payload = this->GenerateTrackingJsonPayload(name, properties);
-    String^ encodedAndHashedPayload = EncodeJson(payload);
+    auto uri = ref new Uri(MIXPANEL_TRACK_BASE_URL);
+    IJsonValue^ payload = this->GenerateTrackingJsonPayload(name, properties);
 
-    wstring uriData(MIXPANEL_TRACK_BASE_URL);
-    uriData.append(encodedAndHashedPayload->Data());
+    // Pass the single payload from this event
+    this->PostTrackEventsToMixpanel({ payload }, uri);
+}
 
-    Uri^ uri = ref new Uri(ref new String(uriData.c_str()));
+void MixpanelClient::PostTrackEventsToMixpanel(vector<IJsonValue^> events, Uri^ uri)
+{
+    auto jsonEvents = ref new JsonArray();
+    
+    for (auto&& payload : events)
+    {
+        jsonEvents->Append(payload);
+    }
+
+    auto encodedAndHashedPayload = EncodeJson(jsonEvents);
+    auto formPayload = ref new Map<String^, String^>();
+    formPayload->Insert(L"data", encodedAndHashedPayload);
+
     RequestHelper^ rh = ref new RequestHelper();
-    rh->SendRequest(uri).wait();
+    rh->PostRequest(uri, formPayload).wait();
 }
 
 void MixpanelClient::SetSuperProperty(_In_ String^ name, _In_ String^ value)
@@ -145,7 +159,7 @@ JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(_In_ Platform::String^ n
     if (this->AutomaticallyAttachTimeToEvents && (properties && !properties->HasKey(L"time")))
     {
         auto now = time_point_cast<milliseconds>(system_clock::now()).time_since_epoch().count();
-        propertiesPayload->SetNamedValue(L"time", JsonValue::CreateNumberValue(now));
+        propertiesPayload->SetNamedValue(L"time", JsonValue::CreateNumberValue(static_cast<double>(now)));
     }
 
     if (m_superProperties)

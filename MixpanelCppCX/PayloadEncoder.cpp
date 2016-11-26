@@ -7,7 +7,7 @@ using namespace Windows::Data::Json;
 
 using namespace CodevoidN::Utilities::Mixpanel;
 
-String^ CodevoidN::Utilities::Mixpanel::EncodeJson(JsonObject^ payload)
+String^ CodevoidN::Utilities::Mixpanel::EncodeJson(IJsonValue^ payload)
 {
     auto payloadAsString = payload->Stringify();
     auto payloadAsBuffer = CryptographicBuffer::ConvertStringToBinary(payloadAsString, BinaryStringEncoding::Utf8);
