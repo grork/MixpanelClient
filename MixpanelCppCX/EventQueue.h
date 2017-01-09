@@ -6,12 +6,22 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     /// </summary>
     class EventQueue
     {
+    private:
+        struct PayloadContainer
+        {
+            long long Id;
+            Windows::Data::Json::JsonObject^ Payload;
+        };
+
+
+
     public:
-        void QueueEvent(Windows::Data::Json::JsonObject^ data);
+        long long QueueEvent(Windows::Data::Json::JsonObject^ data);
+        void RemoveEvent(long long id);
         std::size_t GetQueueLength();
 
     private:
-        std::vector<Windows::Data::Json::JsonObject^> m_queue;
+        std::vector<PayloadContainer> m_queue;
     };
 } } }
     

@@ -51,15 +51,15 @@ void MixpanelClient::Track(_In_ String^ name, _In_ IPropertySet^ properties)
         throw ref new InvalidArgumentException(L"You cannot send requests without setting an actual token");
     }
 
-    auto uri = ref new Uri(MIXPANEL_TRACK_BASE_URL);
     IJsonValue^ payload = this->GenerateTrackingJsonPayload(name, properties);
 
     // Pass the single payload from this event
-    this->PostTrackEventsToMixpanel({ payload }, uri);
+    this->PostTrackEventsToMixpanel({ payload });
 }
 
-void MixpanelClient::PostTrackEventsToMixpanel(vector<IJsonValue^> events, Uri^ uri)
+void MixpanelClient::PostTrackEventsToMixpanel(vector<IJsonValue^> events)
 {
+    auto uri = ref new Uri(MIXPANEL_TRACK_BASE_URL);
     auto jsonEvents = ref new JsonArray();
     
     for (auto&& payload : events)

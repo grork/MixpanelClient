@@ -30,8 +30,15 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
         TEST_METHOD(CanQueueEvent)
         {
-            this->m_queue->QueueEvent(ref new JsonObject());
+            auto result = this->m_queue->QueueEvent(ref new JsonObject());
+            Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
             Assert::IsTrue(1 == this->m_queue->GetQueueLength(), L"Incorrect number of items");
+        }
+
+        TEST_METHOD(CanRemoveEvent)
+        {
+            auto result = this->m_queue->QueueEvent(ref new JsonObject());
+            this->m_queue->RemoveEvent(result);
         }
     };
 } } }

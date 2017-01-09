@@ -98,7 +98,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
     private:
         void InitializeSuperPropertyCollection();
-        void PostTrackEventsToMixpanel(std::vector<Windows::Data::Json::IJsonValue^> payload, Windows::Foundation::Uri ^ uri);
+        void PostTrackEventsToMixpanel(std::vector<Windows::Data::Json::IJsonValue^> payload);
 
         Platform::String^ m_token;
         Windows::Foundation::Collections::IPropertySet^ m_superProperties;
