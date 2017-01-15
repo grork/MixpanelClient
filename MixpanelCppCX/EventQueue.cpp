@@ -4,6 +4,7 @@
 
 using namespace CodevoidN::Utilities::Mixpanel;
 using namespace Windows::Data::Json;
+using namespace std;
 using namespace std::chrono;
 
 long long EventQueue::QueueEvent(JsonObject^ payload)
@@ -21,5 +22,11 @@ size_t EventQueue::GetQueueLength()
 
 void EventQueue::RemoveEvent(long long id)
 {
-    
+    auto container = find_if(m_queue.begin(), m_queue.end(), find_payload(id));
+    if (container == m_queue.end())
+    {
+        return;
+    }
+
+    m_queue.erase(container);
 }

@@ -13,7 +13,15 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             Windows::Data::Json::JsonObject^ Payload;
         };
 
-
+        struct find_payload : std::unary_function<PayloadContainer, bool>
+        {
+            long long candidate_id;
+            find_payload(long long id) : candidate_id(id) { };
+            bool operator() (const PayloadContainer& other) const
+            {
+                return other.Id == candidate_id;
+            }
+        };
 
     public:
         long long QueueEvent(Windows::Data::Json::JsonObject^ data);
