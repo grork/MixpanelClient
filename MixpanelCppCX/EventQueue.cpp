@@ -78,7 +78,7 @@ task<void> EventQueue::RestoreQueue()
     }
 }
 
-task<void> EventQueue::QueueToStorage(const PayloadContainer& item)
+task<void> EventQueue::QueueToStorage(PayloadContainer& item)
 {
     if (!m_queueToDisk)
     {
@@ -89,6 +89,8 @@ task<void> EventQueue::QueueToStorage(const PayloadContainer& item)
 
     auto file = co_await m_localStorage->CreateFileAsync(GetFileNameForId(item.Id));
     co_await FileIO::WriteTextAsync(file, payload->Stringify());
+
+    item.Persisted = true;
 }
 
 task<void> EventQueue::RemoveFromStorage(long long id)

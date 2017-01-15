@@ -54,7 +54,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::vector<PayloadContainer> m_queue;
         Windows::Storage::StorageFolder^ m_localStorage;
 
-        concurrency::task<void> QueueToStorage(const PayloadContainer& item);
+        concurrency::task<void> QueueToStorage(PayloadContainer& item);
         concurrency::task<void> RemoveFromStorage(long long id);
         concurrency::task<void> ClearStorage();
     };
