@@ -18,18 +18,18 @@ String^ GetFileNameForId(const long long& id)
 
 void EventQueue::DisableQueuingToStorage()
 {
-    this->m_queueToDisk = false;
+    m_queueToDisk = false;
 }
 
 void EventQueue::EnableQueuingToStorage()
 {
-    this->m_queueToDisk = true;
+    m_queueToDisk = true;
 }
 
 long long EventQueue::QueueEvent(JsonObject^ payload)
 {
     auto now = time_point_cast<milliseconds>(system_clock::now()).time_since_epoch().count();
-    this->m_queue.emplace_back(PayloadContainer{ now,payload });
+    m_queue.emplace_back(PayloadContainer{ now,payload });
 
     PayloadContainer& newlyAddedItem = m_queue.at(m_queue.size() - 1);
     this->QueueToStorage(newlyAddedItem).wait();
@@ -39,7 +39,7 @@ long long EventQueue::QueueEvent(JsonObject^ payload)
 
 size_t EventQueue::GetQueueLength()
 {
-    return this->m_queue.size();
+    return m_queue.size();
 }
 
 void EventQueue::RemoveEvent(long long id)
@@ -54,33 +54,54 @@ void EventQueue::RemoveEvent(long long id)
     this->RemoveFromStorage(id).wait();
 }
 
+void EventQueue::Clear()
+{
+    m_queue.clear();
+
+    this->ClearStorage().wait();
+}
+
 task<void> EventQueue::QueueToStorage(const PayloadContainer& item)
 {
-    if (!this->m_queueToDisk)
+    if (!m_queueToDisk)
     {
         return;
     }
 
     JsonObject^ payload = item.Payload;
 
-    auto file = co_await this->m_localStorage->CreateFileAsync(GetFileNameForId(item.Id));
+    auto file = co_await m_localStorage->CreateFileAsync(GetFileNameForId(item.Id));
     co_await FileIO::WriteTextAsync(file, payload->Stringify());
 }
 
 task<void> EventQueue::RemoveFromStorage(long long id)
 {
-    if(!this->m_queueToDisk)
+    if(!m_queueToDisk)
     {
         return;
     }
 
     auto name = GetFileNameForId(id);
 
-    auto file = co_await this->m_localStorage->TryGetItemAsync(name);
+    auto file = co_await m_localStorage->TryGetItemAsync(name);
     if (file == nullptr)
     {
         return;
     }
 
     co_await file->DeleteAsync();
+}
+
+task<void>EventQueue::ClearStorage()
+{
+    if (!m_queueToDisk)
+    {
+        return;
+    }
+
+    auto files = co_await m_localStorage->GetFilesAsync();
+    for (auto&& file : files)
+    {
+        co_await file->DeleteAsync();
+    }
 }

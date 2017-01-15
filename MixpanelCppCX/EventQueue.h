@@ -46,9 +46,12 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         long long QueueEvent(Windows::Data::Json::JsonObject^ data);
         void RemoveEvent(long long id);
+        void Clear();
+        std::size_t GetQueueLength();
+
         void DisableQueuingToStorage();
         void EnableQueuingToStorage();
-        std::size_t GetQueueLength();
+
 
     private:
         bool m_queueToDisk = true;
@@ -57,6 +60,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         concurrency::task<void> QueueToStorage(const PayloadContainer& item);
         concurrency::task<void> RemoveFromStorage(long long id);
+        concurrency::task<void> ClearStorage();
     };
 } } }
     

@@ -54,9 +54,9 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
     public:
         TEST_METHOD_INITIALIZE(InitializeClass)
         {
-            this->m_queueFolder = AsyncHelper::RunSynced(GetAndClearTestFolder());
-            this->m_queue = make_shared<EventQueue>(m_queueFolder);
-            this->m_queue->DisableQueuingToStorage();
+            m_queueFolder = AsyncHelper::RunSynced(GetAndClearTestFolder());
+            m_queue = make_shared<EventQueue>(m_queueFolder);
+            m_queue->DisableQueuingToStorage();
         }
 
         TEST_METHOD(ConstructionThrowsIfNoFolderProvided)
@@ -76,42 +76,62 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
         TEST_METHOD(CanQueueEvent)
         {
-            auto result = this->m_queue->QueueEvent(GenerateSamplePayload());
+            auto result = m_queue->QueueEvent(GenerateSamplePayload());
             Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
-            Assert::IsTrue(1 == this->m_queue->GetQueueLength(), L"Incorrect number of items");
+            Assert::IsTrue(1 == m_queue->GetQueueLength(), L"Incorrect number of items");
         }
 
         TEST_METHOD(CanRemoveEvent)
         {
-            auto result = this->m_queue->QueueEvent(GenerateSamplePayload());
+            auto result = m_queue->QueueEvent(GenerateSamplePayload());
             Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
-            Assert::IsTrue(1 == this->m_queue->GetQueueLength(), L"Incorrect number of items");
+            Assert::IsTrue(1 == m_queue->GetQueueLength(), L"Incorrect number of items");
             
-            this->m_queue->RemoveEvent(result);
+            m_queue->RemoveEvent(result);
 
-            Assert::IsTrue(0 == this->m_queue->GetQueueLength(), L"Expected 0 items in the list");
+            Assert::IsTrue(0 == m_queue->GetQueueLength(), L"Expected 0 items in the list");
+        }
+
+        TEST_METHOD(CanClearQueue)
+        {
+            m_queue->QueueEvent(GenerateSamplePayload());
+            m_queue->QueueEvent(GenerateSamplePayload());
+            Assert::AreEqual(2, (int)m_queue->GetQueueLength(), L"Incorrect number of items");
+
+            m_queue->Clear();
+            Assert::AreEqual(0, (int)m_queue->GetQueueLength(), L"Expected queue to be clear");
         }
 
         TEST_METHOD(ItemsAreQueuedToDisk)
         {
-            this->m_queue->EnableQueuingToStorage();
-            auto result = this->m_queue->QueueEvent(GenerateSamplePayload());
+            m_queue->EnableQueuingToStorage();
+            auto result = m_queue->QueueEvent(GenerateSamplePayload());
             Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
-            Assert::IsTrue(1 == this->m_queue->GetQueueLength(), L"Incorrect number of items");
+            Assert::IsTrue(1 == m_queue->GetQueueLength(), L"Incorrect number of items");
 
-            Assert::AreEqual((int)1, (int)AsyncHelper::RunSynced(this->CorrectCountInStorageFolder(1)), L"Incorrect file count found");
+            Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
+        }
+
+        TEST_METHOD(MultipleItemsAreQueuedToDisk)
+        {
+            m_queue->EnableQueuingToStorage();
+            m_queue->QueueEvent(GenerateSamplePayload());
+            m_queue->QueueEvent(GenerateSamplePayload());
+            Assert::AreEqual(2, (int)m_queue->GetQueueLength(), L"Incorrect number of items");
+
+            Assert::AreEqual(2, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
         }
 
         TEST_METHOD(ItemContentStoredInCorrectFile)
         {
-            this->m_queue->EnableQueuingToStorage();
+            m_queue->EnableQueuingToStorage();
             JsonObject^ payload = GenerateSamplePayload();
 
-            auto result = this->m_queue->QueueEvent(payload);
+            auto result = m_queue->QueueEvent(payload);
             Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
-            Assert::IsTrue(1 == this->m_queue->GetQueueLength(), L"Incorrect number of items");
+            Assert::IsTrue(1 == m_queue->GetQueueLength(), L"Incorrect number of items");
 
-            Assert::AreEqual((int)1, (int)AsyncHelper::RunSynced(this->CorrectCountInStorageFolder(1)), L"Incorrect file count found");
+            Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
 
             JsonObject^ fromFile = AsyncHelper::RunSynced(this->RetrievePayloadForId(result));
             Assert::IsNotNull(fromFile, L"Expected payload to be found, and loaded");
@@ -128,20 +148,34 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
         TEST_METHOD(ItemRemovedFromLocalStorageWhenRemovedFromQueue)
         {
-            this->m_queue->EnableQueuingToStorage();
+            m_queue->EnableQueuingToStorage();
             JsonObject^ payload = GenerateSamplePayload();
 
-            auto result = this->m_queue->QueueEvent(payload);
+            auto result = m_queue->QueueEvent(payload);
             JsonObject^ fromFile = AsyncHelper::RunSynced(this->RetrievePayloadForId(result));
             Assert::IsNotNull(fromFile, L"Expected payload to be found, and loaded");
 
-            this->m_queue->RemoveEvent(result);
+            m_queue->RemoveEvent(result);
 
             fromFile = AsyncHelper::RunSynced(this->RetrievePayloadForId(result));
             Assert::IsNull(fromFile, L"Expected File to be removed");
         }
 
-        task<unsigned int> CorrectCountInStorageFolder(unsigned int expectedFileCount)
+        TEST_METHOD(AllItemsRemovedFromStorageWhenQueueIsCleared)
+        {
+            m_queue->EnableQueuingToStorage();
+            m_queue->QueueEvent(GenerateSamplePayload());
+            m_queue->QueueEvent(GenerateSamplePayload());
+            Assert::AreEqual(2, (int)m_queue->GetQueueLength(), L"Incorrect number of items");
+
+            Assert::AreEqual(2, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
+
+            m_queue->Clear();
+
+            Assert::AreEqual(0, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Didn't expect any files");
+        }
+
+        task<unsigned int> GetCurrentFileCountInQueueFolder()
         {
             auto files = co_await m_queueFolder->GetFilesAsync();
             return files->Size;
@@ -151,7 +185,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
         {
             auto fileName = ref new String(std::to_wstring(id).append(L".json").c_str());
 
-            StorageFile^ file = dynamic_cast<StorageFile^>(co_await this->m_queueFolder->TryGetItemAsync(fileName));
+            StorageFile^ file = dynamic_cast<StorageFile^>(co_await m_queueFolder->TryGetItemAsync(fileName));
 
             if (file == nullptr)
             {
