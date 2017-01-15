@@ -175,10 +175,39 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::AreEqual(0, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Didn't expect any files");
         }
 
+        TEST_METHOD(QueueCanBeRestoredFromStorage)
+        {
+            auto item1 = GenerateSamplePayload();
+            auto item2 = GenerateSamplePayload();
+            auto item3 = GenerateSamplePayload();
+
+            AsyncHelper::RunSynced(this->WritePayload(1, item1));
+            AsyncHelper::RunSynced(this->WritePayload(2, item2));
+            AsyncHelper::RunSynced(this->WritePayload(3, item3));
+
+            shared_ptr<EventQueue> queue = AsyncHelper::RunSynced(this->GetQueueFromStorage());
+            Assert::AreEqual(3, (int)queue->GetQueueLength(), L"Incorrect number of items in queue");
+        }
+
+        task<shared_ptr<EventQueue>> GetQueueFromStorage()
+        {
+            auto queue = make_shared<EventQueue>(m_queueFolder);
+            co_await queue->RestoreQueue();
+
+            return queue;
+        }
+        
         task<unsigned int> GetCurrentFileCountInQueueFolder()
         {
             auto files = co_await m_queueFolder->GetFilesAsync();
             return files->Size;
+        }
+
+        task<void> WritePayload(long long id, JsonObject^ payload)
+        {
+            auto fileName = ref new String(std::to_wstring(id).append(L".json").c_str());
+            auto file = co_await m_queueFolder->CreateFileAsync(fileName, CreationCollisionOption::ReplaceExisting);
+            co_await FileIO::WriteTextAsync(file, payload->Stringify());
         }
 
         task<JsonObject^> RetrievePayloadForId(long long id)

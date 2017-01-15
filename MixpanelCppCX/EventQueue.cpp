@@ -29,7 +29,7 @@ void EventQueue::EnableQueuingToStorage()
 long long EventQueue::QueueEvent(JsonObject^ payload)
 {
     auto now = time_point_cast<milliseconds>(system_clock::now()).time_since_epoch().count();
-    m_queue.emplace_back(PayloadContainer{ now,payload });
+    m_queue.emplace_back(PayloadContainer{ now, payload, false });
 
     PayloadContainer& newlyAddedItem = m_queue.at(m_queue.size() - 1);
     this->QueueToStorage(newlyAddedItem).wait();
@@ -59,6 +59,23 @@ void EventQueue::Clear()
     m_queue.clear();
 
     this->ClearStorage().wait();
+}
+
+task<void> EventQueue::RestoreQueue()
+{
+    auto files = co_await m_localStorage->GetFilesAsync();
+    for (auto&& file : files)
+    {
+        auto contents = co_await FileIO::ReadTextAsync(file);
+        auto payload = JsonObject::Parse(contents);
+
+        // Convert the file name to the ID
+        // This assumes the data is constant, and that wcstoll will stop
+        // when it finds a non-numeric char and give me a number that we need
+        auto rawString = file->Name->Data();
+        auto id = std::wcstoll(rawString, nullptr, 0);
+        m_queue.emplace_back(PayloadContainer{ id, payload, true });
+    }
 }
 
 task<void> EventQueue::QueueToStorage(const PayloadContainer& item)

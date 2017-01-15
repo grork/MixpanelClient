@@ -16,13 +16,9 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     private:
         struct PayloadContainer
         {
-            PayloadContainer(long long id, Windows::Data::Json::JsonObject^ payload) : Id(id), Payload(payload)
-            {
-                OutputDebugString(L"WTF\n");
-            }
-
             long long Id;
             Windows::Data::Json::JsonObject^ Payload;
+            bool Persisted;
         };
 
         struct find_payload : std::unary_function<PayloadContainer, bool>
@@ -44,6 +40,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             }
         }
 
+        concurrency::task<void> RestoreQueue();
         long long QueueEvent(Windows::Data::Json::JsonObject^ data);
         void RemoveEvent(long long id);
         void Clear();
@@ -51,7 +48,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         void DisableQueuingToStorage();
         void EnableQueuingToStorage();
-
 
     private:
         bool m_queueToDisk = true;
