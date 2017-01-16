@@ -71,7 +71,7 @@ void MixpanelClient::PostTrackEventsToMixpanel(vector<IJsonValue^> events)
     auto formPayload = ref new Map<String^, String^>();
     formPayload->Insert(L"data", encodedAndHashedPayload);
 
-    RequestHelper^ rh = ref new RequestHelper();
+    static RequestHelper^ rh = ref new RequestHelper();
     rh->PostRequest(uri, formPayload).wait();
 }
 
