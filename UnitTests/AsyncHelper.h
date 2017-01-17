@@ -13,6 +13,24 @@
 using namespace Windows::Foundation;
 using namespace concurrency;
 
+// Macro to help w/ running tests code on the dispatcher.
+// Example usage pattern:
+// int count = 0;
+// BEGIN_ON_DISPATCHER
+// {
+//     // This block runs on the Dispatcher
+//     m_queue->EnableQueuingToStorage();
+//     m_queue->QueueEvent(GenerateSamplePayload());
+//     count++;
+// }
+// END_ON_DISPATCHER
+//
+// // Not on the dispatcher, but after the dispatcher operation completed
+// Assert::AreEqual(1, count, L"Expected count to be increased");
+
+#define BEGIN_ON_DISPATCHER AsyncHelper::RunSynced(Windows::ApplicationModel::Core::CoreApplication::MainView->Dispatcher->RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal, ref new Windows::UI::Core::DispatchedHandler([&]()
+#define END_ON_DISPATCHER )));
+
 namespace CodevoidN { namespace Tests { namespace Utilities {
     class AsyncHelper
     {
