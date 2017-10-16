@@ -1,6 +1,24 @@
 #pragma once
 
 namespace CodevoidN { namespace Utilities { namespace Mixpanel {
+	/// <summary>
+	/// The priority to be used when sending track events
+	/// </summary>
+	public enum class TrackSendPriority
+	{
+		/// <summary>
+		/// The item is placed in a queue to be sent at some system
+		/// managed point in the future
+		/// </summary>
+		Queue,
+
+		/// <summary>
+		/// The item is sent immediately to the service, and is not
+		/// placed in the queue -- even if it fails to send successfully.
+		/// </summary>
+		Immediately
+	};
+
     /// <summary>
     /// MixpanelClient offers a API for interacting with Mixpanel for UWP apps running on Windows 10+
     /// </summary>
@@ -14,8 +32,10 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         MixpanelClient(_In_ Platform::String^ token);
 
         /// <summary>
-        /// Logs a datapoint to the Mixpanel Service with the supplied event name, and property set
-        /// 
+        /// Logs a datapoint to the Mixpanel Service with the supplied event name, and property set.
+		///
+        /// These items are queued to be sent at a later time. If you wish to send them immediately
+		/// <see cref="Track(String^,IPropertySet^,TrackSendPriority)" /> for more information
         /// <param name="name">The event name for the tracking call</param>
         /// <param name="properties">
         /// A value type only list of parameters to attach to this event.
@@ -23,7 +43,28 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// For details on what can be used in these properties, see: https://mixpanel.com/help/reference/http
         /// </param>
         /// </summary>
+		[Windows::Foundation::Metadata::DefaultOverload]
         void Track(_In_ Platform::String^ name, _In_ Windows::Foundation::Collections::IPropertySet^ properties);
+
+		/// <summary>
+		/// Logs a datapoint to the Mixpanel Service with the supplied event name, and property set.
+		///
+		/// The async operation returned will complete when the item has been queued, or when it has
+		/// been sent to the service, depending on the value in the <paramref name="sendPriority" />
+		/// parameter.
+		///
+		/// <param name="name">The event name for the tracking call</param>
+		/// <param name="properties">
+		/// A value type only list of parameters to attach to this event.
+		/// Note, none of these properties can be prefixed with "mp_". If they are, an exception will be thrown.
+		/// For details on what can be used in these properties, see: https://mixpanel.com/help/reference/http
+		/// </param>
+		/// <param name="sendPriority">The time frame in which to send this datapoint</param>
+		/// </summary>
+		[Windows::Foundation::Metadata::OverloadAttribute(L"TrackWithSendPriority")]
+		Windows::Foundation::IAsyncAction^ Track(_In_ Platform::String^ name,
+				            _In_ Windows::Foundation::Collections::IPropertySet^ properties,
+			                _In_ TrackSendPriority sendPriority);
 
         /// <summary>
         /// Sets a property &amp; it's value that will be attached to all datapoints logged with
@@ -81,7 +122,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// </summary>
         void ClearSuperProperties();
 
-
         /// <summary>
         /// Enables control of automatic attachment of the time to outgoing events.
         /// This is enabled by default, and places them in the track events at the point they are logged.
@@ -98,7 +138,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
     private:
         void InitializeSuperPropertyCollection();
-        void PostTrackEventsToMixpanel(std::vector<Windows::Data::Json::IJsonValue^> payload);
+        concurrency::task<bool> PostTrackEventsToMixpanel(_In_ const std::vector<Windows::Data::Json::IJsonValue^>& payload, _In_ TrackSendPriority priority);
 
         Platform::String^ m_token;
         Windows::Foundation::Collections::IPropertySet^ m_superProperties;

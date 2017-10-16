@@ -40,9 +40,9 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             }
         }
 
-        concurrency::task<void> RestoreQueue();
-        long long QueueEvent(Windows::Data::Json::JsonObject^ data);
-        void RemoveEvent(long long id);
+        concurrency::task<void> RestorePendingUploadQueue();
+        long long QueueEventForUpload(Windows::Data::Json::JsonObject^ data);
+        void RemoveEventFromUploadQueue(long long id);
         void Clear();
         std::size_t GetQueueLength();
 
@@ -54,8 +54,8 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::vector<PayloadContainer> m_queue;
         Windows::Storage::StorageFolder^ m_localStorage;
 
-        concurrency::task<void> QueueToStorage(PayloadContainer& item);
-        concurrency::task<void> RemoveFromStorage(long long id);
+        concurrency::task<void> WriteItemToStorage(PayloadContainer& item);
+        concurrency::task<void> RemoveItemFromStorage(long long id);
         concurrency::task<void> ClearStorage();
     };
 } } }

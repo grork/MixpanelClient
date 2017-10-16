@@ -13,7 +13,7 @@ using namespace Windows::Storage;
 
 String^ GetFileNameForId(const long long& id)
 {
-    return ref new String(std::to_wstring(id).append(L".json").c_str());
+    return ref new String(to_wstring(id).append(L".json").c_str());
 }
 
 void EventQueue::DisableQueuingToStorage()
@@ -26,23 +26,23 @@ void EventQueue::EnableQueuingToStorage()
     m_queueToDisk = true;
 }
 
-long long EventQueue::QueueEvent(JsonObject^ payload)
+size_t EventQueue::GetQueueLength()
+{
+	return m_queue.size();
+}
+
+long long EventQueue::QueueEventForUpload(JsonObject^ payload)
 {
     auto now = time_point_cast<milliseconds>(system_clock::now()).time_since_epoch().count();
     m_queue.emplace_back(PayloadContainer{ now, payload, false });
 
     PayloadContainer& newlyAddedItem = m_queue.at(m_queue.size() - 1);
-    this->QueueToStorage(newlyAddedItem).wait();
+    this->WriteItemToStorage(newlyAddedItem).wait();
 
     return newlyAddedItem.Id;
 }
 
-size_t EventQueue::GetQueueLength()
-{
-    return m_queue.size();
-}
-
-void EventQueue::RemoveEvent(long long id)
+void EventQueue::RemoveEventFromUploadQueue(long long id)
 {
     auto container = find_if(m_queue.begin(), m_queue.end(), find_payload(id));
     if (container == m_queue.end())
@@ -51,7 +51,7 @@ void EventQueue::RemoveEvent(long long id)
     }
 
     m_queue.erase(container);
-    this->RemoveFromStorage(id).wait();
+    this->RemoveItemFromStorage(id).wait();
 }
 
 void EventQueue::Clear()
@@ -61,7 +61,7 @@ void EventQueue::Clear()
     this->ClearStorage().wait();
 }
 
-task<void> EventQueue::RestoreQueue()
+task<void> EventQueue::RestorePendingUploadQueue()
 {
     auto files = co_await m_localStorage->GetFilesAsync();
     for (auto&& file : files)
@@ -78,7 +78,7 @@ task<void> EventQueue::RestoreQueue()
     }
 }
 
-task<void> EventQueue::QueueToStorage(PayloadContainer& item)
+task<void> EventQueue::WriteItemToStorage(PayloadContainer& item)
 {
     if (!m_queueToDisk)
     {
@@ -93,7 +93,7 @@ task<void> EventQueue::QueueToStorage(PayloadContainer& item)
     item.Persisted = true;
 }
 
-task<void> EventQueue::RemoveFromStorage(long long id)
+task<void> EventQueue::RemoveItemFromStorage(long long id)
 {
     if(!m_queueToDisk)
     {

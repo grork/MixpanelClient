@@ -5,6 +5,7 @@
 #include <chrono>
 
 using namespace CodevoidN::Utilities::Mixpanel;
+using namespace concurrency;
 using namespace Platform;
 using namespace Platform::Collections;
 using namespace std;
@@ -41,6 +42,11 @@ MixpanelClient::MixpanelClient(String^ token)
 
 void MixpanelClient::Track(_In_ String^ name, _In_ IPropertySet^ properties)
 {
+	this->Track(name, properties, TrackSendPriority::Queue);
+}
+
+IAsyncAction^ MixpanelClient::Track(_In_ String^ name, _In_ IPropertySet^ properties, _In_ TrackSendPriority priority)
+{
     if (name->IsEmpty())
     {
         throw ref new NullReferenceException(L"Name cannot be empty or null");
@@ -54,10 +60,19 @@ void MixpanelClient::Track(_In_ String^ name, _In_ IPropertySet^ properties)
     IJsonValue^ payload = this->GenerateTrackingJsonPayload(name, properties);
 
     // Pass the single payload from this event
-    this->PostTrackEventsToMixpanel({ payload });
+	auto trackSendOperation = this->PostTrackEventsToMixpanel({ payload }, priority);
+
+	// Why the nesting? Because for reasons, I'm not particularily interested in
+	// working out, create_async doesn't like taking a task<void> and making it
+	// an IAsyncAction^. Futzing it through a lambda makes it happy.
+	return create_async([trackSendOperation]() {
+		return trackSendOperation.then([](bool) -> task<void> {
+			return task_from_result();
+		});
+	});
 }
 
-void MixpanelClient::PostTrackEventsToMixpanel(vector<IJsonValue^> events)
+task<bool> MixpanelClient::PostTrackEventsToMixpanel(_In_ const vector<IJsonValue^>& events, _In_ TrackSendPriority priority)
 {
     auto uri = ref new Uri(MIXPANEL_TRACK_BASE_URL);
     auto jsonEvents = ref new JsonArray();
@@ -71,8 +86,13 @@ void MixpanelClient::PostTrackEventsToMixpanel(vector<IJsonValue^> events)
     auto formPayload = ref new Map<String^, String^>();
     formPayload->Insert(L"data", encodedAndHashedPayload);
 
-    static RequestHelper^ rh = ref new RequestHelper();
-    rh->PostRequest(uri, formPayload).wait();
+	if (priority == TrackSendPriority::Immediately)
+	{
+		static RequestHelper^ rh = ref new RequestHelper();
+		return co_await rh->PostRequest(uri, formPayload);
+	}
+
+	return co_await task_from_result(false);
 }
 
 void MixpanelClient::SetSuperProperty(_In_ String^ name, _In_ String^ value)
