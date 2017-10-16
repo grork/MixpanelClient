@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mutex>
+
 namespace CodevoidN { namespace  Tests { namespace Mixpanel {
     class EventQueueTests;
 } } }
@@ -86,6 +88,8 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         concurrency::task<void> WriteItemToStorage(PayloadContainer& item);
         concurrency::task<void> RemoveItemFromStorage(long long id);
         concurrency::task<void> ClearStorage();
+
+		std::mutex m_queueAccessLock;
     };
 } } }
     
