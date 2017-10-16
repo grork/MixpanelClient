@@ -40,12 +40,44 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             }
         }
 
-        concurrency::task<void> RestorePendingUploadQueue();
+		/// <summary>
+		/// Restores the queue state from any saved state on disk.
+		/// Completes when it's finished loading from disk.
+		/// </summary>
+		concurrency::task<void> RestorePendingUploadQueue();
+
+		/// <summary>
+		/// Primary entry point for managing the queue. Items
+		/// passed in will be written to disk & added to the queue
+		/// for later retrieval.
+		///
+		/// Given a JSON payload, adds it to the queue, and
+		/// returns of the ID added to that data object.
+		/// </summary>
         long long QueueEventForUpload(Windows::Data::Json::JsonObject^ data);
+
+		/// <summary>
+		/// Removes the event represented by the supplied ID
+		/// from the queue, and from the storage, if it is
+		/// still present.
+		/// </summary>
         void RemoveEventFromUploadQueue(long long id);
+
+        /// <summary>
+        /// Clears any items in the queue, and from storage.
+        /// </summary>
         void Clear();
+
+        /// <summary>
+        /// The number of items currently in the queue
+        /// </summary>
         std::size_t GetQueueLength();
 
+        /// <summary>
+        /// Stop logging any items queue to disk. Note, that anything
+        /// queued before enable is called again will not be saved to
+        /// disk.
+        /// </summary>
         void DisableQueuingToStorage();
         void EnableQueuingToStorage();
 
