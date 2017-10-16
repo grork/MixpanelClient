@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "EventQueue.h"
 #include <chrono>
+#include <mutex>
 #include <string>
 
 using namespace CodevoidN::Utilities::Mixpanel;
@@ -28,6 +29,7 @@ void EventQueue::EnableQueuingToStorage()
 
 size_t EventQueue::GetQueueLength()
 {
+	lock_guard<mutex> lock(m_queueAccessLock);
 	return m_queue.size();
 }
 
@@ -37,7 +39,7 @@ long long EventQueue::QueueEventForUpload(JsonObject^ payload)
     m_queue.emplace_back(PayloadContainer{ now, payload, false });
 
     PayloadContainer& newlyAddedItem = m_queue.at(m_queue.size() - 1);
-    this->WriteItemToStorage(newlyAddedItem).wait();
+	this->WriteItemToStorage(newlyAddedItem).wait();
 
     return newlyAddedItem.Id;
 }
