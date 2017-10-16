@@ -42,24 +42,21 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
 		/// <summary>
 		/// Restores the queue state from any saved state on disk.
-		/// Completes when it's finished loading from disk.
+		/// Completes when it's finished loading from disk, and the
+		/// data is now available in the queue.
 		/// </summary>
 		concurrency::task<void> RestorePendingUploadQueue();
 
-		/// <summary>
-		/// Primary entry point for managing the queue. Items
-		/// passed in will be written to disk & added to the queue
-		/// for later retrieval.
+		/// <summary>	
+		/// Adds <paramref name="data" /> to the queue, and returns of the ID added to that data object.
 		///
-		/// Given a JSON payload, adds it to the queue, and
-		/// returns of the ID added to that data object.
+		/// Items placed in the queue are processed after being first written to storage.
 		/// </summary>
         long long QueueEventForUpload(Windows::Data::Json::JsonObject^ data);
 
 		/// <summary>
 		/// Removes the event represented by the supplied ID
-		/// from the queue, and from the storage, if it is
-		/// still present.
+		/// from the queue & from the storage, if it is still present.
 		/// </summary>
         void RemoveEventFromUploadQueue(long long id);
 
