@@ -44,9 +44,14 @@ long long EventQueue::QueueEventForUpload(JsonObject^ payload)
     return newlyAddedItem.Id;
 }
 
+bool EventQueue::find_payload(const PayloadContainer& other, const long long id)
+{
+	return other.Id == id;
+}
+
 void EventQueue::RemoveEventFromUploadQueue(long long id)
 {
-    auto container = find_if(m_queue.begin(), m_queue.end(), find_payload(id));
+    auto container = find_if(m_queue.begin(), m_queue.end(), std::bind(&EventQueue::find_payload, placeholders::_1, id));
     if (container == m_queue.end())
     {
         return;
