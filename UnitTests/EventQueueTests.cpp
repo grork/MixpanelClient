@@ -98,7 +98,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             m_queue->QueueEventForUpload(GenerateSamplePayload());
             Assert::AreEqual(2, (int)m_queue->GetQueueLength(), L"Incorrect number of items");
 
-            m_queue->Clear();
+            AsyncHelper::RunSynced(m_queue->Clear());
             Assert::AreEqual(0, (int)m_queue->GetQueueLength(), L"Expected queue to be clear");
         }
 
@@ -109,6 +109,8 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
             Assert::IsTrue(1 == m_queue->GetQueueLength(), L"Incorrect number of items");
 
+            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorage());
+
             Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
         }
 
@@ -118,6 +120,8 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             m_queue->QueueEventForUpload(GenerateSamplePayload());
             m_queue->QueueEventForUpload(GenerateSamplePayload());
             Assert::AreEqual(2, (int)m_queue->GetQueueLength(), L"Incorrect number of items");
+
+            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorage());
 
             Assert::AreEqual(2, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
         }
@@ -130,6 +134,8 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             auto result = m_queue->QueueEventForUpload(payload);
             Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
             Assert::IsTrue(1 == m_queue->GetQueueLength(), L"Incorrect number of items");
+
+            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorage());
 
             Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
 
@@ -146,21 +152,6 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             }
         }
 
-        TEST_METHOD(ItemRemovedFromLocalStorageWhenRemovedFromQueue)
-        {
-            m_queue->EnableQueuingToStorage();
-            JsonObject^ payload = GenerateSamplePayload();
-
-            auto result = m_queue->QueueEventForUpload(payload);
-            JsonObject^ fromFile = AsyncHelper::RunSynced(this->RetrievePayloadForId(result));
-            Assert::IsNotNull(fromFile, L"Expected payload to be found, and loaded");
-
-            m_queue->RemoveEventFromUploadQueue(result);
-
-            fromFile = AsyncHelper::RunSynced(this->RetrievePayloadForId(result));
-            Assert::IsNull(fromFile, L"Expected File to be removed");
-        }
-
         TEST_METHOD(AllItemsRemovedFromStorageWhenQueueIsCleared)
         {
             m_queue->EnableQueuingToStorage();
@@ -168,9 +159,11 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             m_queue->QueueEventForUpload(GenerateSamplePayload());
             Assert::AreEqual(2, (int)m_queue->GetQueueLength(), L"Incorrect number of items");
 
+            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorage());
+
             Assert::AreEqual(2, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
 
-            m_queue->Clear();
+            AsyncHelper::RunSynced(m_queue->Clear());
 
             Assert::AreEqual(0, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Didn't expect any files");
         }

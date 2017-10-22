@@ -49,20 +49,17 @@ size_t EventQueue::GetQueueLength()
 	return m_queue.size();
 }
 
+bool EventQueue::find_payload(const PayloadContainer& other, const long long id)
+{
+    return other.Id == id;
+}
+
 long long EventQueue::QueueEventForUpload(JsonObject^ payload)
 {
     auto id = this->GetNextId();
     m_queue.emplace_back(PayloadContainer{ id, payload, false });
 
-    PayloadContainer& newlyAddedItem = m_queue.at(m_queue.size() - 1);
-    this->WriteItemToStorage(newlyAddedItem).wait();
-
-    return newlyAddedItem.Id;
-}
-
-bool EventQueue::find_payload(const PayloadContainer& other, const long long id)
-{
-	return other.Id == id;
+    return id;
 }
 
 void EventQueue::RemoveEventFromUploadQueue(long long id)
@@ -74,14 +71,6 @@ void EventQueue::RemoveEventFromUploadQueue(long long id)
     }
 
     m_queue.erase(container);
-    this->RemoveItemFromStorage(id).wait();
-}
-
-void EventQueue::Clear()
-{
-    m_queue.clear();
-
-    this->ClearStorage().wait();
 }
 
 task<void> EventQueue::RestorePendingUploadQueue()
@@ -101,11 +90,26 @@ task<void> EventQueue::RestorePendingUploadQueue()
     }
 }
 
+task<void> EventQueue::PersistAllQueuedItemsToStorage()
+{
+    for (auto&& item : m_queue)
+    {
+        co_await this->WriteItemToStorage(item);
+    }
+}
+
+task<void> EventQueue::Clear()
+{
+    m_queue.clear();
+
+    co_await this->ClearStorage();
+}
+
 task<void> EventQueue::WriteItemToStorage(PayloadContainer& item)
 {
     if (!m_queueToDisk)
     {
-        return;
+        return; 
     }
 
     TRACE_OUT("Writing File: " + GetFileNameForId(item.Id));
@@ -117,25 +121,25 @@ task<void> EventQueue::WriteItemToStorage(PayloadContainer& item)
     item.Persisted = true;
 }
 
-task<void> EventQueue::RemoveItemFromStorage(long long id)
-{
-    if(!m_queueToDisk)
-    {
-        return;
-    }
+//task<void> EventQueue::RemoveItemFromStorage(long long id)
+//{
+//    if(!m_queueToDisk)
+//    {
+//        return;
+//    }
+//
+//    auto name = GetFileNameForId(id);
+//
+//    auto file = co_await m_localStorage->TryGetItemAsync(name);
+//    if (file == nullptr)
+//    {
+//        return;
+//    }
+//
+//    co_await file->DeleteAsync();
+//}
 
-    auto name = GetFileNameForId(id);
-
-    auto file = co_await m_localStorage->TryGetItemAsync(name);
-    if (file == nullptr)
-    {
-        return;
-    }
-
-    co_await file->DeleteAsync();
-}
-
-task<void>EventQueue::ClearStorage()
+task<void> EventQueue::ClearStorage()
 {
     if (!m_queueToDisk)
     {

@@ -29,13 +29,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     public:
         EventQueue(Windows::Storage::StorageFolder^ localStorage);
 
-		/// <summary>
-		/// Restores the queue state from any saved state on disk.
-		/// Completes when it's finished loading from disk, and the
-		/// data is now available in the queue.
-		/// </summary>
-		concurrency::task<void> RestorePendingUploadQueue();
-
 		/// <summary>	
 		/// Adds <paramref name="data" /> to the queue, and returns of the ID added to that data object.
 		///
@@ -50,9 +43,22 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         void RemoveEventFromUploadQueue(long long id);
 
         /// <summary>
+        /// Waits for the queued items to be written to disk before
+        /// returning to the caller.
+        /// </summary>
+        concurrency::task<void> PersistAllQueuedItemsToStorage();
+
+        /// <summary>
+        /// Restores the queue state from any saved state on disk.
+        /// Completes when it's finished loading from disk, and the
+        /// data is now available in the queue.
+        /// </summary>
+        concurrency::task<void> RestorePendingUploadQueue();
+
+        /// <summary>
         /// Clears any items in the queue, and from storage.
         /// </summary>
-        void Clear();
+        concurrency::task<void> Clear();
 
         /// <summary>
         /// The number of items currently in the queue
