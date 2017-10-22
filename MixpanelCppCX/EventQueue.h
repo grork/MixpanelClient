@@ -23,15 +23,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             bool Persisted;
         };
 
-        struct find_payload : std::unary_function<PayloadContainer, bool>
-        {
-            long long candidate_id;
-            find_payload(long long id) : candidate_id(id) { };
-            bool operator() (const PayloadContainer& other) const
-            {
-                return other.Id == candidate_id;
-            }
-        };
+		static bool find_payload(const PayloadContainer& other, const long long id);
 
     public:
         EventQueue(Windows::Storage::StorageFolder^ localStorage) : m_localStorage(localStorage)
