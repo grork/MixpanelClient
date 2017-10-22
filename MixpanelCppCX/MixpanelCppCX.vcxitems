@@ -19,11 +19,13 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)MixpanelClient.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)PayloadEncoder.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)RequestHelper.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Tracing.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)EventQueue.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)MixpanelClient.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)PayloadEncoder.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)RequestHelper.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)Tracing.cpp" />
   </ItemGroup>
 </Project>
