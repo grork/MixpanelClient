@@ -15,6 +15,18 @@ String^ GetFileNameForId(const long long& id)
     return ref new String(to_wstring(id).append(L".json").c_str());
 }
 
+EventQueue::EventQueue(StorageFolder^ localStorage) : m_localStorage(localStorage)
+{
+    if (localStorage == nullptr)
+    {
+        throw std::invalid_argument("Must provide local storage folder");
+    }
+
+    // Initialize our base ID for saving events to disk to ensure we avoid clashes with
+    // multiple concurrent callers generating items at the same moment.
+    m_baseId = time_point_cast<milliseconds>(system_clock::now()).time_since_epoch().count();
+}
+
 void EventQueue::DisableQueuingToStorage()
 {
     m_queueToDisk = false;
@@ -25,6 +37,12 @@ void EventQueue::EnableQueuingToStorage()
     m_queueToDisk = true;
 }
 
+long long EventQueue::GetNextId()
+{
+    auto newId = (m_baseId += 1);
+    return newId;
+}
+
 size_t EventQueue::GetQueueLength()
 {
 	lock_guard<mutex> lock(m_queueAccessLock);
@@ -33,11 +51,11 @@ size_t EventQueue::GetQueueLength()
 
 long long EventQueue::QueueEventForUpload(JsonObject^ payload)
 {
-    auto now = time_point_cast<milliseconds>(system_clock::now()).time_since_epoch().count();
-    m_queue.emplace_back(PayloadContainer{ now, payload, false });
+    auto id = this->GetNextId();
+    m_queue.emplace_back(PayloadContainer{ id, payload, false });
 
     PayloadContainer& newlyAddedItem = m_queue.at(m_queue.size() - 1);
-	this->WriteItemToStorage(newlyAddedItem).wait();
+    this->WriteItemToStorage(newlyAddedItem).wait();
 
     return newlyAddedItem.Id;
 }

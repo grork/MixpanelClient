@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mutex>
+#include <atomic>
 
 namespace CodevoidN { namespace  Tests { namespace Mixpanel {
     class EventQueueTests;
@@ -26,13 +27,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 		static bool find_payload(const PayloadContainer& other, const long long id);
 
     public:
-        EventQueue(Windows::Storage::StorageFolder^ localStorage) : m_localStorage(localStorage)
-        {
-            if (localStorage == nullptr)
-            {
-                throw std::invalid_argument("Must provide local storage folder");
-            }
-        }
+        EventQueue(Windows::Storage::StorageFolder^ localStorage);
 
 		/// <summary>
 		/// Restores the queue state from any saved state on disk.
@@ -74,9 +69,17 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
     private:
         bool m_queueToDisk = true;
+        std::atomic<long long> m_baseId;
         std::vector<PayloadContainer> m_queue;
         Windows::Storage::StorageFolder^ m_localStorage;
 
+        /// <summary>
+        /// When we're writing the files to disk, we use a 'base' ID created
+        /// at startup to help avoid conflicts with time. This method isolates
+        /// the atomic incrementing of the counter so multiple threads/callers
+        /// can avoid other clashes.
+        /// </summary>
+        long long GetNextId();
         concurrency::task<void> WriteItemToStorage(PayloadContainer& item);
         concurrency::task<void> RemoveItemFromStorage(long long id);
         concurrency::task<void> ClearStorage();
