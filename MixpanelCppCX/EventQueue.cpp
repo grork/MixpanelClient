@@ -1,8 +1,6 @@
 #include "pch.h"
 #include "EventQueue.h"
-#include <chrono>
-#include <mutex>
-#include <string>
+#include "Tracing.h"
 
 using namespace CodevoidN::Utilities::Mixpanel;
 using namespace concurrency;
@@ -92,6 +90,7 @@ task<void> EventQueue::WriteItemToStorage(PayloadContainer& item)
         return;
     }
 
+    TRACE_OUT("Writing File: " + GetFileNameForId(item.Id));
     JsonObject^ payload = item.Payload;
 
     auto file = co_await m_localStorage->CreateFileAsync(GetFileNameForId(item.Id));

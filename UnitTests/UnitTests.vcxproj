@@ -102,6 +102,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <PackageCertificateKeyFile>UnitTests_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <PackageCertificateThumbprint>BBCFCA255E5656CDA8010CAB51230D509F1772AD</PackageCertificateThumbprint>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <ClCompile>
