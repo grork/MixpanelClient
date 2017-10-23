@@ -19,12 +19,12 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     private:
         struct PayloadContainer
         {
+            PayloadContainer(long long id, Windows::Data::Json::JsonObject^ payload);
             long long Id;
             Windows::Data::Json::JsonObject^ Payload;
-            bool Persisted;
         };
 
-		static bool find_payload(const PayloadContainer& other, const long long id);
+        static bool find_payload(const std::shared_ptr<PayloadContainer>& other, const long long id);
 
     public:
         EventQueue(Windows::Storage::StorageFolder^ localStorage);
@@ -76,7 +76,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     private:
         bool m_queueToDisk = true;
         std::atomic<long long> m_baseId;
-        std::vector<PayloadContainer> m_queue;
+        std::vector<std::shared_ptr<PayloadContainer>> m_queue;
         Windows::Storage::StorageFolder^ m_localStorage;
 
         /// <summary>
@@ -86,7 +86,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// can avoid other clashes.
         /// </summary>
         long long GetNextId();
-        concurrency::task<void> WriteItemToStorage(PayloadContainer& item);
+        concurrency::task<void> WriteItemToStorage(const std::shared_ptr<PayloadContainer> item);
         concurrency::task<void> RemoveItemFromStorage(long long id);
         concurrency::task<void> ClearStorage();
 

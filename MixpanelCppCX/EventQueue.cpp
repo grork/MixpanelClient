@@ -15,6 +15,11 @@ String^ GetFileNameForId(const long long& id)
     return ref new String(to_wstring(id).append(L".json").c_str());
 }
 
+EventQueue::PayloadContainer::PayloadContainer(long long id, JsonObject^ payload) :
+    Id(id), Payload(payload)
+{
+}
+
 EventQueue::EventQueue(StorageFolder^ localStorage) : m_localStorage(localStorage)
 {
     if (localStorage == nullptr)
@@ -49,15 +54,16 @@ size_t EventQueue::GetQueueLength()
 	return m_queue.size();
 }
 
-bool EventQueue::find_payload(const PayloadContainer& other, const long long id)
+bool EventQueue::find_payload(const std::shared_ptr<PayloadContainer>& other, const long long id)
 {
-    return other.Id == id;
+    return other->Id == id;
 }
 
 long long EventQueue::QueueEventForUpload(JsonObject^ payload)
 {
     auto id = this->GetNextId();
-    m_queue.emplace_back(PayloadContainer{ id, payload, false });
+    auto item = make_shared<PayloadContainer>(id, payload);
+    m_queue.emplace_back(item);
 
     return id;
 }
@@ -86,7 +92,7 @@ task<void> EventQueue::RestorePendingUploadQueue()
         // when it finds a non-numeric char and give me a number that we need
         auto rawString = file->Name->Data();
         auto id = std::wcstoll(rawString, nullptr, 0);
-        m_queue.emplace_back(PayloadContainer{ id, payload, true });
+        m_queue.emplace_back(make_shared<PayloadContainer>(id, payload));
     }
 }
 
@@ -105,20 +111,18 @@ task<void> EventQueue::Clear()
     co_await this->ClearStorage();
 }
 
-task<void> EventQueue::WriteItemToStorage(PayloadContainer& item)
+task<void> EventQueue::WriteItemToStorage(shared_ptr<PayloadContainer> item)
 {
     if (!m_queueToDisk)
     {
-        return; 
+        return;
     }
 
-    TRACE_OUT("Writing File: " + GetFileNameForId(item.Id));
-    JsonObject^ payload = item.Payload;
+    TRACE_OUT("Writing File: " + GetFileNameForId(item->Id));
+    JsonObject^ payload = item->Payload;
 
-    auto file = co_await m_localStorage->CreateFileAsync(GetFileNameForId(item.Id));
+    auto file = co_await m_localStorage->CreateFileAsync(GetFileNameForId(item->Id));
     co_await FileIO::WriteTextAsync(file, payload->Stringify());
-
-    item.Persisted = true;
 }
 
 //task<void> EventQueue::RemoveItemFromStorage(long long id)
