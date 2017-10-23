@@ -50,8 +50,8 @@ long long EventQueue::GetNextId()
 
 size_t EventQueue::GetQueueLength()
 {
-	lock_guard<mutex> lock(m_queueAccessLock);
-	return m_queue.size();
+    lock_guard<mutex> lock(m_queueAccessLock);
+    return m_queue.size();
 }
 
 bool EventQueue::find_payload(const std::shared_ptr<PayloadContainer>& other, const long long id)
@@ -98,10 +98,16 @@ task<void> EventQueue::RestorePendingUploadQueue()
 
 task<void> EventQueue::PersistAllQueuedItemsToStorage()
 {
-    for (auto&& item : m_queue)
-    {
-        co_await this->WriteItemToStorage(item);
-    }
+    create_task([this]() {
+        for (auto&& file : this->m_queue)
+        {
+            this->WriteItemToStorage(file).wait();
+        }
+
+        this->m_queueDrained.set();
+    });
+
+    co_await create_task(m_queueDrained);
 }
 
 task<void> EventQueue::Clear()
