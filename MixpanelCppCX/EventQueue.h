@@ -78,6 +78,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::atomic<long long> m_baseId;
         std::vector<std::shared_ptr<PayloadContainer>> m_queue;
         Windows::Storage::StorageFolder^ m_localStorage;
+        concurrency::task_completion_event<void> m_queueDrained;
 
         /// <summary>
         /// When we're writing the files to disk, we use a 'base' ID created
