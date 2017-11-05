@@ -24,7 +24,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             Windows::Data::Json::JsonObject^ Payload;
         };
 
-        static bool find_payload(const std::shared_ptr<PayloadContainer>& other, const long long id);
+        static bool FindPayloadWithId(const std::shared_ptr<PayloadContainer>& other, const long long id);
 
     public:
         EventQueue(Windows::Storage::StorageFolder^ localStorage);
@@ -63,7 +63,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// <summary>
         /// The number of items currently in the queue
         /// </summary>
-        std::size_t GetQueueLength();
+        std::size_t GetWaitingToWriteToStorageLength();
 
         /// <summary>
         /// Stop logging any items queue to disk. Note, that anything
@@ -76,7 +76,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     private:
         bool m_queueToDisk = true;
         std::atomic<long long> m_baseId;
-        std::vector<std::shared_ptr<PayloadContainer>> m_queue;
+        std::vector<std::shared_ptr<PayloadContainer>> m_waitingToWriteToStorage;
         Windows::Storage::StorageFolder^ m_localStorage;
         concurrency::task_completion_event<void> m_queueDrained;
 
@@ -88,7 +88,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// </summary>
         long long GetNextId();
         concurrency::task<void> WriteItemToStorage(const std::shared_ptr<PayloadContainer> item);
-        concurrency::task<void> RemoveItemFromStorage(long long id);
         concurrency::task<void> ClearStorage();
 
 		std::mutex m_queueAccessLock;
