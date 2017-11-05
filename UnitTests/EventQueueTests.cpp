@@ -78,28 +78,28 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
         {
             auto result = m_queue->QueueEventForUpload(GenerateSamplePayload());
             Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
-            Assert::IsTrue(1 == m_queue->GetQueueLength(), L"Incorrect number of items");
+            Assert::IsTrue(1 == m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
         }
 
         TEST_METHOD(CanRemoveEvent)
         {
             auto result = m_queue->QueueEventForUpload(GenerateSamplePayload());
             Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
-            Assert::IsTrue(1 == m_queue->GetQueueLength(), L"Incorrect number of items");
+            Assert::IsTrue(1 == m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
             
             m_queue->RemoveEventFromUploadQueue(result);
 
-            Assert::IsTrue(0 == m_queue->GetQueueLength(), L"Expected 0 items in the list");
+            Assert::IsTrue(0 == m_queue->GetWaitingToWriteToStorageLength(), L"Expected 0 items in the list");
         }
 
         TEST_METHOD(CanClearQueue)
         {
             m_queue->QueueEventForUpload(GenerateSamplePayload());
             m_queue->QueueEventForUpload(GenerateSamplePayload());
-            Assert::AreEqual(2, (int)m_queue->GetQueueLength(), L"Incorrect number of items");
+            Assert::AreEqual(2, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
 
             AsyncHelper::RunSynced(m_queue->Clear());
-            Assert::AreEqual(0, (int)m_queue->GetQueueLength(), L"Expected queue to be clear");
+            Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Expected queue to be clear");
         }
 
         TEST_METHOD(ItemsAreQueuedToDisk)
@@ -107,7 +107,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             m_queue->EnableQueuingToStorage();
             auto result = m_queue->QueueEventForUpload(GenerateSamplePayload());
             Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
-            Assert::IsTrue(1 == m_queue->GetQueueLength(), L"Incorrect number of items");
+            Assert::IsTrue(1 == m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
 
             AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorage());
 
@@ -119,7 +119,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             m_queue->EnableQueuingToStorage();
             m_queue->QueueEventForUpload(GenerateSamplePayload());
             m_queue->QueueEventForUpload(GenerateSamplePayload());
-            Assert::AreEqual(2, (int)m_queue->GetQueueLength(), L"Incorrect number of items");
+            Assert::AreEqual(2, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
 
             AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorage());
 
@@ -133,7 +133,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
             auto result = m_queue->QueueEventForUpload(payload);
             Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
-            Assert::IsTrue(1 == m_queue->GetQueueLength(), L"Incorrect number of items");
+            Assert::IsTrue(1 == m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
 
             AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorage());
 
@@ -157,7 +157,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             m_queue->EnableQueuingToStorage();
             m_queue->QueueEventForUpload(GenerateSamplePayload());
             m_queue->QueueEventForUpload(GenerateSamplePayload());
-            Assert::AreEqual(2, (int)m_queue->GetQueueLength(), L"Incorrect number of items");
+            Assert::AreEqual(2, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
 
             AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorage());
 
@@ -179,7 +179,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             AsyncHelper::RunSynced(this->WritePayload(3, item3));
 
             shared_ptr<EventQueue> queue = AsyncHelper::RunSynced(this->GetQueueFromStorage());
-            Assert::AreEqual(3, (int)queue->GetQueueLength(), L"Incorrect number of items in queue");
+            Assert::AreEqual(3, (int)queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items in queue");
         }
 
         task<shared_ptr<EventQueue>> GetQueueFromStorage()

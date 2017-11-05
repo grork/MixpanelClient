@@ -48,13 +48,13 @@ long long EventQueue::GetNextId()
     return newId;
 }
 
-size_t EventQueue::GetQueueLength()
+size_t EventQueue::GetWaitingToWriteToStorageLength()
 {
     lock_guard<mutex> lock(m_queueAccessLock);
-    return m_queue.size();
+    return m_waitingToWriteToStorage.size();
 }
 
-bool EventQueue::find_payload(const std::shared_ptr<PayloadContainer>& other, const long long id)
+bool EventQueue::FindPayloadWithId(const std::shared_ptr<PayloadContainer>& other, const long long id)
 {
     return other->Id == id;
 }
@@ -63,20 +63,20 @@ long long EventQueue::QueueEventForUpload(JsonObject^ payload)
 {
     auto id = this->GetNextId();
     auto item = make_shared<PayloadContainer>(id, payload);
-    m_queue.emplace_back(item);
+    m_waitingToWriteToStorage.emplace_back(item);
 
     return id;
 }
 
 void EventQueue::RemoveEventFromUploadQueue(long long id)
 {
-    auto container = find_if(m_queue.begin(), m_queue.end(), std::bind(&EventQueue::find_payload, placeholders::_1, id));
-    if (container == m_queue.end())
+    auto container = find_if(m_waitingToWriteToStorage.begin(), m_waitingToWriteToStorage.end(), std::bind(&EventQueue::FindPayloadWithId, placeholders::_1, id));
+    if (container == m_waitingToWriteToStorage.end())
     {
         return;
     }
 
-    m_queue.erase(container);
+    m_waitingToWriteToStorage.erase(container);
 }
 
 task<void> EventQueue::RestorePendingUploadQueue()
@@ -92,14 +92,14 @@ task<void> EventQueue::RestorePendingUploadQueue()
         // when it finds a non-numeric char and give me a number that we need
         auto rawString = file->Name->Data();
         auto id = std::wcstoll(rawString, nullptr, 0);
-        m_queue.emplace_back(make_shared<PayloadContainer>(id, payload));
+        m_waitingToWriteToStorage.emplace_back(make_shared<PayloadContainer>(id, payload));
     }
 }
 
 task<void> EventQueue::PersistAllQueuedItemsToStorage()
 {
     create_task([this]() {
-        for (auto&& file : this->m_queue)
+        for (auto&& file : this->m_waitingToWriteToStorage)
         {
             this->WriteItemToStorage(file).wait();
         }
@@ -112,7 +112,7 @@ task<void> EventQueue::PersistAllQueuedItemsToStorage()
 
 task<void> EventQueue::Clear()
 {
-    m_queue.clear();
+    m_waitingToWriteToStorage.clear();
 
     co_await this->ClearStorage();
 }
