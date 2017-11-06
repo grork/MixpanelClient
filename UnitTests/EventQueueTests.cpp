@@ -81,17 +81,6 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::IsTrue(1 == m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
         }
 
-        TEST_METHOD(CanRemoveEvent)
-        {
-            auto result = m_queue->QueueEventForUpload(GenerateSamplePayload());
-            Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
-            Assert::IsTrue(1 == m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
-            
-            m_queue->RemoveEventFromUploadQueue(result);
-
-            Assert::IsTrue(0 == m_queue->GetWaitingToWriteToStorageLength(), L"Expected 0 items in the list");
-        }
-
         TEST_METHOD(CanClearQueue)
         {
             m_queue->QueueEventForUpload(GenerateSamplePayload());
