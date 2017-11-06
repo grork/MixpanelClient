@@ -44,6 +44,8 @@ void EventQueue::EnableQueuingToStorage()
 
 long long EventQueue::GetNextId()
 {
+    // This is intended to use atomic to allow for
+    // lock-less increment.
     auto newId = (m_baseId += 1);
     return newId;
 }
@@ -63,25 +65,20 @@ long long EventQueue::QueueEventForUpload(JsonObject^ payload)
 {
     auto id = this->GetNextId();
     auto item = make_shared<PayloadContainer>(id, payload);
-    m_waitingToWriteToStorage.emplace_back(item);
 
-    return id;
-}
-
-void EventQueue::RemoveEventFromUploadQueue(long long id)
-{
-    auto container = find_if(m_waitingToWriteToStorage.begin(), m_waitingToWriteToStorage.end(), std::bind(&EventQueue::FindPayloadWithId, placeholders::_1, id));
-    if (container == m_waitingToWriteToStorage.end())
     {
-        return;
+        lock_guard<mutex> lock(m_queueAccessLock);
+        m_waitingToWriteToStorage.emplace_back(item);
     }
 
-    m_waitingToWriteToStorage.erase(container);
+    return id;
 }
 
 task<void> EventQueue::RestorePendingUploadQueue()
 {
     auto files = co_await m_localStorage->GetFilesAsync();
+    vector<shared_ptr<PayloadContainer>> loadedPayload;
+
     for (auto&& file : files)
     {
         auto contents = co_await FileIO::ReadTextAsync(file);
@@ -92,16 +89,27 @@ task<void> EventQueue::RestorePendingUploadQueue()
         // when it finds a non-numeric char and give me a number that we need
         auto rawString = file->Name->Data();
         auto id = std::wcstoll(rawString, nullptr, 0);
-        m_waitingToWriteToStorage.emplace_back(make_shared<PayloadContainer>(id, payload));
+        loadedPayload.emplace_back(make_shared<PayloadContainer>(id, payload));
+    }
+
+    {
+        lock_guard<mutex> lock(m_queueAccessLock);
+        for (auto&& payloadItem : loadedPayload)
+        {
+            m_waitingToWriteToStorage.emplace_back(payloadItem);
+        }
     }
 }
 
 task<void> EventQueue::PersistAllQueuedItemsToStorage()
 {
     create_task([this]() {
-        for (auto&& file : this->m_waitingToWriteToStorage)
         {
-            this->WriteItemToStorage(file).wait();
+            lock_guard<mutex> lock(m_queueAccessLock);
+            for (auto&& file : this->m_waitingToWriteToStorage)
+            {
+                this->WriteItemToStorage(file).wait();
+            }
         }
 
         this->m_queueDrained.set();
@@ -112,6 +120,8 @@ task<void> EventQueue::PersistAllQueuedItemsToStorage()
 
 task<void> EventQueue::Clear()
 {
+    lock_guard<mutex> lock(m_queueAccessLock);
+
     m_waitingToWriteToStorage.clear();
 
     co_await this->ClearStorage();

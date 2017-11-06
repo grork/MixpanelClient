@@ -36,12 +36,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 		/// </summary>
         long long QueueEventForUpload(Windows::Data::Json::JsonObject^ data);
 
-		/// <summary>
-		/// Removes the event represented by the supplied ID
-		/// from the queue & from the storage, if it is still present.
-		/// </summary>
-        void RemoveEventFromUploadQueue(long long id);
-
         /// <summary>
         /// Waits for the queued items to be written to disk before
         /// returning to the caller.
