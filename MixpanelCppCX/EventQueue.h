@@ -58,10 +58,13 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         concurrency::task<void> Clear();
 
         /// <summary>
-        /// The number of items currently in the queue
+        /// The number of items currently waiting to be persisted to storage
         /// </summary>
         std::size_t GetWaitingToWriteToStorageLength();
 
+        /// <summary>
+        /// Number of items in the upload queue.
+        /// </summary>
         std::size_t GetWaitingForUploadLength();
 
         /// <summary>
