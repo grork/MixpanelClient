@@ -147,8 +147,11 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             m_queue->QueueEventForUpload(GenerateSamplePayload());
             m_queue->QueueEventForUpload(GenerateSamplePayload());
             Assert::AreEqual(2, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
+            Assert::AreEqual(0, (int)m_queue->GetWaitingForUploadLength(), L"Didn't expect any items to upload");
 
             AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorage());
+
+            Assert::AreEqual(0, (int)m_queue->GetWaitingForUploadLength(), L"Shouldn't have anything in the upload queue.");
 
             Assert::AreEqual(2, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
 
@@ -168,7 +171,8 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             AsyncHelper::RunSynced(this->WritePayload(3, item3));
 
             shared_ptr<EventQueue> queue = AsyncHelper::RunSynced(this->GetQueueFromStorage());
-            Assert::AreEqual(3, (int)queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items in queue");
+            Assert::AreEqual(0, (int)queue->GetWaitingToWriteToStorageLength(), L"Expected no items waiting to write to storage");
+            Assert::AreEqual(3, (int)queue->GetWaitingForUploadLength(), L"Expected items in the upload queue");
         }
 
         task<shared_ptr<EventQueue>> GetQueueFromStorage()

@@ -1,10 +1,6 @@
-﻿//
-// pch.h
-// Header for standard system include files.
-//
+﻿#pragma once
 
-#pragma once
-
+#include <assert.h>
 #include <chrono>
 #include <collection.h>
 #include <experimental\resumable>

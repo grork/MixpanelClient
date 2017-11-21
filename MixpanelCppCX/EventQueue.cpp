@@ -10,6 +10,9 @@ using namespace std::chrono;
 using namespace Windows::Data::Json;
 using namespace Windows::Storage;
 
+using PayloadContainer_ptr = shared_ptr<EventQueue::PayloadContainer>;
+using PayloadContainers = vector<PayloadContainer_ptr>;
+
 String^ GetFileNameForId(const long long& id)
 {
     return ref new String(to_wstring(id).append(L".json").c_str());
@@ -34,12 +37,12 @@ EventQueue::EventQueue(StorageFolder^ localStorage) : m_localStorage(localStorag
 
 void EventQueue::DisableQueuingToStorage()
 {
-    m_queueToDisk = false;
+    m_queueToStorage = false;
 }
 
 void EventQueue::EnableQueuingToStorage()
 {
-    m_queueToDisk = true;
+    m_queueToStorage = true;
 }
 
 long long EventQueue::GetNextId()
@@ -52,11 +55,17 @@ long long EventQueue::GetNextId()
 
 size_t EventQueue::GetWaitingToWriteToStorageLength()
 {
-    lock_guard<mutex> lock(m_queueAccessLock);
+    lock_guard<mutex> lock(m_writeToStorageQueueLock);
     return m_waitingToWriteToStorage.size();
 }
 
-bool EventQueue::FindPayloadWithId(const std::shared_ptr<PayloadContainer>& other, const long long id)
+size_t EventQueue::GetWaitingForUploadLength()
+{
+    lock_guard<mutex> lock(m_waitingForUploadQueueLock);
+    return m_waitingForUpload.size();
+}
+
+bool EventQueue::FindPayloadWithId(const PayloadContainer_ptr& other, const long long id)
 {
     return other->Id == id;
 }
@@ -66,8 +75,10 @@ long long EventQueue::QueueEventForUpload(JsonObject^ payload)
     auto id = this->GetNextId();
     auto item = make_shared<PayloadContainer>(id, payload);
 
+    TRACE_OUT("Event Queued: " + id);
+
     {
-        lock_guard<mutex> lock(m_queueAccessLock);
+        lock_guard<mutex> lock(m_writeToStorageQueueLock);
         m_waitingToWriteToStorage.emplace_back(item);
     }
 
@@ -76,11 +87,13 @@ long long EventQueue::QueueEventForUpload(JsonObject^ payload)
 
 task<void> EventQueue::RestorePendingUploadQueueFromStorage()
 {
+    TRACE_OUT("Restoring items from storage");
     auto files = co_await m_localStorage->GetFilesAsync();
-    vector<shared_ptr<PayloadContainer>> loadedPayload;
+    PayloadContainers loadedPayload;
 
     for (auto&& file : files)
     {
+        TRACE_OUT("Reading from storage:" + file->Path);
         auto contents = co_await FileIO::ReadTextAsync(file);
         auto payload = JsonObject::Parse(contents);
 
@@ -92,44 +105,91 @@ task<void> EventQueue::RestorePendingUploadQueueFromStorage()
         loadedPayload.emplace_back(make_shared<PayloadContainer>(id, payload));
     }
 
+    // Load the items loaded from storage into the upload queue.
+    // Theres no need to put them in the waiting for storage queue (where new items
+    // normally show up), because they're already on storage.
     {
-        lock_guard<mutex> lock(m_queueAccessLock);
-        for (auto&& payloadItem : loadedPayload)
-        {
-            m_waitingToWriteToStorage.emplace_back(payloadItem);
-        }
+        TRACE_OUT("Adding Items to upload queue");
+        lock_guard<mutex> lock(m_waitingForUploadQueueLock);
+        m_waitingForUpload.reserve(m_waitingForUpload.size() + loadedPayload.size());
+        m_waitingForUpload.insert(end(m_waitingForUpload), begin(loadedPayload), end(loadedPayload));
     }
 }
 
 task<void> EventQueue::PersistAllQueuedItemsToStorage()
 {
-    create_task([this]() {
-        {
-            lock_guard<mutex> lock(m_queueAccessLock);
-            for (auto&& file : this->m_waitingToWriteToStorage)
-            {
-                this->WriteItemToStorage(file).wait();
-            }
-        }
+    TRACE_OUT("Persisting Queue items to Storage");
+    co_await this->WriteCurrentQueueStateToStorage(AddToUploadQueue::No);
+}
 
-        this->m_queueDrained.set();
+task<void> EventQueue::WriteCurrentQueueStateToStorage(AddToUploadQueue addToUpload)
+{
+    shared_ptr<PayloadContainers> itemsToWrite;
+
+    // Lock the queue to capture the items.
+    {
+        lock_guard<mutex> lock(m_writeToStorageQueueLock);
+        itemsToWrite = make_shared<PayloadContainers>(m_waitingToWriteToStorage.begin(), m_waitingToWriteToStorage.end());
+    }
+
+    auto writeTask = create_task([this, itemsToWrite]() {
+        TRACE_OUT("Writing Queued items to storage");
+        for (auto&& item : (*itemsToWrite))
+        {
+            this->WriteItemToStorage(item).wait();
+        }
     });
 
-    co_await create_task(m_queueDrained);
+    co_await writeTask;
+
+    // Remove the items from the queue
+    {
+        lock_guard<mutex> lock(m_writeToStorageQueueLock);
+        
+        // Get the position of the first & last elements in our snapped
+        // queue copy, so we can purge them from the waiting queue now.
+        // This assumes that the vector hasn't been trimmed e.g. it was
+        // only added to, then remove the first/last in this list from
+        // the original list.
+        auto first = find(m_waitingToWriteToStorage.begin(), m_waitingToWriteToStorage.end(), (*itemsToWrite).front());
+        auto last = find(m_waitingToWriteToStorage.begin(), m_waitingToWriteToStorage.end(), (*itemsToWrite).back());
+
+        // Make sure they were actually found in the list.
+        assert(first != m_waitingToWriteToStorage.end());
+        assert(last != m_waitingToWriteToStorage.end());
+        m_waitingToWriteToStorage.erase(first, last);
+    }
+
+    if (addToUpload == AddToUploadQueue::No)
+    {
+        TRACE_OUT("Written queue to storage, not adding to upload queue");
+        return;
+    }
+
+    TRACE_OUT("Adding persisted items to the upload queue");
+    lock_guard<mutex> uploadLock(m_waitingForUploadQueueLock);
+    m_waitingForUpload.reserve(m_waitingForUpload.size() + (*itemsToWrite).size());
+    m_waitingForUpload.insert(end(m_waitingForUpload), begin(*itemsToWrite), end(*itemsToWrite));
 }
 
 task<void> EventQueue::Clear()
 {
-    lock_guard<mutex> lock(m_queueAccessLock);
-
-    m_waitingToWriteToStorage.clear();
+    {
+        // This is a scoped lock, because the lock is only
+        // held for 1 thread -- not across threads. Since the
+        // deletion here happens separately from the queue it's
+        // ok to hold the lock only while we clear things from the
+        // in memory list.
+        lock_guard<mutex> lock(m_writeToStorageQueueLock);
+        m_waitingToWriteToStorage.clear();
+    }
 
     co_await this->ClearStorage();
 }
 
-task<void> EventQueue::WriteItemToStorage(shared_ptr<PayloadContainer> item)
+task<void> EventQueue::WriteItemToStorage(PayloadContainer_ptr item)
 {
-    if (!m_queueToDisk)
+    if (!m_queueToStorage)
     {
         return;
     }
@@ -143,7 +203,7 @@ task<void> EventQueue::WriteItemToStorage(shared_ptr<PayloadContainer> item)
 
 task<void> EventQueue::ClearStorage()
 {
-    if (!m_queueToDisk)
+    if (!m_queueToStorage)
     {
         return;
     }

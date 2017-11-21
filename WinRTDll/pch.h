@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <assert.h>
 #include <chrono>
 #include <collection.h>
 #include <experimental\resumable>

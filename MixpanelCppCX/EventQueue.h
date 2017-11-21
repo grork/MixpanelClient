@@ -16,7 +16,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     {
         friend class EventQueueTests;
 
-    private:
+    public:
         struct PayloadContainer
         {
             PayloadContainer(long long id, Windows::Data::Json::JsonObject^ payload);
@@ -24,9 +24,12 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             Windows::Data::Json::JsonObject^ Payload;
         };
 
-        static bool FindPayloadWithId(const std::shared_ptr<PayloadContainer>& other, const long long id);
+        enum class AddToUploadQueue
+        {
+            No,
+            Yes
+        };
 
-    public:
         EventQueue(Windows::Storage::StorageFolder^ localStorage);
 
 		/// <summary>	
@@ -59,6 +62,8 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// </summary>
         std::size_t GetWaitingToWriteToStorageLength();
 
+        std::size_t GetWaitingForUploadLength();
+
         /// <summary>
         /// Stop logging any items queue to disk. Note, that anything
         /// queued before enable is called again will not be saved to
@@ -68,12 +73,17 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         void EnableQueuingToStorage();
 
     private:
-        bool m_queueToDisk = true;
+        bool m_queueToStorage = true;
         std::atomic<long long> m_baseId;
-        std::vector<std::shared_ptr<PayloadContainer>> m_waitingToWriteToStorage;
         Windows::Storage::StorageFolder^ m_localStorage;
-        concurrency::task_completion_event<void> m_queueDrained;
 
+        std::vector<std::shared_ptr<PayloadContainer>> m_waitingToWriteToStorage;
+        std::mutex m_writeToStorageQueueLock;
+
+        std::vector<std::shared_ptr<PayloadContainer>> m_waitingForUpload;
+        std::mutex m_waitingForUploadQueueLock;
+
+        
         /// <summary>
         /// When we're writing the files to disk, we use a 'base' ID created
         /// at startup to help avoid conflicts with time. This method isolates
@@ -81,10 +91,11 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// can avoid other clashes.
         /// </summary>
         long long GetNextId();
+
+        static bool FindPayloadWithId(const std::shared_ptr<PayloadContainer>& other, const long long id);
         concurrency::task<void> WriteItemToStorage(const std::shared_ptr<PayloadContainer> item);
         concurrency::task<void> ClearStorage();
-
-		std::mutex m_queueAccessLock;
+        concurrency::task<void> WriteCurrentQueueStateToStorage(AddToUploadQueue addToUpload = AddToUploadQueue::Yes);
     };
 } } }
     
