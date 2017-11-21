@@ -74,7 +74,7 @@ long long EventQueue::QueueEventForUpload(JsonObject^ payload)
     return id;
 }
 
-task<void> EventQueue::RestorePendingUploadQueue()
+task<void> EventQueue::RestorePendingUploadQueueFromStorage()
 {
     auto files = co_await m_localStorage->GetFilesAsync();
     vector<shared_ptr<PayloadContainer>> loadedPayload;
@@ -140,24 +140,6 @@ task<void> EventQueue::WriteItemToStorage(shared_ptr<PayloadContainer> item)
     auto file = co_await m_localStorage->CreateFileAsync(GetFileNameForId(item->Id));
     co_await FileIO::WriteTextAsync(file, payload->Stringify());
 }
-
-//task<void> EventQueue::RemoveItemFromStorage(long long id)
-//{
-//    if(!m_queueToDisk)
-//    {
-//        return;
-//    }
-//
-//    auto name = GetFileNameForId(id);
-//
-//    auto file = co_await m_localStorage->TryGetItemAsync(name);
-//    if (file == nullptr)
-//    {
-//        return;
-//    }
-//
-//    co_await file->DeleteAsync();
-//}
 
 task<void> EventQueue::ClearStorage()
 {

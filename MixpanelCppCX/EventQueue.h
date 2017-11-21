@@ -47,7 +47,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// Completes when it's finished loading from disk, and the
         /// data is now available in the queue.
         /// </summary>
-        concurrency::task<void> RestorePendingUploadQueue();
+        concurrency::task<void> RestorePendingUploadQueueFromStorage();
 
         /// <summary>
         /// Clears any items in the queue, and from storage.

@@ -174,7 +174,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
         task<shared_ptr<EventQueue>> GetQueueFromStorage()
         {
             auto queue = make_shared<EventQueue>(m_queueFolder);
-            co_await queue->RestorePendingUploadQueue();
+            co_await queue->RestorePendingUploadQueueFromStorage();
 
             return queue;
         }
