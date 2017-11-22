@@ -11,7 +11,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     /// <summary>
     /// MixpanelClient offers a API for interacting with Mixpanel for UWP apps running on Windows 10+
     /// </summary>
-
     class EventQueue
     {
         friend class EventQueueTests;
@@ -43,7 +42,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// Waits for the queued items to be written to disk before
         /// returning to the caller.
         /// </summary>
-        concurrency::task<void> PersistAllQueuedItemsToStorage();
+        concurrency::task<void> PersistAllQueuedItemsToStorageAndShutdown();
 
         /// <summary>
         /// Restores the queue state from any saved state on disk.
@@ -78,6 +77,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     private:
         bool m_queueToStorage = true;
         std::atomic<long long> m_baseId;
+        std::atomic<bool> m_shutdown;
         Windows::Storage::StorageFolder^ m_localStorage;
 
         std::vector<std::shared_ptr<PayloadContainer>> m_waitingToWriteToStorage;
@@ -85,7 +85,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         std::vector<std::shared_ptr<PayloadContainer>> m_waitingForUpload;
         std::mutex m_waitingForUploadQueueLock;
-
         
         /// <summary>
         /// When we're writing the files to disk, we use a 'base' ID created

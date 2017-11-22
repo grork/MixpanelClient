@@ -23,7 +23,7 @@ EventQueue::PayloadContainer::PayloadContainer(long long id, JsonObject^ payload
 {
 }
 
-EventQueue::EventQueue(StorageFolder^ localStorage) : m_localStorage(localStorage)
+EventQueue::EventQueue(StorageFolder^ localStorage) : m_localStorage(localStorage), m_shutdown(false)
 {
     if (localStorage == nullptr)
     {
@@ -72,6 +72,11 @@ bool EventQueue::FindPayloadWithId(const PayloadContainer_ptr& other, const long
 
 long long EventQueue::QueueEventForUpload(JsonObject^ payload)
 {
+    if (m_shutdown)
+    {
+        return 0;
+    }
+
     auto id = this->GetNextId();
     auto item = make_shared<PayloadContainer>(id, payload);
 
@@ -116,10 +121,12 @@ task<void> EventQueue::RestorePendingUploadQueueFromStorage()
     }
 }
 
-task<void> EventQueue::PersistAllQueuedItemsToStorage()
+task<void> EventQueue::PersistAllQueuedItemsToStorageAndShutdown()
 {
     TRACE_OUT("Persisting Queue items to Storage");
     co_await this->WriteCurrentQueueStateToStorage(AddToUploadQueue::No);
+
+    m_shutdown = true;
 }
 
 task<void> EventQueue::WriteCurrentQueueStateToStorage(AddToUploadQueue addToUpload)
@@ -157,7 +164,10 @@ task<void> EventQueue::WriteCurrentQueueStateToStorage(AddToUploadQueue addToUpl
         // Make sure they were actually found in the list.
         assert(first != m_waitingToWriteToStorage.end());
         assert(last != m_waitingToWriteToStorage.end());
-        m_waitingToWriteToStorage.erase(first, last);
+
+        // Erase this range, being aware of erase not deleting the item
+        // pointed to by last, so increment it to actually erase it
+        m_waitingToWriteToStorage.erase(first, last + 1);
     }
 
     if (addToUpload == AddToUploadQueue::No)
