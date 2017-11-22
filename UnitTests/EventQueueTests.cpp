@@ -56,7 +56,6 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
         {
             m_queueFolder = AsyncHelper::RunSynced(GetAndClearTestFolder());
             m_queue = make_shared<EventQueue>(m_queueFolder);
-            m_queue->DisableQueuingToStorage();
         }
 
         TEST_METHOD(ConstructionThrowsIfNoFolderProvided)
