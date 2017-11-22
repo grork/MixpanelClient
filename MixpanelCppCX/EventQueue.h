@@ -4,7 +4,7 @@
 #include <atomic>
 
 namespace CodevoidN { namespace  Tests { namespace Mixpanel {
-    class EventQueueTests;
+            class EventQueueTests;
 } } }
 
 namespace CodevoidN { namespace Utilities { namespace Mixpanel {
@@ -26,11 +26,11 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         EventQueue(Windows::Storage::StorageFolder^ localStorage);
         ~EventQueue();
 
-		/// <summary>	
-		/// Adds <paramref name="data" /> to the queue, and returns of the ID added to that data object.
-		///
-		/// Items placed in the queue are processed after being first written to storage.
-		/// </summary>
+        /// <summary>	
+        /// Adds <paramref name="data" /> to the queue, and returns of the ID added to that data object.
+        ///
+        /// Items placed in the queue are processed after being first written to storage.
+        /// </summary>
         long long QueueEventForUpload(Windows::Data::Json::JsonObject^ data);
 
         /// <summary>
@@ -77,7 +77,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         bool m_queueToStorage = true;
         std::atomic<long long> m_baseId;
-        std::optional<ShutdownState> m_shutdownState;
+        ShutdownState m_shutdownState;
 
         Windows::Storage::StorageFolder^ m_localStorage;
 
@@ -91,7 +91,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         std::vector<std::shared_ptr<PayloadContainer>> m_waitingForUpload;
         std::mutex m_waitingForUploadQueueLock;
-        
+
         /// <summary>
         /// When we're writing the files to disk, we use a 'base' ID created
         /// at startup to help avoid conflicts with time. This method isolates
@@ -100,9 +100,9 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// </summary>
         long long GetNextId();
 
-        static bool FindPayloadWithId(const std::shared_ptr<PayloadContainer>& other, const long long id);
         concurrency::task<void> WriteItemToStorage(const std::shared_ptr<PayloadContainer> item);
+        std::vector<std::shared_ptr<PayloadContainer>> WriteItemsToStorage(const std::vector<std::shared_ptr<PayloadContainer>>& items, const ShutdownState& state);
+        void AddItemsToUploadQueue(const std::vector<std::shared_ptr<PayloadContainer>>& itemsToUpload);
         concurrency::task<void> ClearStorage();
     };
 } } }
-    

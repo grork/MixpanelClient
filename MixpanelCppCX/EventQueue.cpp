@@ -18,6 +18,11 @@ String^ GetFileNameForId(const long long& id)
     return ref new String(to_wstring(id).append(L".json").c_str());
 }
 
+bool FindPayloadWithId(const PayloadContainer_ptr& other, const long long id)
+{
+    return other->Id == id;
+}
+
 EventQueue::PayloadContainer::PayloadContainer(long long id, JsonObject^ payload) :
     Id(id), Payload(payload)
 {
@@ -77,10 +82,6 @@ size_t EventQueue::GetWaitingForUploadLength()
     return m_waitingForUpload.size();
 }
 
-bool EventQueue::FindPayloadWithId(const PayloadContainer_ptr& other, const long long id)
-{
-    return other->Id == id;
-}
 
 long long EventQueue::QueueEventForUpload(JsonObject^ payload)
 {
@@ -130,9 +131,7 @@ task<void> EventQueue::RestorePendingUploadQueueFromStorage()
     // normally show up), because they're already on storage.
     {
         TRACE_OUT("Adding Items to upload queue");
-        lock_guard<mutex> lock(m_waitingForUploadQueueLock);
-        m_waitingForUpload.reserve(m_waitingForUpload.size() + loadedPayload.size());
-        m_waitingForUpload.insert(end(m_waitingForUpload), begin(loadedPayload), end(loadedPayload));
+        this->AddItemsToUploadQueue(loadedPayload);
     }
 }
 
@@ -185,15 +184,7 @@ void EventQueue::PersistToStorageWorker()
         }
 
         TRACE_OUT("Writing Payloads to Disk");
-        for (auto&& item : itemsToPersist)
-        {
-            if (*m_shutdownState > ShutdownState::Drain)
-            {
-                break;
-            }
-
-            this->WriteItemToStorage(item).wait();
-        }
+        PayloadContainers& successfullyProcessed = this->WriteItemsToStorage(itemsToPersist, m_shutdownState);
 
         // Remove the items from the queue
         {
@@ -201,21 +192,25 @@ void EventQueue::PersistToStorageWorker()
 
             TRACE_OUT("Clearing Write to Storage Queue");
 
-            // Get the position of the first & last elements in our snapped
-            // queue copy, so we can purge them from the waiting queue now.
-            // This assumes that the vector hasn't been trimmed e.g. it was
-            // only added to, then remove the first/last in this list from
-            // the original list.
-            auto first = find(m_writeToStorageQueue.begin(), m_writeToStorageQueue.end(), itemsToPersist.front());
-            auto last = find(m_writeToStorageQueue.begin(), m_writeToStorageQueue.end(), itemsToPersist.back());
+            // Remove the items from the list that had been successfully processed
+            // This requires us to loop through the list multiple times (boo), since
+            // we're changing the list, and they may be non-contiguous. Hopefully,
+            // however, the items are near the front of the list since thats what we
+            // were processing.
+            for (auto&& processedItem : successfullyProcessed)
+            {
+                auto removeAt = find_if(begin(m_writeToStorageQueue),
+                                        end(m_writeToStorageQueue),
+                                        bind(&FindPayloadWithId, placeholders::_1, processedItem->Id));
 
-            // Make sure they were actually found in the list.
-            assert(first != m_writeToStorageQueue.end());
-            assert(last != m_writeToStorageQueue.end());
+                if (removeAt == m_writeToStorageQueue.end())
+                {
+                    // Didn't find the item, so it must not be in the list any more
+                    continue;
+                }
 
-            // Erase this range, being aware of erase not deleting the item
-            // pointed to by last, so increment it to actually erase it
-            m_writeToStorageQueue.erase(first, last + 1);
+                m_writeToStorageQueue.erase(removeAt);
+            }
         }
 
         if (m_shutdownState > ShutdownState::None)
@@ -223,13 +218,36 @@ void EventQueue::PersistToStorageWorker()
             continue;
         }
 
-        TRACE_OUT("Adding persisted items to the upload queue");
-        lock_guard<mutex> uploadLock(m_waitingForUploadQueueLock);
-        m_waitingForUpload.reserve(m_waitingForUpload.size() + itemsToPersist.size());
-        m_waitingForUpload.insert(end(m_waitingForUpload), begin(itemsToPersist), end(itemsToPersist));
+        this->AddItemsToUploadQueue(successfullyProcessed);
     }
 
     m_writeToStorageWorkerStarted = false;
+}
+
+PayloadContainers EventQueue::WriteItemsToStorage(const PayloadContainers& items, const ShutdownState& state)
+{
+    PayloadContainers successfullyProcessedItems;
+
+    for (auto&& item : items)
+    {
+        if (state > ShutdownState::Drain)
+        {
+            break;
+        }
+
+        this->WriteItemToStorage(item).wait();
+        successfullyProcessedItems.emplace_back(item);
+    }
+
+    return std::move(successfullyProcessedItems);
+}
+
+void EventQueue::AddItemsToUploadQueue(const PayloadContainers& itemsToUpload)
+{
+    TRACE_OUT("Adding persisted items to the upload queue");
+    lock_guard<mutex> uploadLock(m_waitingForUploadQueueLock);
+    m_waitingForUpload.reserve(m_waitingForUpload.size() + itemsToUpload.size());
+    m_waitingForUpload.insert(end(m_waitingForUpload), begin(itemsToUpload), end(itemsToUpload));
 }
 
 task<void> EventQueue::PersistAllQueuedItemsToStorageAndShutdown()

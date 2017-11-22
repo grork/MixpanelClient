@@ -6,7 +6,6 @@
 #include <condition_variable>
 #include <experimental\resumable>
 #include <mutex>
-#include <optional>
 #include <pplawait.h>
 #include <ppltasks.h>
 #include <string>
