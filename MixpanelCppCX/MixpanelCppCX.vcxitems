@@ -19,6 +19,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)MixpanelClient.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)PayloadEncoder.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)RequestHelper.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)shared_pch.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)Tracing.h" />
   </ItemGroup>
   <ItemGroup>

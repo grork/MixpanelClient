@@ -23,13 +23,8 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             Windows::Data::Json::JsonObject^ Payload;
         };
 
-        enum class AddToUploadQueue
-        {
-            No,
-            Yes
-        };
-
         EventQueue(Windows::Storage::StorageFolder^ localStorage);
+        ~EventQueue();
 
 		/// <summary>	
 		/// Adds <paramref name="data" /> to the queue, and returns of the ID added to that data object.
@@ -67,21 +62,32 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::size_t GetWaitingForUploadLength();
 
         /// <summary>
-        /// Stop logging any items queue to disk. Note, that anything
-        /// queued before enable is called again will not be saved to
-        /// disk.
+        /// Start logging any items queue to disk.
         /// </summary>
-        void DisableQueuingToStorage();
         void EnableQueuingToStorage();
 
     private:
+        enum class ShutdownState
+        {
+            None,
+            Drain,
+            Drop,
+            Shutdown
+        };
+
         bool m_queueToStorage = true;
         std::atomic<long long> m_baseId;
-        std::atomic<bool> m_shutdown;
+        std::optional<ShutdownState> m_shutdownState;
+
         Windows::Storage::StorageFolder^ m_localStorage;
 
-        std::vector<std::shared_ptr<PayloadContainer>> m_waitingToWriteToStorage;
+        // Writing to storage work
+        std::vector<std::shared_ptr<PayloadContainer>> m_writeToStorageQueue;
+        std::condition_variable m_writeToStorageQueueReady;
         std::mutex m_writeToStorageQueueLock;
+        std::atomic<bool> m_writeToStorageWorkerStarted;
+        std::thread m_writeToStorageWorker;
+        void PersistToStorageWorker();
 
         std::vector<std::shared_ptr<PayloadContainer>> m_waitingForUpload;
         std::mutex m_waitingForUploadQueueLock;
@@ -97,7 +103,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         static bool FindPayloadWithId(const std::shared_ptr<PayloadContainer>& other, const long long id);
         concurrency::task<void> WriteItemToStorage(const std::shared_ptr<PayloadContainer> item);
         concurrency::task<void> ClearStorage();
-        concurrency::task<void> WriteCurrentQueueStateToStorage(AddToUploadQueue addToUpload = AddToUploadQueue::Yes);
     };
 } } }
     
