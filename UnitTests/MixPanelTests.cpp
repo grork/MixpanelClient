@@ -12,6 +12,9 @@ using namespace Windows::Data::Json;
 using namespace Windows::Foundation::Collections;
 using namespace Windows::Storage;
 
+// Set to 1, and an actual token to test sending
+// request to the service.
+#define DEFAULT_TOKEN_SET 0
 #define DEFAULT_TOKEN L"DEFAULT_TOKEN"
 
 namespace CodevoidN { namespace  Tests { namespace Mixpanel
@@ -394,6 +397,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::IsFalse(JsonValueType::Number == rawTimeValue->ValueType, L"Time was not the correct type");
         }
 
+#if DEFAULT_TOKEN_SET == 1
         TEST_METHOD(CanSendTrackRequest)
         {
             IPropertySet^ properties = ref new PropertySet();
@@ -401,5 +405,6 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             
             m_client->Track(L"TestEvent", properties);
         }
+#endif
     };
 } } }

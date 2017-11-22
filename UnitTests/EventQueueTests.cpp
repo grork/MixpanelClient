@@ -77,8 +77,8 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
         TEST_METHOD(CanQueueEvent)
         {
             auto result = m_queue->QueueEventForUpload(GenerateSamplePayload());
-            Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
-            Assert::IsTrue(1 == m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
+            Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");
+            Assert::AreEqual(1, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
         }
 
         TEST_METHOD(CanClearQueue)
@@ -95,12 +95,31 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
         {
             m_queue->EnableQueuingToStorage();
             auto result = m_queue->QueueEventForUpload(GenerateSamplePayload());
-            Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
-            Assert::IsTrue(1 == m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
+            Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");
+            Assert::AreEqual(1, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
 
-            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorage());
+            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorageAndShutdown());
 
+            Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
             Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
+        }
+
+        TEST_METHOD(QueuingAfterShutdownDoesntAddToQueue)
+        {
+            m_queue->EnableQueuingToStorage();
+
+            auto result = m_queue->QueueEventForUpload(GenerateSamplePayload());
+            Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");
+            Assert::AreEqual(1, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
+
+            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorageAndShutdown());
+
+            Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
+
+            result = m_queue->QueueEventForUpload(GenerateSamplePayload());
+
+            Assert::AreEqual(0, (int)result, L"Didn't expect to get a payload back");
+            Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
         }
 
         TEST_METHOD(MultipleItemsAreQueuedToDisk)
@@ -110,8 +129,9 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             m_queue->QueueEventForUpload(GenerateSamplePayload());
             Assert::AreEqual(2, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
 
-            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorage());
+            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorageAndShutdown());
 
+            Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
             Assert::AreEqual(2, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
         }
 
@@ -121,11 +141,12 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             JsonObject^ payload = GenerateSamplePayload();
 
             auto result = m_queue->QueueEventForUpload(payload);
-            Assert::IsFalse(0 == result, L"Didn't get a token back from queueing the event");
-            Assert::IsTrue(1 == m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
+            Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");
+            Assert::AreEqual(1, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
 
-            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorage());
+            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorageAndShutdown());
 
+            Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
             Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
 
             JsonObject^ fromFile = AsyncHelper::RunSynced(this->RetrievePayloadForId(result));
@@ -149,10 +170,9 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::AreEqual(2, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
             Assert::AreEqual(0, (int)m_queue->GetWaitingForUploadLength(), L"Didn't expect any items to upload");
 
-            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorage());
+            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorageAndShutdown());
 
             Assert::AreEqual(0, (int)m_queue->GetWaitingForUploadLength(), L"Shouldn't have anything in the upload queue.");
-
             Assert::AreEqual(2, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
 
             AsyncHelper::RunSynced(m_queue->Clear());
