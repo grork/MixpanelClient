@@ -61,9 +61,8 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         void EnableQueuingToStorage();
 
     private:
-        bool m_queueToStorage = true;
         std::atomic<long long> m_baseId;
-        ShutdownState m_shutdownState;
+        WorkerState m_state;
 
         Windows::Storage::StorageFolder^ m_localStorage;
         CodevoidN::Utilities::Mixpanel::BackgroundWorker m_writeToStorageWorker;
@@ -80,7 +79,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         long long GetNextId();
 
         concurrency::task<void> WriteItemToStorage(const std::shared_ptr<PayloadContainer> item);
-        std::vector<std::shared_ptr<PayloadContainer>> WriteItemsToStorage(const std::vector<std::shared_ptr<PayloadContainer>>& items, const ShutdownState& state);
+        std::vector<std::shared_ptr<PayloadContainer>> WriteItemsToStorage(const std::vector<std::shared_ptr<PayloadContainer>>& items, const WorkerState& state);
         void AddItemsToUploadQueue(const std::vector<std::shared_ptr<PayloadContainer>>& itemsToUpload);
         concurrency::task<void> ClearStorage();
 

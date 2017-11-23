@@ -21,7 +21,7 @@ String^ GetFileNameForId(const long long& id)
 
 EventQueue::EventQueue(StorageFolder^ localStorage) :
     m_localStorage(localStorage),
-    m_shutdownState(ShutdownState::None),
+    m_state(WorkerState::None),
     m_writeToStorageWorker(
         bind(&EventQueue::WriteItemsToStorage, this, placeholders::_1, placeholders::_2),
         bind(&EventQueue::AddItemsToUploadQueue, this, placeholders::_1),
@@ -44,8 +44,8 @@ EventQueue::~EventQueue()
 {
     TRACE_OUT("Event Queue being destroyed");
 
-    m_shutdownState = ShutdownState::Shutdown;
-    m_writeToStorageWorker.Shutdown(m_shutdownState);
+    m_state = WorkerState::Shutdown;
+    m_writeToStorageWorker.Shutdown(m_state);
 }
 
 long long EventQueue::GetNextId()
@@ -70,7 +70,7 @@ size_t EventQueue::GetWaitingForUploadLength()
 
 long long EventQueue::QueueEventForUpload(JsonObject^ payload)
 {
-    if (m_shutdownState > ShutdownState::None)
+    if (m_state > WorkerState::None)
     {
         TRACE_OUT("Event dropped due to shutting down");
         return 0;
@@ -116,17 +116,16 @@ task<void> EventQueue::RestorePendingUploadQueueFromStorage()
 
 void EventQueue::EnableQueuingToStorage()
 {
-    m_queueToStorage = true;
     m_writeToStorageWorker.Start();
 }
 
-PayloadContainers EventQueue::WriteItemsToStorage(const PayloadContainers& items, const ShutdownState& state)
+PayloadContainers EventQueue::WriteItemsToStorage(const PayloadContainers& items, const WorkerState& state)
 {
     PayloadContainers successfullyProcessedItems;
 
     for (auto&& item : items)
     {
-        if (state > ShutdownState::Drain)
+        if (state > WorkerState::Drain)
         {
             break;
         }
@@ -148,10 +147,10 @@ void EventQueue::AddItemsToUploadQueue(const PayloadContainers& itemsToUpload)
 
 task<void> EventQueue::PersistAllQueuedItemsToStorageAndShutdown()
 {
-    m_shutdownState = ShutdownState::Drain;
+    m_state = WorkerState::Drain;
 
     return create_task([this]() {
-        this->m_writeToStorageWorker.Shutdown(m_shutdownState);
+        this->m_writeToStorageWorker.Shutdown(m_state);
     });
 }
 
@@ -164,11 +163,6 @@ task<void> EventQueue::Clear()
 
 task<void> EventQueue::WriteItemToStorage(PayloadContainer_ptr item)
 {
-    if (!m_queueToStorage)
-    {
-        return;
-    }
-
     TRACE_OUT("Writing File: " + GetFileNameForId(item->Id));
     JsonObject^ payload = item->Payload;
 
@@ -178,11 +172,6 @@ task<void> EventQueue::WriteItemToStorage(PayloadContainer_ptr item)
 
 task<void> EventQueue::ClearStorage()
 {
-    if (!m_queueToStorage)
-    {
-        return;
-    }
-
     auto files = co_await m_localStorage->GetFilesAsync();
     for (auto&& file : files)
     {
