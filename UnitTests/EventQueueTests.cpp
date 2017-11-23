@@ -103,6 +103,40 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
         }
 
+        TEST_METHOD(ItemsAreQueuedToDiskAfterDelay)
+        {
+            m_queue->SetWriteToStorageIdleLimits(100ms, 10);
+            m_queue->EnableQueuingToStorage();
+            auto result = m_queue->QueueEventForUpload(GenerateSamplePayload());
+            Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");
+            Assert::AreEqual(1, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
+
+            AsyncHelper::RunSynced(create_task([] {
+                std::this_thread::sleep_for(200ms);
+            }));
+
+            Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
+            Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
+        }
+
+        TEST_METHOD(ItemsAreQueuedToDiskAfterThreshold)
+        {
+            m_queue->SetWriteToStorageIdleLimits(1000ms, 10);
+            m_queue->EnableQueuingToStorage();
+            
+            for (int i = 0; i < 11; i++)
+            {
+                m_queue->QueueEventForUpload(GenerateSamplePayload());
+            }
+
+            AsyncHelper::RunSynced(create_task([] {
+                std::this_thread::sleep_for(100ms);
+            }));
+
+            Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
+            Assert::AreEqual(11, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
+        }
+
         TEST_METHOD(QueuingAfterShutdownDoesntAddToQueue)
         {
             m_queue->EnableQueuingToStorage();

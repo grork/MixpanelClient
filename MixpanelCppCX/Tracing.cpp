@@ -12,7 +12,7 @@ void CodevoidN::Utilities::Trace(String^ data)
     OutputDebugString(L"\r\n");
 }
 
-void CodevoidN::Utilities::Trace(wstring& data)
+void CodevoidN::Utilities::Trace(wstring data)
 {
     OutputDebugString(data.c_str());
     OutputDebugString(L"\r\n");
