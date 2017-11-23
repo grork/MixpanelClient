@@ -1,7 +1,6 @@
 #pragma once
 
-#include <mutex>
-#include <atomic>
+#include "BackgroundWorker.h"
 
 namespace CodevoidN { namespace  Tests { namespace Mixpanel {
             class EventQueueTests;
@@ -16,13 +15,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         friend class EventQueueTests;
 
     public:
-        struct PayloadContainer
-        {
-            PayloadContainer(long long id, Windows::Data::Json::JsonObject^ payload);
-            long long Id;
-            Windows::Data::Json::JsonObject^ Payload;
-        };
-
         EventQueue(Windows::Storage::StorageFolder^ localStorage);
         ~EventQueue();
 
@@ -67,27 +59,12 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         void EnableQueuingToStorage();
 
     private:
-        enum class ShutdownState
-        {
-            None,
-            Drain,
-            Drop,
-            Shutdown
-        };
-
         bool m_queueToStorage = true;
         std::atomic<long long> m_baseId;
         ShutdownState m_shutdownState;
 
         Windows::Storage::StorageFolder^ m_localStorage;
-
-        // Writing to storage work
-        std::vector<std::shared_ptr<PayloadContainer>> m_writeToStorageQueue;
-        std::condition_variable m_writeToStorageQueueReady;
-        std::mutex m_writeToStorageQueueLock;
-        std::atomic<bool> m_writeToStorageWorkerStarted;
-        std::thread m_writeToStorageWorker;
-        void PersistToStorageWorker();
+        CodevoidN::Utilities::Mixpanel::BackgroundWorker m_writeToStorageWorkerQueue;
 
         std::vector<std::shared_ptr<PayloadContainer>> m_waitingForUpload;
         std::mutex m_waitingForUploadQueueLock;

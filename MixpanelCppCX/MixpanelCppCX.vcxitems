@@ -15,6 +15,7 @@
     <ProjectCapability Include="SourceItemsFromImports" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)BackgroundWorker.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)EventQueue.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)MixpanelClient.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)PayloadEncoder.h" />
@@ -23,6 +24,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)Tracing.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)BackgroundWorker.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)EventQueue.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)MixpanelClient.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)PayloadEncoder.cpp" />
