@@ -1,6 +1,7 @@
 #pragma once
 
 #include <assert.h>
+#include <atomic>
 #include <chrono>
 #include <collection.h>
 #include <condition_variable>

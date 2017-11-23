@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "BackgroundWorker.h"
 #include "EventQueue.h"
 #include "Tracing.h"
 
@@ -7,10 +8,10 @@ using namespace concurrency;
 using namespace Platform;
 using namespace std;
 using namespace std::chrono;
-using namespace Windows::Data::Json;
 using namespace Windows::Storage;
+using namespace Windows::Data::Json;
 
-using PayloadContainer_ptr = shared_ptr<EventQueue::PayloadContainer>;
+using PayloadContainer_ptr = shared_ptr<PayloadContainer>;
 using PayloadContainers = vector<PayloadContainer_ptr>;
 
 String^ GetFileNameForId(const long long& id)
@@ -18,24 +19,18 @@ String^ GetFileNameForId(const long long& id)
     return ref new String(to_wstring(id).append(L".json").c_str());
 }
 
-bool FindPayloadWithId(const PayloadContainer_ptr& other, const long long id)
-{
-    return other->Id == id;
-}
-
-EventQueue::PayloadContainer::PayloadContainer(long long id, JsonObject^ payload) :
-    Id(id), Payload(payload)
-{
-}
-
 EventQueue::EventQueue(StorageFolder^ localStorage) :
     m_localStorage(localStorage),
     m_shutdownState(ShutdownState::None),
-    m_writeToStorageWorkerStarted(false)
+    m_writeToStorageWorkerQueue(
+        bind(&EventQueue::WriteItemsToStorage, this, placeholders::_1, placeholders::_2),
+        bind(&EventQueue::AddItemsToUploadQueue, this, placeholders::_1),
+        wstring(L"WriteToStorage")
+    )
 {
     if (localStorage == nullptr)
     {
-        throw std::invalid_argument("Must provide local storage folder");
+        throw invalid_argument("Must provide local storage folder");
     }
 
     TRACE_OUT("Event Queue Constructed");
@@ -50,16 +45,7 @@ EventQueue::~EventQueue()
     TRACE_OUT("Event Queue being destroyed");
 
     m_shutdownState = ShutdownState::Shutdown;
-
-    if (m_writeToStorageWorker.joinable())
-    {
-        TRACE_OUT("Joining Write To Storage Worker thread");
-        m_writeToStorageQueueReady.notify_one();
-        m_writeToStorageWorker.join();
-        assert(!m_writeToStorageWorkerStarted);
-    }
-
-    TRACE_OUT("Event Queue Destroyed");
+    m_writeToStorageWorkerQueue.Shutdown(m_shutdownState);
 }
 
 long long EventQueue::GetNextId()
@@ -72,8 +58,7 @@ long long EventQueue::GetNextId()
 
 size_t EventQueue::GetWaitingToWriteToStorageLength()
 {
-    lock_guard<mutex> lock(m_writeToStorageQueueLock);
-    return m_writeToStorageQueue.size();
+    return m_writeToStorageWorkerQueue.GetQueueLength();
 }
 
 size_t EventQueue::GetWaitingForUploadLength()
@@ -95,13 +80,7 @@ long long EventQueue::QueueEventForUpload(JsonObject^ payload)
     auto item = make_shared<PayloadContainer>(id, payload);
 
     TRACE_OUT("Event Queued: " + id);
-
-    {
-        lock_guard<mutex> lock(m_writeToStorageQueueLock);
-        m_writeToStorageQueue.emplace_back(item);
-    }
-
-    m_writeToStorageQueueReady.notify_one();
+    m_writeToStorageWorkerQueue.AddWork(item);
 
     return id;
 }
@@ -138,90 +117,7 @@ task<void> EventQueue::RestorePendingUploadQueueFromStorage()
 void EventQueue::EnableQueuingToStorage()
 {
     m_queueToStorage = true;
-    if (m_writeToStorageWorkerStarted)
-    {
-        TRACE_OUT("Write To Storage worker already running");
-        return;
-    }
-
-    TRACE_OUT("Starting Write To Storage worker");
-    m_writeToStorageWorkerStarted = true;
-    m_writeToStorageWorker = thread(&EventQueue::PersistToStorageWorker, this);
-}
-
-void EventQueue::PersistToStorageWorker()
-{
-    while (m_shutdownState < ShutdownState::Drop)
-    {
-        TRACE_OUT("Write To Storage Iterating");
-        PayloadContainers itemsToPersist;
-
-        {
-            unique_lock<mutex> lock(m_writeToStorageQueueLock);
-
-            // If we don't have anything in the queue, lets wait for something
-            // to be in it, or to shutdown.
-            if (m_writeToStorageQueue.size() < 1)
-            {
-                TRACE_OUT("Waiting for Items in the Write To Storage Queue");
-
-                m_writeToStorageQueueReady.wait(lock, [this]() {
-                    return ((m_writeToStorageQueue.size() > 0) || (m_shutdownState > ShutdownState::None));
-                });
-            }
-
-            itemsToPersist.assign(begin(m_writeToStorageQueue), end(m_writeToStorageQueue));
-        }
-
-        if (itemsToPersist.size() == 0)
-        {
-            if (m_shutdownState == ShutdownState::Drain)
-            {
-                m_shutdownState = ShutdownState::Shutdown;
-            }
-
-            continue;
-        }
-
-        TRACE_OUT("Writing Payloads to Disk");
-        PayloadContainers& successfullyProcessed = this->WriteItemsToStorage(itemsToPersist, m_shutdownState);
-
-        // Remove the items from the queue
-        {
-            lock_guard<mutex> lock(m_writeToStorageQueueLock);
-
-            TRACE_OUT("Clearing Write to Storage Queue");
-
-            // Remove the items from the list that had been successfully processed
-            // This requires us to loop through the list multiple times (boo), since
-            // we're changing the list, and they may be non-contiguous. Hopefully,
-            // however, the items are near the front of the list since thats what we
-            // were processing.
-            for (auto&& processedItem : successfullyProcessed)
-            {
-                auto removeAt = find_if(begin(m_writeToStorageQueue),
-                                        end(m_writeToStorageQueue),
-                                        bind(&FindPayloadWithId, placeholders::_1, processedItem->Id));
-
-                if (removeAt == m_writeToStorageQueue.end())
-                {
-                    // Didn't find the item, so it must not be in the list any more
-                    continue;
-                }
-
-                m_writeToStorageQueue.erase(removeAt);
-            }
-        }
-
-        if (m_shutdownState > ShutdownState::None)
-        {
-            continue;
-        }
-
-        this->AddItemsToUploadQueue(successfullyProcessed);
-    }
-
-    m_writeToStorageWorkerStarted = false;
+    m_writeToStorageWorkerQueue.Start();
 }
 
 PayloadContainers EventQueue::WriteItemsToStorage(const PayloadContainers& items, const ShutdownState& state)
@@ -255,26 +151,13 @@ task<void> EventQueue::PersistAllQueuedItemsToStorageAndShutdown()
     m_shutdownState = ShutdownState::Drain;
 
     return create_task([this]() {
-        if (!m_writeToStorageWorker.joinable())
-        {
-            return;
-        }
-
-        m_writeToStorageWorker.join();
+        this->m_writeToStorageWorkerQueue.Shutdown(m_shutdownState);
     });
 }
 
 task<void> EventQueue::Clear()
 {
-    {
-        // This is a scoped lock, because the lock is only
-        // held for 1 thread -- not across threads. Since the
-        // deletion here happens separately from the queue it's
-        // ok to hold the lock only while we clear things from the
-        // in memory list.
-        lock_guard<mutex> lock(m_writeToStorageQueueLock);
-        m_writeToStorageQueue.clear();
-    }
+    m_writeToStorageWorkerQueue.Clear();
 
     co_await this->ClearStorage();
 }
