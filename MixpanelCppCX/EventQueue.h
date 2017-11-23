@@ -12,10 +12,12 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     /// </summary>
     class EventQueue
     {
-        friend class EventQueueTests;
+        friend class CodevoidN::Tests::Mixpanel::EventQueueTests;
 
     public:
-        EventQueue(Windows::Storage::StorageFolder^ localStorage);
+        EventQueue(
+            Windows::Storage::StorageFolder^ localStorage
+        );
         ~EventQueue();
 
         /// <summary>	
@@ -64,7 +66,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         ShutdownState m_shutdownState;
 
         Windows::Storage::StorageFolder^ m_localStorage;
-        CodevoidN::Utilities::Mixpanel::BackgroundWorker m_writeToStorageWorkerQueue;
+        CodevoidN::Utilities::Mixpanel::BackgroundWorker m_writeToStorageWorker;
 
         std::vector<std::shared_ptr<PayloadContainer>> m_waitingForUpload;
         std::mutex m_waitingForUploadQueueLock;
@@ -81,5 +83,11 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::vector<std::shared_ptr<PayloadContainer>> WriteItemsToStorage(const std::vector<std::shared_ptr<PayloadContainer>>& items, const ShutdownState& state);
         void AddItemsToUploadQueue(const std::vector<std::shared_ptr<PayloadContainer>>& itemsToUpload);
         concurrency::task<void> ClearStorage();
+
+        /// <summary>
+        /// Configures the idle limits for the write to storage behaviour.
+        /// This overrides the defaults, soley for testing purposes.
+        /// </summary>
+        void SetWriteToStorageIdleLimits(std::chrono::milliseconds idleTimeout, size_t idleItemThreshold);
     };
 } } }

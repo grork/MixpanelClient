@@ -1,9 +1,12 @@
 #include "pch.h"
 #include "BackgroundWorker.h"
+
 #include "Tracing.h"
 
 using namespace CodevoidN::Utilities::Mixpanel;
+using namespace concurrency;
 using namespace std;
+using namespace std::chrono;
 using namespace Windows::Data::Json;
 
 using PayloadContainer_ptr = shared_ptr<PayloadContainer>;
@@ -19,18 +22,68 @@ PayloadContainer::PayloadContainer(long long id, JsonObject^ payload) :
 {
 }
 
+// concurrency::timer is weird, and requires you to set things up in weird ways
+// (hence the pointers). Also, it can't be "Restarted" if it's a single timer
+// so we need to recreate it every time. This function just wraps things up neatly.
+tuple<shared_ptr<timer<int>>, shared_ptr<call<int>>> CreateConcurrencyTimer(milliseconds timeout, function<void()> callback)
+{
+    auto callWrapper = make_shared<call<int>>([callback](int) {
+        callback();
+    });
+
+    auto timerInstance = make_shared<concurrency::timer<int>>((int)timeout.count(), 0, callWrapper.get(), false);
+
+    return make_tuple(timerInstance, callWrapper);
+}
+
+// Per CreateConcurrencyTimer, this helps clean the timers up.
+void CancelConcurrencyTimer(shared_ptr<timer<int>>& timer, shared_ptr<call<int>>& target)
+{
+    if (timer != nullptr && target != nullptr)
+    {
+        timer->stop();
+        timer->unlink_target(target.get());
+    }
+
+    target = nullptr;
+    timer = nullptr;
+}
+
 BackgroundWorker::BackgroundWorker(
     function<PayloadContainers(PayloadContainers&, const ShutdownState&)> processItemsCallback,
     function<void(PayloadContainers&)> postProcessItemsCallback,
-    wstring& tracePrefix
+    const wstring& tracePrefix,
+    milliseconds debounceTimeout,
+    size_t debounceItemThreshold
 ) :
     m_processItemsCallback(processItemsCallback),
     m_postProcessItemsCallback(postProcessItemsCallback),
     m_tracePrefix(tracePrefix),
     m_workerStarted(false),
-    m_shutdownState(ShutdownState::None)
+    m_shutdownState(ShutdownState::None),
+    m_debounceTimeout(debounceTimeout),
+    m_debounceItemThreshold(debounceItemThreshold)
 {
+}
 
+void BackgroundWorker::SetDebounceTimeout(milliseconds debounceTimeout)
+{
+    if (m_workerStarted)
+    {
+        throw std::logic_error("Cannot change debounce timeout while worker is running");
+    }
+
+    m_debounceTimeout = debounceTimeout;
+}
+
+void BackgroundWorker::SetDebounceItemThreshold(size_t debounceItemThreshold)
+{
+    if (m_workerStarted)
+    {
+        throw std::logic_error("Cannot change debounce item threshold while worker is running");
+    }
+
+    m_debounceItemThreshold = debounceItemThreshold;
 }
 
 BackgroundWorker::~BackgroundWorker()
@@ -56,7 +109,25 @@ void BackgroundWorker::AddWork(PayloadContainer_ptr& item)
     }
 
     TRACE_OUT(m_tracePrefix + L": Notifying worker thread");
-    m_hasItems.notify_one();
+
+    CancelConcurrencyTimer(m_debounceTimer, m_debounceTimerCallback);
+
+    if (this->GetQueueLength() > m_debounceItemThreshold)
+    {
+        m_hasItems.notify_one();
+    }
+    else
+    {
+        auto timer = CreateConcurrencyTimer(m_debounceTimeout, [this]() {
+            TRACE_OUT(m_tracePrefix + L": Debounce Timer tiggered");
+            m_hasItems.notify_one();
+        });
+
+        m_debounceTimer = get<0>(timer);
+        m_debounceTimerCallback = get<1>(timer);
+
+        m_debounceTimer->start();
+    }
 }
 
 void BackgroundWorker::Clear()
@@ -71,6 +142,8 @@ void BackgroundWorker::Shutdown(const ShutdownState state)
 {
     TRACE_OUT(m_tracePrefix + L": Shutting down");
     m_shutdownState = state;
+    
+    CancelConcurrencyTimer(m_debounceTimer, m_debounceTimerCallback);
 
     if (m_workerThread.joinable())
     {
@@ -101,7 +174,8 @@ void BackgroundWorker::Start()
         return;
     }
 
-    TRACE_OUT(m_tracePrefix + L"Starting Write To Storage worker");
+    TRACE_OUT(m_tracePrefix + L": Starting Write To Storage worker");
+    m_shutdownState = ShutdownState::None;
     m_workerStarted = true;
     m_workerThread = thread(&BackgroundWorker::Worker, this);
 }
@@ -142,7 +216,7 @@ void BackgroundWorker::Worker()
         }
 
         TRACE_OUT(m_tracePrefix + L": Processing Items");
-        PayloadContainers& successfullyProcessed = this->m_processItemsCallback(itemsToPersist, m_shutdownState);
+        PayloadContainers successfullyProcessed = this->m_processItemsCallback(itemsToPersist, m_shutdownState);
 
         // Remove the items from the queue
         {

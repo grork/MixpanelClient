@@ -22,7 +22,7 @@ String^ GetFileNameForId(const long long& id)
 EventQueue::EventQueue(StorageFolder^ localStorage) :
     m_localStorage(localStorage),
     m_shutdownState(ShutdownState::None),
-    m_writeToStorageWorkerQueue(
+    m_writeToStorageWorker(
         bind(&EventQueue::WriteItemsToStorage, this, placeholders::_1, placeholders::_2),
         bind(&EventQueue::AddItemsToUploadQueue, this, placeholders::_1),
         wstring(L"WriteToStorage")
@@ -45,7 +45,7 @@ EventQueue::~EventQueue()
     TRACE_OUT("Event Queue being destroyed");
 
     m_shutdownState = ShutdownState::Shutdown;
-    m_writeToStorageWorkerQueue.Shutdown(m_shutdownState);
+    m_writeToStorageWorker.Shutdown(m_shutdownState);
 }
 
 long long EventQueue::GetNextId()
@@ -58,7 +58,7 @@ long long EventQueue::GetNextId()
 
 size_t EventQueue::GetWaitingToWriteToStorageLength()
 {
-    return m_writeToStorageWorkerQueue.GetQueueLength();
+    return m_writeToStorageWorker.GetQueueLength();
 }
 
 size_t EventQueue::GetWaitingForUploadLength()
@@ -80,7 +80,7 @@ long long EventQueue::QueueEventForUpload(JsonObject^ payload)
     auto item = make_shared<PayloadContainer>(id, payload);
 
     TRACE_OUT("Event Queued: " + id);
-    m_writeToStorageWorkerQueue.AddWork(item);
+    m_writeToStorageWorker.AddWork(item);
 
     return id;
 }
@@ -117,7 +117,7 @@ task<void> EventQueue::RestorePendingUploadQueueFromStorage()
 void EventQueue::EnableQueuingToStorage()
 {
     m_queueToStorage = true;
-    m_writeToStorageWorkerQueue.Start();
+    m_writeToStorageWorker.Start();
 }
 
 PayloadContainers EventQueue::WriteItemsToStorage(const PayloadContainers& items, const ShutdownState& state)
@@ -135,7 +135,7 @@ PayloadContainers EventQueue::WriteItemsToStorage(const PayloadContainers& items
         successfullyProcessedItems.emplace_back(item);
     }
 
-    return std::move(successfullyProcessedItems);
+    return successfullyProcessedItems;
 }
 
 void EventQueue::AddItemsToUploadQueue(const PayloadContainers& itemsToUpload)
@@ -151,13 +151,13 @@ task<void> EventQueue::PersistAllQueuedItemsToStorageAndShutdown()
     m_shutdownState = ShutdownState::Drain;
 
     return create_task([this]() {
-        this->m_writeToStorageWorkerQueue.Shutdown(m_shutdownState);
+        this->m_writeToStorageWorker.Shutdown(m_shutdownState);
     });
 }
 
 task<void> EventQueue::Clear()
 {
-    m_writeToStorageWorkerQueue.Clear();
+    m_writeToStorageWorker.Clear();
 
     co_await this->ClearStorage();
 }
@@ -188,4 +188,10 @@ task<void> EventQueue::ClearStorage()
     {
         co_await file->DeleteAsync();
     }
+}
+
+void EventQueue::SetWriteToStorageIdleLimits(std::chrono::milliseconds idleTimeout, size_t idleItemThreshold)
+{
+    m_writeToStorageWorker.SetDebounceTimeout(idleTimeout);
+    m_writeToStorageWorker.SetDebounceItemThreshold(idleItemThreshold);
 }

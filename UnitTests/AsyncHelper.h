@@ -63,7 +63,7 @@ namespace CodevoidN { namespace Tests { namespace Utilities {
         };
 
         template<typename T>
-        static T RunSynced(task<T>& t)
+        static T RunSynced(task<T> t)
         {
             HANDLE hEvent = CreateEventEx(NULL, NULL, CREATE_EVENT_MANUAL_RESET, EVENT_ALL_ACCESS);
             if (hEvent == NULL)
