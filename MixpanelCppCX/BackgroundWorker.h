@@ -9,7 +9,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         Windows::Data::Json::JsonObject^ Payload;
     };
 
-    enum class ShutdownState
+    enum class WorkerState
     {
         None,
         Drain,
@@ -21,7 +21,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     {
     public:
         BackgroundWorker(
-            std::function<std::vector<std::shared_ptr<PayloadContainer>>(std::vector<std::shared_ptr<PayloadContainer>>&, const ShutdownState&)> processItemsCallback,
+            std::function<std::vector<std::shared_ptr<PayloadContainer>>(std::vector<std::shared_ptr<PayloadContainer>>&, const WorkerState&)> processItemsCallback,
             std::function<void(std::vector<std::shared_ptr<PayloadContainer>>&)> postProcessItemsCallback,
             const std::wstring& tracePrefix,
             const std::chrono::milliseconds debounceTimeout = std::chrono::milliseconds(500),
@@ -32,7 +32,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         void AddWork(std::shared_ptr<PayloadContainer>& item);
         void Start();
         void Clear();
-        void Shutdown(const ShutdownState state);
+        void Shutdown(const WorkerState state);
         void SetDebounceTimeout(std::chrono::milliseconds debounceTimeout);
         void SetDebounceItemThreshold(size_t debounceItemThreshold);
 
@@ -41,7 +41,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::shared_ptr<concurrency::call<int>> m_debounceTimerCallback;
         std::chrono::milliseconds m_debounceTimeout;
         size_t m_debounceItemThreshold;
-        std::function<std::vector<std::shared_ptr<PayloadContainer>>(std::vector<std::shared_ptr<PayloadContainer>>&, const ShutdownState&)> m_processItemsCallback;
+        std::function<std::vector<std::shared_ptr<PayloadContainer>>(std::vector<std::shared_ptr<PayloadContainer>>&, const WorkerState&)> m_processItemsCallback;
         std::function<void(std::vector<std::shared_ptr<PayloadContainer>>&)> m_postProcessItemsCallback;
         std::wstring m_tracePrefix;
         std::vector<std::shared_ptr<PayloadContainer>> m_items;
@@ -49,7 +49,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::condition_variable m_hasItems;
         std::atomic<bool> m_workerStarted;
         std::thread m_workerThread;
-        ShutdownState m_shutdownState;
+        WorkerState m_state;
         void Worker();
     };
 } } }

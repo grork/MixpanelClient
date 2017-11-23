@@ -50,7 +50,7 @@ void CancelConcurrencyTimer(shared_ptr<timer<int>>& timer, shared_ptr<call<int>>
 }
 
 BackgroundWorker::BackgroundWorker(
-    function<PayloadContainers(PayloadContainers&, const ShutdownState&)> processItemsCallback,
+    function<PayloadContainers(PayloadContainers&, const WorkerState&)> processItemsCallback,
     function<void(PayloadContainers&)> postProcessItemsCallback,
     const wstring& tracePrefix,
     milliseconds debounceTimeout,
@@ -60,7 +60,7 @@ BackgroundWorker::BackgroundWorker(
     m_postProcessItemsCallback(postProcessItemsCallback),
     m_tracePrefix(tracePrefix),
     m_workerStarted(false),
-    m_shutdownState(ShutdownState::None),
+    m_state(WorkerState::None),
     m_debounceTimeout(debounceTimeout),
     m_debounceItemThreshold(debounceItemThreshold)
 {
@@ -89,7 +89,7 @@ void BackgroundWorker::SetDebounceItemThreshold(size_t debounceItemThreshold)
 BackgroundWorker::~BackgroundWorker()
 {
     TRACE_OUT(m_tracePrefix + L": Queue being destroyed");
-    this->Shutdown(ShutdownState::Shutdown);
+    this->Shutdown(WorkerState::Shutdown);
     TRACE_OUT(m_tracePrefix + L": Queue Destroyed");
 }
 
@@ -138,10 +138,10 @@ void BackgroundWorker::Clear()
     TRACE_OUT(m_tracePrefix + L": Cleared");
 }
 
-void BackgroundWorker::Shutdown(const ShutdownState state)
+void BackgroundWorker::Shutdown(const WorkerState state)
 {
     TRACE_OUT(m_tracePrefix + L": Shutting down");
-    m_shutdownState = state;
+    m_state = state;
     
     CancelConcurrencyTimer(m_debounceTimer, m_debounceTimerCallback);
 
@@ -175,14 +175,14 @@ void BackgroundWorker::Start()
     }
 
     TRACE_OUT(m_tracePrefix + L": Starting Write To Storage worker");
-    m_shutdownState = ShutdownState::None;
+    m_state = WorkerState::None;
     m_workerStarted = true;
     m_workerThread = thread(&BackgroundWorker::Worker, this);
 }
 
 void BackgroundWorker::Worker()
 {
-    while (m_shutdownState < ShutdownState::Drop)
+    while (m_state < WorkerState::Drop)
     {
         TRACE_OUT(m_tracePrefix + L": Worker Starting Loop Iteration");
         PayloadContainers itemsToPersist;
@@ -197,7 +197,7 @@ void BackgroundWorker::Worker()
                 TRACE_OUT(m_tracePrefix + L": Waiting for Items to process");
 
                 m_hasItems.wait(lock, [this]() {
-                    return ((m_items.size() > 0) || (m_shutdownState > ShutdownState::None));
+                    return ((m_items.size() > 0) || (m_state > WorkerState::None));
                 });
             }
 
@@ -206,9 +206,9 @@ void BackgroundWorker::Worker()
 
         if (itemsToPersist.size() == 0)
         {
-            if (m_shutdownState == ShutdownState::Drain)
+            if (m_state == WorkerState::Drain)
             {
-                m_shutdownState = ShutdownState::Shutdown;
+                m_state = WorkerState::Shutdown;
             }
 
             TRACE_OUT(m_tracePrefix + L": No items, exiting loop");
@@ -216,7 +216,7 @@ void BackgroundWorker::Worker()
         }
 
         TRACE_OUT(m_tracePrefix + L": Processing Items");
-        PayloadContainers successfullyProcessed = this->m_processItemsCallback(itemsToPersist, m_shutdownState);
+        PayloadContainers successfullyProcessed = this->m_processItemsCallback(itemsToPersist, m_state);
 
         // Remove the items from the queue
         {
@@ -245,7 +245,7 @@ void BackgroundWorker::Worker()
             }
         }
 
-        if (m_shutdownState > ShutdownState::None)
+        if (m_state > WorkerState::None)
         {
             TRACE_OUT(m_tracePrefix + L": Queue shutting down, skipping post processing");
             continue;
