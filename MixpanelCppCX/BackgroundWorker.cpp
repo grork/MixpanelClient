@@ -12,14 +12,14 @@ using namespace Windows::Data::Json;
 using PayloadContainer_ptr = shared_ptr<PayloadContainer>;
 using PayloadContainers = vector<PayloadContainer_ptr>;
 
-bool FindPayloadWithId(const PayloadContainer_ptr& other, const long long id)
-{
-    return other->Id == id;
-}
-
 PayloadContainer::PayloadContainer(long long id, JsonObject^ payload) :
     Id(id), Payload(payload)
 {
+}
+
+bool operator==(const PayloadContainer_ptr& a, const PayloadContainer_ptr& b)
+{
+    return a->Id == b->Id;
 }
 
 // concurrency::timer is weird, and requires you to set things up in weird ways
@@ -231,9 +231,9 @@ void BackgroundWorker::Worker()
             // were processing.
             for (auto&& processedItem : successfullyProcessed)
             {
-                auto removeAt = find_if(begin(m_items),
+                auto removeAt = find(begin(m_items),
                     end(m_items),
-                    bind(&FindPayloadWithId, placeholders::_1, processedItem->Id));
+                    processedItem);
 
                 if (removeAt == m_items.end())
                 {
