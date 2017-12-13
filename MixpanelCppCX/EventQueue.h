@@ -7,6 +7,17 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel {
 } } }
 
 namespace CodevoidN { namespace Utilities { namespace Mixpanel {
+    struct PayloadContainer
+    {
+        PayloadContainer(long long id, Windows::Data::Json::JsonObject^ payload) :
+            Id(id), Payload(payload)
+        {
+        }
+
+        long long Id;
+        Windows::Data::Json::JsonObject^ Payload;
+    };
+
     /// <summary>
     /// MixpanelClient offers a API for interacting with Mixpanel for UWP apps running on Windows 10+
     /// </summary>
@@ -65,7 +76,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         WorkerState m_state;
 
         Windows::Storage::StorageFolder^ m_localStorage;
-        CodevoidN::Utilities::Mixpanel::BackgroundWorker m_writeToStorageWorker;
+        CodevoidN::Utilities::Mixpanel::BackgroundWorker<PayloadContainer> m_writeToStorageWorker;
 
         std::vector<std::shared_ptr<PayloadContainer>> m_waitingForUpload;
         std::mutex m_waitingForUploadQueueLock;

@@ -14,13 +14,6 @@ using namespace Windows::Data::Json;
 using PayloadContainer_ptr = shared_ptr<PayloadContainer>;
 using PayloadContainers = vector<PayloadContainer_ptr>;
 
-namespace CodevoidN { namespace Utilities { namespace Mixpanel {
-    bool operator==(const PayloadContainer_ptr& a, const PayloadContainer_ptr& b)
-    {
-        return a->Id == b->Id;
-    }
-} } }
-
 String^ GetFileNameForId(const long long& id)
 {
     return ref new String(to_wstring(id).append(L".json").c_str());

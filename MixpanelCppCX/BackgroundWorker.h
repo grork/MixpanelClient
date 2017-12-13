@@ -4,19 +4,6 @@
 #include "Tracing.h"
 
 namespace CodevoidN { namespace Utilities { namespace Mixpanel {
-    struct PayloadContainer
-    {
-        PayloadContainer(long long id, Windows::Data::Json::JsonObject^ payload) :
-            Id(id), Payload(payload)
-        {
-        }
-
-        long long Id;
-        Windows::Data::Json::JsonObject^ Payload;
-    };
-
-    bool operator==(const std::shared_ptr<PayloadContainer>& a, const std::shared_ptr<PayloadContainer>& b);
-
     enum class WorkerState
     {
         None,
@@ -25,16 +12,17 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         Shutdown
     };
 
+    template <typename ItemType>
     class BackgroundWorker
     {
-        using PayloadContainer_ptr = std::shared_ptr<PayloadContainer>;
-        using PayloadContainers = std::vector<PayloadContainer_ptr>;
+        using ItemType_ptr = std::shared_ptr<ItemType>;
+        using ItemTypeVector = std::vector<ItemType_ptr>;
         using lock_guard_mutex = std::lock_guard<std::mutex>;
 
     public:
         BackgroundWorker(
-            std::function<PayloadContainers(PayloadContainers&, const WorkerState&)> processItemsCallback,
-            std::function<void(PayloadContainers&)> postProcessItemsCallback,
+            std::function<ItemTypeVector(ItemTypeVector&, const WorkerState&)> processItemsCallback,
+            std::function<void(ItemTypeVector&)> postProcessItemsCallback,
             const std::wstring& tracePrefix,
             const std::chrono::milliseconds debounceTimeout = std::chrono::milliseconds(500),
             size_t debounceItemThreshold = 10
@@ -61,9 +49,9 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             return m_items.size();
         }
 
-        void AddWork(PayloadContainer_ptr& item)
+        void AddWork(ItemType_ptr& item)
         {
-            TRACE_OUT(m_tracePrefix + L": Adding Item: " + std::to_wstring(item->Id));
+            TRACE_OUT(m_tracePrefix + L": Adding Item");
 
             {
                 lock_guard_mutex lock(m_accessLock);
@@ -195,7 +183,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             while (m_state < WorkerState::Drop)
             {
                 TRACE_OUT(m_tracePrefix + L": Worker Starting Loop Iteration");
-                PayloadContainers itemsToPersist;
+                ItemTypeVector itemsToPersist;
 
                 {
                     std::unique_lock<std::mutex> lock(m_accessLock);
@@ -226,7 +214,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                 }
 
                 TRACE_OUT(m_tracePrefix + L": Processing Items");
-                PayloadContainers successfullyProcessed = this->m_processItemsCallback(itemsToPersist, m_state);
+                ItemTypeVector successfullyProcessed = this->m_processItemsCallback(itemsToPersist, m_state);
 
                 // Remove the items from the queue
                 {
@@ -272,10 +260,10 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::shared_ptr<concurrency::call<int>> m_debounceTimerCallback;
         std::chrono::milliseconds m_debounceTimeout;
         size_t m_debounceItemThreshold;
-        std::function<PayloadContainers(PayloadContainers&, const WorkerState&)> m_processItemsCallback;
-        std::function<void(PayloadContainers&)> m_postProcessItemsCallback;
+        std::function<ItemTypeVector(ItemTypeVector&, const WorkerState&)> m_processItemsCallback;
+        std::function<void(ItemTypeVector&)> m_postProcessItemsCallback;
         std::wstring m_tracePrefix;
-        std::vector<PayloadContainer_ptr> m_items;
+        std::vector<ItemType_ptr> m_items;
         std::mutex m_accessLock;
         std::condition_variable m_hasItems;
         std::atomic<bool> m_workerStarted;
