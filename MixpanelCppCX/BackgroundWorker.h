@@ -273,7 +273,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::chrono::milliseconds m_debounceTimeout;
         size_t m_debounceItemThreshold;
         std::function<PayloadContainers(PayloadContainers&, const WorkerState&)> m_processItemsCallback;
-        std::function<void(PayloadContainers)> m_postProcessItemsCallback;
+        std::function<void(PayloadContainers&)> m_postProcessItemsCallback;
         std::wstring m_tracePrefix;
         std::vector<PayloadContainer_ptr> m_items;
         std::mutex m_accessLock;
