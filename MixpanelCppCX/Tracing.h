@@ -8,7 +8,7 @@ namespace CodevoidN { namespace Utilities {
 #define	TRACE_OUT(data) \
             CodevoidN::Utilities::Trace(data);
 #else
-#define TRACE_OUT()
+#define TRACE_OUT(data)
 #endif
 
 } }
