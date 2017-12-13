@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2003
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Shared", "MixpanelCppCX\MixpanelCppCX.vcxitems", "{45D41ACC-2C3C-43D2-BC10-02AA73FFC7C7}"
 EndProject
@@ -27,6 +27,7 @@ Global
 		{0FCC17B7-3C1C-4CD9-ADEC-7860AA5DC560}.Debug|ARM.ActiveCfg = Debug|ARM
 		{0FCC17B7-3C1C-4CD9-ADEC-7860AA5DC560}.Debug|ARM.Build.0 = Debug|ARM
 		{0FCC17B7-3C1C-4CD9-ADEC-7860AA5DC560}.Debug|x64.ActiveCfg = Debug|x64
+		{0FCC17B7-3C1C-4CD9-ADEC-7860AA5DC560}.Debug|x64.Build.0 = Debug|x64
 		{0FCC17B7-3C1C-4CD9-ADEC-7860AA5DC560}.Debug|x86.ActiveCfg = Debug|Win32
 		{0FCC17B7-3C1C-4CD9-ADEC-7860AA5DC560}.Debug|x86.Build.0 = Debug|Win32
 		{0FCC17B7-3C1C-4CD9-ADEC-7860AA5DC560}.Release|ARM.ActiveCfg = Release|ARM
@@ -56,5 +57,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B44DCE7A-72F0-47ED-AEFC-8C22A0FC0640}
 	EndGlobalSection
 EndGlobal
