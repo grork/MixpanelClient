@@ -24,7 +24,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)Tracing.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="$(MSBuildThisFileDirectory)BackgroundWorker.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)EventQueue.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)MixpanelClient.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)PayloadEncoder.cpp" />
