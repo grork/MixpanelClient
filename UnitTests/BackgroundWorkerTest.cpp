@@ -27,7 +27,10 @@ namespace CodevoidN { namespace  Tests
     public:
         TEST_METHOD(CanInstantiateWorker)
         {
-            BackgroundWorker<int> worker(bind(processAll, placeholders::_1, placeholders::_2), [](auto) { }, TRACE_PREFIX);
+            BackgroundWorker<int> worker(
+                bind(processAll, placeholders::_1, placeholders::_2),
+                [](auto) { },
+                TRACE_PREFIX);
 
             auto f = make_shared<int>(7);
             worker.AddWork(f);
@@ -70,9 +73,9 @@ namespace CodevoidN { namespace  Tests
             mutex workMutex;
             unique_lock<mutex> workLock(workMutex);
 
-            // We want this worker to wait 1000ms for the items to dequeue, or
-            // when there is > 1 item in the queue. The 1000ms is there to allow
-            // us to timeout
+            // Setting the threshold higher than the number we queue
+            // but the timeout to something low so we can wait
+            // to sure that the timeout is the one triggering not, the threshold.
             BackgroundWorker<int> worker(bind(processAll, placeholders::_1, placeholders::_2),
                 [&workDequeued](auto) {
                 workDequeued.notify_all();
@@ -99,9 +102,6 @@ namespace CodevoidN { namespace  Tests
         {
             bool postProcessCalled = false;
 
-            // We want this worker to wait 1000ms for the items to dequeue, or
-            // when there is > 1 item in the queue. The 1000ms is there to allow
-            // us to timeout
             BackgroundWorker<int> worker(
                 bind(processAll, placeholders::_1, placeholders::_2),
                 [&postProcessCalled] (auto)
@@ -145,10 +145,143 @@ namespace CodevoidN { namespace  Tests
 
             worker.Pause();
 
+            this_thread::sleep_for(250ms);
+
+            Assert::AreEqual(2, (int)worker.GetQueueLength(), L"Expected items in the queue");
+            Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
+        }
+
+        TEST_METHOD(WorkRemainsUnchangedAfterPausingTwice)
+        {
+            bool postProcessCalled = false;
+
+            // We want this worker to wait 1000ms for the items to dequeue, or
+            // when there is > 1 item in the queue. The 1000ms is there to allow
+            // us to timeout
+            BackgroundWorker<int> worker(
+                bind(processAll, placeholders::_1, placeholders::_2),
+                [&postProcessCalled](auto)
+            {
+                postProcessCalled = true;
+            },
+                TRACE_PREFIX, 200ms, 10);
+
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(9));
+
+            worker.Pause();
+
+            this_thread::sleep_for(250ms);
+
+            Assert::AreEqual(2, (int)worker.GetQueueLength(), L"Expected items in the queue");
+            Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
+
+            worker.Pause();
+
+            this_thread::sleep_for(250ms);
+
+            Assert::AreEqual(2, (int)worker.GetQueueLength(), L"Expected items in the queue");
+            Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
+        }
+
+        TEST_METHOD(WorkRemainsUnchangedAndPausedAfterPausingAndAddingWork)
+        {
+            bool postProcessCalled = false;
+
+            BackgroundWorker<int> worker(
+                bind(processAll, placeholders::_1, placeholders::_2),
+                [&postProcessCalled](auto)
+                {
+                    postProcessCalled = true;
+                },
+                TRACE_PREFIX, 200ms, 2);
+
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(9));
+
+            worker.Pause();
+
             this_thread::sleep_for(200ms);
 
-            Assert::AreEqual(2, (int)worker.GetQueueLength(), L"Items still in queue");
+            Assert::AreEqual(2, (int)worker.GetQueueLength(), L"Expected items in the queue after pausing");
             Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
+
+            worker.AddWork(make_shared<int>(10));
+
+            this_thread::sleep_for(250ms);
+
+            Assert::AreEqual(3, (int)worker.GetQueueLength(), L"Expected items in the queue after adding while paused");
+            Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
+        }
+
+        TEST_METHOD(WorkProcessedAfterResumingFromPausedState)
+        {
+            bool postProcessCalled = false;
+
+            BackgroundWorker<int> worker(
+                bind(processAll, placeholders::_1, placeholders::_2),
+                [&postProcessCalled](auto)
+                {
+                    postProcessCalled = true;
+                },
+                TRACE_PREFIX, 200ms, 10);
+
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(9));
+
+            worker.Pause();
+
+            this_thread::sleep_for(200ms);
+
+            Assert::AreEqual(2, (int)worker.GetQueueLength(), L"Expected items in the queue");
+            Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
+
+            worker.Start();
+
+            this_thread::sleep_for(250ms);
+
+            Assert::AreEqual(0, (int)worker.GetQueueLength(), L"Items still in queue");
+            Assert::IsTrue(postProcessCalled, L"Queue was processed, but post process should have been called");
+        }
+
+        TEST_METHOD(WorkProcessedAfterShuttingDownFromPausedState)
+        {
+            bool postProcessCalled = false;
+
+            BackgroundWorker<int> worker(
+                bind(processAll, placeholders::_1, placeholders::_2),
+                [&postProcessCalled](auto)
+                {
+                    postProcessCalled = true;
+                },
+                TRACE_PREFIX, 200ms, 10);
+
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(9));
+
+            worker.Pause();
+
+            this_thread::sleep_for(200ms);
+
+            Assert::AreEqual(2, (int)worker.GetQueueLength(), L"Expected items in the queue");
+            Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
+
+            worker.Shutdown(WorkerState::Drain);
+
+            Assert::AreEqual(0, (int)worker.GetQueueLength(), L"Items still in queue");
+            Assert::IsFalse(postProcessCalled, L"Queue was processed, but post process should't have been called");
         }
     };
 } }
