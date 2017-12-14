@@ -63,7 +63,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
             CancelConcurrencyTimer(m_debounceTimer, m_debounceTimerCallback);
 
-            if (this->GetQueueLength() > m_debounceItemThreshold)
+            if (this->GetQueueLength() >= m_debounceItemThreshold)
             {
                 m_hasItems.notify_one();
             }
