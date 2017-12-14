@@ -105,19 +105,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             m_workerThread = std::thread(&BackgroundWorker::Worker, this);
         }
 
-        void Pause()
-        {
-            if (!m_workerStarted)
-            {
-                TRACE_OUT(m_tracePrefix + L": Worker not running, skipping pause");
-                return;
-            }
-
-            TRACE_OUT(m_tracePrefix + L": Trying To pause Worker");
-            m_state = WorkerState::Paused;
-
-        }
-
         void Clear()
         {
             TRACE_OUT(m_tracePrefix + L": Clearing");
@@ -126,9 +113,28 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             TRACE_OUT(m_tracePrefix + L": Cleared");
         }
 
+        void Pause()
+        {
+            TRACE_OUT(m_tracePrefix + L": Trying To pause Worker");
+            this->Shutdown(WorkerState::Paused);
+        }
+
         void Shutdown(const WorkerState state)
         {
             TRACE_OUT(m_tracePrefix + L": Shutting down");
+            if (!m_workerStarted && (m_state != WorkerState::Paused))
+            {
+                TRACE_OUT(m_tracePrefix + L": Not actually started");
+                m_state = state;
+                return;
+            }
+
+            if ((m_state == WorkerState::Paused) && (state != WorkerState::Paused))
+            {
+                TRACE_OUT(m_tracePrefix + L": Worker was paused, starting again to allow draining");
+                this->Start();
+            }
+
             m_state = state;
 
             CancelConcurrencyTimer(m_debounceTimer, m_debounceTimerCallback);
