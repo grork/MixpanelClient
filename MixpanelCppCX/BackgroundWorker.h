@@ -49,7 +49,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             return m_items.size();
         }
 
-        void AddWork(ItemType_ptr& item)
+        void AddWork(ItemType_ptr item)
         {
             TRACE_OUT(m_tracePrefix + L": Adding Item");
 
