@@ -197,7 +197,7 @@ namespace CodevoidN { namespace  Tests
                 {
                     postProcessCalled = true;
                 },
-                TRACE_PREFIX, 200ms, 2);
+                TRACE_PREFIX, 200ms, 3);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
