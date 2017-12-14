@@ -121,5 +121,34 @@ namespace CodevoidN { namespace  Tests
             Assert::AreEqual(0, (int)worker.GetQueueLength(), L"Items still in queue");
             Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
         }
+
+        TEST_METHOD(WorkRemainsUnchangedAfterPausing)
+        {
+            bool postProcessCalled = false;
+
+            // We want this worker to wait 1000ms for the items to dequeue, or
+            // when there is > 1 item in the queue. The 1000ms is there to allow
+            // us to timeout
+            BackgroundWorker<int> worker(
+                bind(processAll, placeholders::_1, placeholders::_2),
+                [&postProcessCalled](auto)
+                {
+                    postProcessCalled = true;
+                },
+                TRACE_PREFIX, 200ms, 10);
+
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(9));
+
+            worker.Pause();
+
+            this_thread::sleep_for(200ms);
+
+            Assert::AreEqual(2, (int)worker.GetQueueLength(), L"Items still in queue");
+            Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
+        }
     };
 } }

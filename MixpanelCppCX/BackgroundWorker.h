@@ -7,6 +7,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     enum class WorkerState
     {
         None,
+        Paused,
         Drain,
         Drop,
         Shutdown
@@ -104,6 +105,19 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             m_workerThread = std::thread(&BackgroundWorker::Worker, this);
         }
 
+        void Pause()
+        {
+            if (!m_workerStarted)
+            {
+                TRACE_OUT(m_tracePrefix + L": Worker not running, skipping pause");
+                return;
+            }
+
+            TRACE_OUT(m_tracePrefix + L": Trying To pause Worker");
+            m_state = WorkerState::Paused;
+
+        }
+
         void Clear()
         {
             TRACE_OUT(m_tracePrefix + L": Clearing");
@@ -180,7 +194,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         void Worker()
         {
-            while (m_state < WorkerState::Drop)
+            while (m_state < WorkerState::Paused)
             {
                 TRACE_OUT(m_tracePrefix + L": Worker Starting Loop Iteration");
                 ItemTypeVector itemsToPersist;
@@ -197,6 +211,13 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                         m_hasItems.wait(lock, [this]() {
                             return ((m_items.size() > 0) || (m_state > WorkerState::None));
                         });
+                    }
+
+                    // If we've been asked to pause, just give up on everything, and
+                    // leave the queue, and state as is.
+                    if (m_state == WorkerState::Paused)
+                    {
+                        continue;
                     }
 
                     itemsToPersist.assign(begin(m_items), end(m_items));
@@ -243,7 +264,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                     }
                 }
 
-                if (m_state > WorkerState::None)
+                if (m_state > WorkerState::Paused)
                 {
                     TRACE_OUT(m_tracePrefix + L": Queue shutting down, skipping post processing");
                     continue;
@@ -268,6 +289,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::condition_variable m_hasItems;
         std::atomic<bool> m_workerStarted;
         std::thread m_workerThread;
-        WorkerState m_state;
+        std::atomic<WorkerState> m_state;
     };
 } } }
