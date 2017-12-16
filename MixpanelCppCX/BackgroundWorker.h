@@ -40,7 +40,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         ~BackgroundWorker()
         {
             TRACE_OUT(m_tracePrefix + L": Queue being destroyed");
-            this->Shutdown(WorkerState::Shutdown);
+            this->Shutdown(WorkerState::Drain);
             TRACE_OUT(m_tracePrefix + L": Queue Destroyed");
         }
 
@@ -60,6 +60,17 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             }
 
             TRACE_OUT(m_tracePrefix + L": Notifying worker thread");
+
+            this->TriggerWorkOrWaitForIdle();
+        }
+
+        void TriggerWorkOrWaitForIdle()
+        {
+            if (!m_workerStarted)
+            {
+                TRACE_OUT(m_tracePrefix + L": Skipping triggering worker, since it's not started");
+                return;
+            }
 
             CancelConcurrencyTimer(m_debounceTimer, m_debounceTimerCallback);
 
@@ -103,6 +114,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             m_state = WorkerState::None;
             m_workerStarted = true;
             m_workerThread = std::thread(&BackgroundWorker::Worker, this);
+            this->TriggerWorkOrWaitForIdle();
         }
 
         void Clear()
@@ -121,28 +133,29 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         void Shutdown(const WorkerState state)
         {
+            WorkerState previousState = m_state;
+            m_state = state;
+
             TRACE_OUT(m_tracePrefix + L": Shutting down");
-            if (!m_workerStarted && (m_state != WorkerState::Paused))
+            if (!m_workerStarted && (previousState != WorkerState::Paused))
             {
                 TRACE_OUT(m_tracePrefix + L": Not actually started");
-                m_state = state;
                 return;
             }
 
-            if ((m_state == WorkerState::Paused) && (state != WorkerState::Paused))
+            if ((previousState == WorkerState::Paused) && (state != WorkerState::Paused) && (this->GetQueueLength() > 0))
             {
                 TRACE_OUT(m_tracePrefix + L": Worker was paused, starting again to allow draining");
                 this->Start();
             }
-
-            m_state = state;
 
             CancelConcurrencyTimer(m_debounceTimer, m_debounceTimerCallback);
 
             if (m_workerThread.joinable())
             {
                 TRACE_OUT(m_tracePrefix + L": Waiting on Worker Thread");
-                m_hasItems.notify_one();
+                m_state = state;
+                m_hasItems.notify_all();
                 m_workerThread.join();
                 assert(!m_workerStarted);
             }
@@ -200,7 +213,12 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         void Worker()
         {
-            while (m_state < WorkerState::Paused)
+            // When we make the first iteration through the loops
+            // we will want to wait if there aren't enough items in
+            // the queue yet.
+            bool waitForFirstWakeUp = this->GetQueueLength() <= m_debounceItemThreshold;
+
+            while (m_state < WorkerState::Shutdown)
             {
                 TRACE_OUT(m_tracePrefix + L": Worker Starting Loop Iteration");
                 ItemTypeVector itemsToPersist;
@@ -213,9 +231,36 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                     if (m_items.size() < 1)
                     {
                         TRACE_OUT(m_tracePrefix + L": Waiting for Items to process");
+                        m_hasItems.wait(lock, [this, &waitForFirstWakeUp]() {
+                            TRACE_OUT(m_tracePrefix + L": Condition Triggered. State: " + to_wstring((int)m_state.load()));
 
-                        m_hasItems.wait(lock, [this]() {
-                            return ((m_items.size() > 0) || (m_state > WorkerState::None));
+                            // If we're going away, we can ignore all other state
+                            // and allow the thread to continue and eventually
+                            // shutdown.
+                            if (m_state > WorkerState::None)
+                            {   
+                                return true;
+                            }
+
+                            // During the first iteration of the loop when started, we
+                            // might have items, but not enough to wake up the thread
+                            // normally. But since this is the first pass, we might have
+                            // fewer than that number. Ties to the conditional check on
+                            // the wait below, we'll start pushing items even though our
+                            // thresholds / idle timeout hasn't been hit.
+                            //
+                            // If we don't have enough items on the first pass, we'll
+                            // just wait until our second wake up -- assumed to be triggered
+                            // by some external force (timer, threshold), and process those
+                            // items normally.
+                            if (waitForFirstWakeUp)
+                            {
+                                waitForFirstWakeUp = false;
+                                return false;
+                            }
+
+                            // Only wake up if we actually have some times to process
+                            return (m_items.size() > 0);
                         });
                     }
 
@@ -223,7 +268,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                     // leave the queue, and state as is.
                     if (m_state == WorkerState::Paused)
                     {
-                        continue;
+                        break;
                     }
 
                     itemsToPersist.assign(begin(m_items), end(m_items));
@@ -237,7 +282,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                     }
 
                     TRACE_OUT(m_tracePrefix + L": No items, exiting loop");
-                    continue;
+                    break;
                 }
 
                 TRACE_OUT(m_tracePrefix + L": Processing Items");
@@ -281,6 +326,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             }
 
             m_workerStarted = false;
+            m_state = (m_state == WorkerState::Paused) ? WorkerState::Paused : WorkerState::Shutdown;
         }
 
         std::shared_ptr<concurrency::timer<int>> m_debounceTimer;

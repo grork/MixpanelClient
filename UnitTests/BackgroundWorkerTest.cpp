@@ -32,8 +32,9 @@ namespace CodevoidN { namespace  Tests
                 [](auto) { },
                 TRACE_PREFIX);
 
-            auto f = make_shared<int>(7);
-            worker.AddWork(f);
+            worker.AddWork(make_shared<int>(7));
+
+            worker.Start();
         }
 
         TEST_METHOD(WorkIsDeqeuedAfterThresholdBeforeTimeout)
@@ -45,16 +46,52 @@ namespace CodevoidN { namespace  Tests
             // We want this worker to wait 1000ms for the items to dequeue, or
             // when there is > 1 item in the queue. The 1000ms is there to allow
             // us to timeout
-            BackgroundWorker<int> worker(bind(processAll, placeholders::_1, placeholders::_2),
-                [&workDequeued](auto) {
-                workDequeued.notify_all();
-            }, TRACE_PREFIX, 1000ms, 1);
+            BackgroundWorker<int> worker(bind(
+                processAll, placeholders::_1, placeholders::_2),
+                [&workDequeued](auto)
+                {
+                    workDequeued.notify_all();
+                }, TRACE_PREFIX, 1000ms, 1);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
 
             worker.AddWork(make_shared<int>(7));
             worker.AddWork(make_shared<int>(9));
+
+            auto status = workDequeued.wait_for(workLock, 750ms, [&worker]() {
+                return worker.GetQueueLength() == 0;
+            });
+
+            size_t queueLength = worker.GetQueueLength();
+            worker.Shutdown(WorkerState::Shutdown);
+
+            Assert::AreEqual(0, (int)queueLength, L"Items still in queue");
+            Assert::IsTrue(status, L"Queue didn't reach 0 before timeout");
+        }
+
+        TEST_METHOD(WorkIsDeqeuedAfterThresholdBeforeTimeoutWhenQueuedBeforeStarting)
+        {
+            condition_variable workDequeued;
+            mutex workMutex;
+            unique_lock<mutex> workLock(workMutex);
+
+            // We want this worker to wait 1000ms for the items to dequeue, or
+            // when there is > 1 item in the queue. The 1000ms is there to allow
+            // us to timeout
+            BackgroundWorker<int> worker(
+                bind(processAll, placeholders::_1, placeholders::_2),
+                [&workDequeued](auto)
+                {
+                    workDequeued.notify_all();
+                }, TRACE_PREFIX, 1000ms, 2);
+
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(9));
+            worker.AddWork(make_shared<int>(11));
+
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
 
             auto status = workDequeued.wait_for(workLock, 750ms, [&worker]() {
                 return worker.GetQueueLength() == 0;
@@ -76,10 +113,12 @@ namespace CodevoidN { namespace  Tests
             // Setting the threshold higher than the number we queue
             // but the timeout to something low so we can wait
             // to sure that the timeout is the one triggering not, the threshold.
-            BackgroundWorker<int> worker(bind(processAll, placeholders::_1, placeholders::_2),
-                [&workDequeued](auto) {
-                workDequeued.notify_all();
-            }, TRACE_PREFIX, 200ms, 10);
+            BackgroundWorker<int> worker(
+                bind(processAll, placeholders::_1, placeholders::_2),
+                [&workDequeued](auto)
+                {
+                    workDequeued.notify_all();
+                }, TRACE_PREFIX, 200ms, 10);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
