@@ -99,7 +99,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         long long GetNextId();
 
         concurrency::task<void> WriteItemToStorage(const std::shared_ptr<PayloadContainer> item);
-        std::vector<std::shared_ptr<PayloadContainer>> WriteItemsToStorage(const std::vector<std::shared_ptr<PayloadContainer>>& items, const std::function<bool()>& isShuttingDown);
+        std::vector<std::shared_ptr<PayloadContainer>> WriteItemsToStorage(const std::vector<std::shared_ptr<PayloadContainer>>& items, const std::function<bool()>& shouldKeepProcessing);
         void AddItemsToUploadQueue(const std::vector<std::shared_ptr<PayloadContainer>>& itemsToUpload);
         concurrency::task<void> ClearStorage();
 

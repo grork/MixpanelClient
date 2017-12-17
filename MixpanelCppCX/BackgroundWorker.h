@@ -125,6 +125,11 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             this->Shutdown(WorkerState::Drain);
         }
 
+        void ShutdownAndDrop()
+        {
+            this->Shutdown(WorkerState::Drop);
+        }
+
         void SetDebounceTimeout(std::chrono::milliseconds debounceTimeout)
         {
             if (m_workerStarted)
@@ -184,7 +189,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         bool ShouldKeepProcessingItems()
         {
-            return (m_state > WorkerState::Drain);
+            return (m_state < WorkerState::Drop);
         }
 
         void Shutdown(const WorkerState state)
@@ -276,7 +281,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
                     // If we've been asked to pause, just give up on everything, and
                     // leave the queue, and state as is.
-                    if (m_state == WorkerState::Paused)
+                    if (m_state == WorkerState::Paused || m_state == WorkerState::Drop)
                     {
                         break;
                     }
@@ -284,19 +289,21 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                     itemsToPersist.assign(begin(m_items), end(m_items));
                 }
 
-                if (itemsToPersist.size() == 0)
+                // When we've got no items, and we're shuting down, theres
+                // no work for us to do (no items), so we're just going to
+                // break out of the loop right now, and let the clean up happen
+                if ((itemsToPersist.size() == 0) && (m_state > WorkerState::Paused))
                 {
-                    if (m_state == WorkerState::Drain)
-                    {
-                        m_state = WorkerState::Shutdown;
-                    }
-
                     TRACE_OUT(m_tracePrefix + L": No items, exiting loop");
                     break;
                 }
 
+                // Assume we should have some items if we've gotten this far
+                assert(itemsToPersist.size() > 0);
+
                 TRACE_OUT(m_tracePrefix + L": Processing Items");
-                ItemTypeVector successfullyProcessed = this->m_processItemsCallback(itemsToPersist, std::bind(&BackgroundWorker<ItemType>::ShouldKeepProcessingItems, this));
+                ItemTypeVector successfullyProcessed =
+                    this->m_processItemsCallback(itemsToPersist, bind(&BackgroundWorker<ItemType>::ShouldKeepProcessingItems, this));
 
                 // Remove the items from the queue
                 {
