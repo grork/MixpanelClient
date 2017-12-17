@@ -118,13 +118,13 @@ void EventQueue::EnableQueuingToStorage()
     m_writeToStorageWorker.Start();
 }
 
-PayloadContainers EventQueue::WriteItemsToStorage(const PayloadContainers& items, const function<bool()>& isShuttingDown)
+PayloadContainers EventQueue::WriteItemsToStorage(const PayloadContainers& items, const function<bool()>& shouldKeepProcessing)
 {
     PayloadContainers successfullyProcessedItems;
 
     for (auto&& item : items)
     {
-        if (isShuttingDown())
+        if (!shouldKeepProcessing())
         {
             break;
         }

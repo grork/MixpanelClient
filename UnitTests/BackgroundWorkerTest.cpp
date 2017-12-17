@@ -16,8 +16,13 @@ const wchar_t* TRACE_PREFIX = L"BackgroundWorkerTest";
 
 namespace CodevoidN { namespace  Tests
 {
-    vector<shared_ptr<int>> processAll(const vector<shared_ptr<int>>& current, const function<bool()>&)
+    vector<shared_ptr<int>> processAll(const vector<shared_ptr<int>>& current, const function<bool()>& shouldKeepProcessing)
     {
+        if (!shouldKeepProcessing)
+        {
+            return vector<shared_ptr<int>>();
+        }
+
         return vector<shared_ptr<int>>(current.begin(), current.end());
     }
 
@@ -65,6 +70,52 @@ namespace CodevoidN { namespace  Tests
 
             size_t queueLength = worker.GetQueueLength();
             worker.Shutdown();
+
+            Assert::AreEqual(0, (int)queueLength, L"Items still in queue");
+            Assert::IsTrue(status, L"Queue didn't reach 0 before timeout");
+        }
+
+        TEST_METHOD(WorkIsProcessedAfterQueueIsEmptiedAndItemsQueued)
+        {
+            condition_variable workDequeued;
+            mutex workMutex;
+            unique_lock<mutex> workLock(workMutex);
+
+            // We want this worker to wait 1000ms for the items to dequeue, or
+            // when there is > 1 item in the queue. The 1000ms is there to allow
+            // us to timeout
+            BackgroundWorker<int> worker(bind(
+                processAll, placeholders::_1, placeholders::_2),
+                [&workDequeued](auto)
+            {
+                workDequeued.notify_all();
+            }, TRACE_PREFIX, 5000ms, 2);
+
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(9));
+
+            auto status = workDequeued.wait_for(workLock, 100ms, [&worker]() {
+                return worker.GetQueueLength() == 0;
+            });
+
+            size_t queueLength = worker.GetQueueLength();
+
+            Assert::AreEqual(0, (int)queueLength, L"Items still in queue");
+            Assert::IsTrue(status, L"Queue didn't reach 0 before timeout");
+
+            this_thread::sleep_for(700ms);
+
+            worker.AddWork(make_shared<int>(10));
+            worker.AddWork(make_shared<int>(11));
+
+            status = workDequeued.wait_for(workLock, 100ms, [&worker]() {
+                return worker.GetQueueLength() == 0;
+            });
+
+            queueLength = worker.GetQueueLength();
 
             Assert::AreEqual(0, (int)queueLength, L"Items still in queue");
             Assert::IsTrue(status, L"Queue didn't reach 0 before timeout");
@@ -159,6 +210,179 @@ namespace CodevoidN { namespace  Tests
 
             Assert::AreEqual(0, (int)worker.GetQueueLength(), L"Items still in queue");
             Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
+        }
+
+        TEST_METHOD(WorkIsProcessedButNotPostProcessedWhenDrained)
+        {
+            bool postProcessCalled = false;
+            bool processWasCalled = false;
+
+            BackgroundWorker<int> worker(
+                [&processWasCalled](auto current, auto shouldKeepProcessing)
+                {
+                    processWasCalled = true;
+                    return processAll(current, shouldKeepProcessing);
+                },
+                [&postProcessCalled](auto)
+                {
+                    postProcessCalled = true;
+                },
+                TRACE_PREFIX, 1000ms, 10);
+
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(9));
+
+            worker.Shutdown();
+
+            Assert::AreEqual(0, (int)worker.GetQueueLength(), L"Items still in queue");
+            Assert::IsTrue(processWasCalled, L"Queue was drained, but nothing was processed");
+            Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
+        }
+
+        TEST_METHOD(WorkIsNotProcessedAndNotPostProcessedWhenDropped)
+        {
+            bool postProcessCalled = false;
+            bool processWasCalled = false;
+
+            BackgroundWorker<int> worker(
+                [&processWasCalled](auto current, auto shouldKeepProcessing)
+            {
+                if (!shouldKeepProcessing)
+                {
+                    return vector<shared_ptr<int>>();
+                }
+
+                processWasCalled = true;
+                return processAll(current, shouldKeepProcessing);
+            },
+                [&postProcessCalled](auto)
+            {
+                postProcessCalled = true;
+            },
+                TRACE_PREFIX, 1000ms, 10);
+
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(9));
+
+            worker.ShutdownAndDrop();
+
+            Assert::AreEqual(2, (int)worker.GetQueueLength(), L"Items still in queue");
+            Assert::IsFalse(processWasCalled, L"Queue was drained, but something was processed");
+            Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
+        }
+
+        TEST_METHOD(WorkStopsProcessingWhileProcessingCurrentWork)
+        {
+            int postProcessItemCount = 0;
+            bool processWasCalled = false;
+
+            BackgroundWorker<int> worker(
+                [&processWasCalled](auto current, auto shouldKeepProcessing)
+                {
+                    vector<shared_ptr<int>> items;
+                    processWasCalled = true;
+                    for (auto&& item : current)
+                    {
+                        if (!shouldKeepProcessing())
+                        {
+                            break;
+                        }
+
+                        items.emplace_back(item);
+                        this_thread::sleep_for(500ms);
+                    }
+
+                    return items;
+                },
+                [&postProcessItemCount](auto items)
+                {
+                    postProcessItemCount += items.size();
+                },
+                TRACE_PREFIX, 1000ms, 4);
+
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+
+            // Queue 4 times to trigger the dequeue
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(8));
+            worker.AddWork(make_shared<int>(9));
+            worker.AddWork(make_shared<int>(10));
+
+            // Wait a little bit so we start processing the
+            // first item back
+            this_thread::sleep_for(50ms);
+
+            // queue another one
+            worker.AddWork(make_shared<int>(11));
+
+            this_thread::sleep_for(650ms);
+
+            worker.Shutdown();
+
+            Assert::IsTrue(processWasCalled, L"Queue processed something");
+            Assert::AreEqual(0, (int)worker.GetQueueLength(), L"Items still in queue");
+            Assert::AreEqual(0, postProcessItemCount, L"Queue was drained, but post process wasn't called for the correct number of item");
+        }
+
+        TEST_METHOD(WorkCorrectlyDropsAfterStartingToProcessItems)
+        {
+            int postProcessItemCount = 0;
+            int processedItemCount = 0;
+
+            BackgroundWorker<int> worker(
+                [&processedItemCount](auto current, auto shouldKeepProcessing)
+                {
+                    vector<shared_ptr<int>> items;
+                    for (auto&& item : current)
+                    {
+                        if (!shouldKeepProcessing())
+                        {
+                            break;
+                        }
+
+                        items.emplace_back(item);
+                        this_thread::sleep_for(500ms);
+                    }
+
+                    processedItemCount += items.size();
+                    return items;
+                },
+                [&postProcessItemCount](auto items)
+                {
+                    postProcessItemCount += items.size();
+                },
+                TRACE_PREFIX, 1000ms, 4);
+
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+
+            // Queue 4 times to trigger the dequeue
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(8));
+            worker.AddWork(make_shared<int>(9));
+            worker.AddWork(make_shared<int>(10));
+
+            // Wait a little bit so we start processing the
+            // first item back
+            this_thread::sleep_for(50ms);
+
+            // queue another one
+            worker.AddWork(make_shared<int>(11));
+
+            this_thread::sleep_for(650ms);
+
+            worker.ShutdownAndDrop();
+
+            Assert::AreEqual(3, (int)worker.GetQueueLength(), L"Items still in queue");
+            Assert::AreEqual(2, processedItemCount, L"Incorrect number of items processed before being asked to drop");
+            Assert::AreEqual(0, postProcessItemCount, L"Queue was drained, but post process wasn't called for the correct number of item");
         }
 
         TEST_METHOD(WorkRemainsUnchangedAfterPausing)
