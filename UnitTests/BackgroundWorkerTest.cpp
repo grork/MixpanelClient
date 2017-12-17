@@ -16,7 +16,7 @@ const wchar_t* TRACE_PREFIX = L"BackgroundWorkerTest";
 
 namespace CodevoidN { namespace  Tests
 {
-    vector<shared_ptr<int>> processAll(const vector<shared_ptr<int>>& current, const WorkerState&)
+    vector<shared_ptr<int>> processAll(const vector<shared_ptr<int>>& current, const function<bool()>&)
     {
         return vector<shared_ptr<int>>(current.begin(), current.end());
     }
@@ -64,7 +64,7 @@ namespace CodevoidN { namespace  Tests
             });
 
             size_t queueLength = worker.GetQueueLength();
-            worker.Shutdown(WorkerState::Shutdown);
+            worker.Shutdown();
 
             Assert::AreEqual(0, (int)queueLength, L"Items still in queue");
             Assert::IsTrue(status, L"Queue didn't reach 0 before timeout");
@@ -98,7 +98,7 @@ namespace CodevoidN { namespace  Tests
             });
 
             size_t queueLength = worker.GetQueueLength();
-            worker.Shutdown(WorkerState::Shutdown);
+            worker.Shutdown();
 
             Assert::AreEqual(0, (int)queueLength, L"Items still in queue");
             Assert::IsTrue(status, L"Queue didn't reach 0 before timeout");
@@ -131,7 +131,7 @@ namespace CodevoidN { namespace  Tests
             });
 
             size_t queueLength = worker.GetQueueLength();
-            worker.Shutdown(WorkerState::Shutdown);
+            worker.Shutdown();
 
             Assert::AreEqual(0, (int)queueLength, L"Items still in queue");
             Assert::IsTrue(status, L"Queue didn't reach 0 before timeout");
@@ -155,7 +155,7 @@ namespace CodevoidN { namespace  Tests
             worker.AddWork(make_shared<int>(7));
             worker.AddWork(make_shared<int>(9));
 
-            worker.Shutdown(WorkerState::Drain);
+            worker.Shutdown();
 
             Assert::AreEqual(0, (int)worker.GetQueueLength(), L"Items still in queue");
             Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
@@ -317,7 +317,7 @@ namespace CodevoidN { namespace  Tests
             Assert::AreEqual(2, (int)worker.GetQueueLength(), L"Expected items in the queue");
             Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
 
-            worker.Shutdown(WorkerState::Drain);
+            worker.Shutdown();
 
             Assert::AreEqual(0, (int)worker.GetQueueLength(), L"Items still in queue");
             Assert::IsFalse(postProcessCalled, L"Queue was processed, but post process should't have been called");

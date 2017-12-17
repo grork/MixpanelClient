@@ -21,7 +21,7 @@ String^ GetFileNameForId(const long long& id)
 
 EventQueue::EventQueue(StorageFolder^ localStorage) :
     m_localStorage(localStorage),
-    m_state(WorkerState::None),
+    m_state(QueueState::None),
     m_writeToStorageWorker(
         bind(&EventQueue::WriteItemsToStorage, this, placeholders::_1, placeholders::_2),
         bind(&EventQueue::AddItemsToUploadQueue, this, placeholders::_1),
@@ -44,8 +44,7 @@ EventQueue::~EventQueue()
 {
     TRACE_OUT("Event Queue being destroyed");
 
-    m_state = WorkerState::Shutdown;
-    m_writeToStorageWorker.Shutdown(m_state);
+    this->PersistAllQueuedItemsToStorageAndShutdown().wait();
 }
 
 long long EventQueue::GetNextId()
@@ -70,7 +69,7 @@ size_t EventQueue::GetWaitingForUploadLength()
 
 long long EventQueue::QueueEventForUpload(JsonObject^ payload)
 {
-    if (m_state > WorkerState::None)
+    if (m_state > QueueState::Running)
     {
         TRACE_OUT("Event dropped due to shutting down");
         return 0;
@@ -119,13 +118,13 @@ void EventQueue::EnableQueuingToStorage()
     m_writeToStorageWorker.Start();
 }
 
-PayloadContainers EventQueue::WriteItemsToStorage(const PayloadContainers& items, const WorkerState& state)
+PayloadContainers EventQueue::WriteItemsToStorage(const PayloadContainers& items, const function<bool()>& isShuttingDown)
 {
     PayloadContainers successfullyProcessedItems;
 
     for (auto&& item : items)
     {
-        if (state > WorkerState::Drain)
+        if (isShuttingDown())
         {
             break;
         }
@@ -147,10 +146,11 @@ void EventQueue::AddItemsToUploadQueue(const PayloadContainers& itemsToUpload)
 
 task<void> EventQueue::PersistAllQueuedItemsToStorageAndShutdown()
 {
-    m_state = WorkerState::Drain;
+    m_state = QueueState::Drain;
 
     return create_task([this]() {
-        this->m_writeToStorageWorker.Shutdown(m_state);
+        this->m_writeToStorageWorker.Shutdown();
+        this->m_state = QueueState::Stopped;
     });
 }
 

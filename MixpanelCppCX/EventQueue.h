@@ -3,7 +3,7 @@
 #include "BackgroundWorker.h"
 
 namespace CodevoidN { namespace  Tests { namespace Mixpanel {
-            class EventQueueTests;
+    class EventQueueTests;
 } } }
 
 namespace CodevoidN { namespace Utilities { namespace Mixpanel {
@@ -72,8 +72,17 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         void EnableQueuingToStorage();
 
     private:
+        enum class QueueState
+        {
+            None, // Queue has neve been startred
+            Running, // Queue is running
+            Drain, // Queue is draining the current items
+            Drop, // Drop all the items, with no care to where to put them
+            Stopped // We've successfully stopped
+        };
+
         std::atomic<long long> m_baseId;
-        WorkerState m_state;
+        QueueState m_state;
 
         Windows::Storage::StorageFolder^ m_localStorage;
         CodevoidN::Utilities::Mixpanel::BackgroundWorker<PayloadContainer> m_writeToStorageWorker;
@@ -90,7 +99,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         long long GetNextId();
 
         concurrency::task<void> WriteItemToStorage(const std::shared_ptr<PayloadContainer> item);
-        std::vector<std::shared_ptr<PayloadContainer>> WriteItemsToStorage(const std::vector<std::shared_ptr<PayloadContainer>>& items, const WorkerState& state);
+        std::vector<std::shared_ptr<PayloadContainer>> WriteItemsToStorage(const std::vector<std::shared_ptr<PayloadContainer>>& items, const std::function<bool()>& isShuttingDown);
         void AddItemsToUploadQueue(const std::vector<std::shared_ptr<PayloadContainer>>& itemsToUpload);
         concurrency::task<void> ClearStorage();
 

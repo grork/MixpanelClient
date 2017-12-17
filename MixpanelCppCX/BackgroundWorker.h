@@ -4,15 +4,6 @@
 #include "Tracing.h"
 
 namespace CodevoidN { namespace Utilities { namespace Mixpanel {
-    enum class WorkerState
-    {
-        None,
-        Paused,
-        Drain,
-        Drop,
-        Shutdown
-    };
-
     template <typename ItemType>
     class BackgroundWorker
     {
@@ -22,7 +13,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
     public:
         BackgroundWorker(
-            std::function<ItemTypeVector(ItemTypeVector&, const WorkerState&)> processItemsCallback,
+            std::function<ItemTypeVector(ItemTypeVector&, const std::function<bool()>&)> processItemsCallback,
             std::function<void(ItemTypeVector&)> postProcessItemsCallback,
             const std::wstring& tracePrefix,
             const std::chrono::milliseconds debounceTimeout = std::chrono::milliseconds(500),
@@ -111,8 +102,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             }
 
             TRACE_OUT(m_tracePrefix + L": Starting Write To Storage worker");
-            m_state = WorkerState::None;
-            m_workerStarted = true;
             m_workerThread = std::thread(&BackgroundWorker::Worker, this);
             this->TriggerWorkOrWaitForIdle();
         }
@@ -129,6 +118,73 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         {
             TRACE_OUT(m_tracePrefix + L": Trying To pause Worker");
             this->Shutdown(WorkerState::Paused);
+        }
+
+        void Shutdown()
+        {
+            this->Shutdown(WorkerState::Drain);
+        }
+
+        void SetDebounceTimeout(std::chrono::milliseconds debounceTimeout)
+        {
+            if (m_workerStarted)
+            {
+                throw std::logic_error("Cannot change debounce timeout while worker is running");
+            }
+
+            m_debounceTimeout = debounceTimeout;
+        }
+
+        void SetDebounceItemThreshold(size_t debounceItemThreshold)
+        {
+            if (m_workerStarted)
+            {
+                throw std::logic_error("Cannot change debounce item threshold while worker is running");
+            }
+
+            m_debounceItemThreshold = debounceItemThreshold;
+        }
+
+    private:
+        enum class WorkerState
+        {
+            None,
+            Paused,
+            Drain,
+            Drop,
+            Shutdown
+        };
+
+        // concurrency::timer is weird, and requires you to set things up in weird ways
+        // (hence the pointers). Also, it can't be "Restarted" if it's a single timer
+        // so we need to recreate it every time. This function just wraps things up neatly.
+        std::tuple<std::shared_ptr<Concurrency::timer<int>>, std::shared_ptr<Concurrency::call<int>>> CreateConcurrencyTimer(std::chrono::milliseconds timeout, std::function<void()> callback)
+        {
+            auto callWrapper = std::make_shared<Concurrency::call<int>>([callback](int) {
+                callback();
+            });
+
+            auto timerInstance = std::make_shared<Concurrency::timer<int>>((int)timeout.count(), 0, callWrapper.get(), false);
+
+            return make_tuple(timerInstance, callWrapper);
+        }
+
+        // Per CreateConcurrencyTimer, this helps clean the timers up.
+        static void CancelConcurrencyTimer(std::shared_ptr<Concurrency::timer<int>>& timer, std::shared_ptr<Concurrency::call<int>>& target)
+        {
+            if (timer != nullptr && target != nullptr)
+            {
+                timer->stop();
+                timer->unlink_target(target.get());
+            }
+
+            target = nullptr;
+            timer = nullptr;
+        }
+
+        bool ShouldKeepProcessingItems()
+        {
+            return (m_state > WorkerState::Drain);
         }
 
         void Shutdown(const WorkerState state)
@@ -163,60 +219,14 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             TRACE_OUT(m_tracePrefix + L": Shutdown");
         }
 
-        void SetDebounceTimeout(std::chrono::milliseconds debounceTimeout)
-        {
-            if (m_workerStarted)
-            {
-                throw std::logic_error("Cannot change debounce timeout while worker is running");
-            }
-
-            m_debounceTimeout = debounceTimeout;
-        }
-
-        void SetDebounceItemThreshold(size_t debounceItemThreshold)
-        {
-            if (m_workerStarted)
-            {
-                throw std::logic_error("Cannot change debounce item threshold while worker is running");
-            }
-
-            m_debounceItemThreshold = debounceItemThreshold;
-        }
-
-    private:
-        // concurrency::timer is weird, and requires you to set things up in weird ways
-        // (hence the pointers). Also, it can't be "Restarted" if it's a single timer
-        // so we need to recreate it every time. This function just wraps things up neatly.
-        std::tuple<std::shared_ptr<Concurrency::timer<int>>, std::shared_ptr<Concurrency::call<int>>> CreateConcurrencyTimer(std::chrono::milliseconds timeout, std::function<void()> callback)
-        {
-            auto callWrapper = std::make_shared<Concurrency::call<int>>([callback](int) {
-                callback();
-            });
-
-            auto timerInstance = std::make_shared<Concurrency::timer<int>>((int)timeout.count(), 0, callWrapper.get(), false);
-
-            return make_tuple(timerInstance, callWrapper);
-        }
-
-        // Per CreateConcurrencyTimer, this helps clean the timers up.
-        static void CancelConcurrencyTimer(std::shared_ptr<Concurrency::timer<int>>& timer, std::shared_ptr<Concurrency::call<int>>& target)
-        {
-            if (timer != nullptr && target != nullptr)
-            {
-                timer->stop();
-                timer->unlink_target(target.get());
-            }
-
-            target = nullptr;
-            timer = nullptr;
-        }
-
         void Worker()
         {
             // When we make the first iteration through the loops
             // we will want to wait if there aren't enough items in
             // the queue yet.
             bool waitForFirstWakeUp = this->GetQueueLength() <= m_debounceItemThreshold;
+            m_state = WorkerState::None;
+            m_workerStarted = true;
 
             while (m_state < WorkerState::Shutdown)
             {
@@ -286,7 +296,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                 }
 
                 TRACE_OUT(m_tracePrefix + L": Processing Items");
-                ItemTypeVector successfullyProcessed = this->m_processItemsCallback(itemsToPersist, m_state);
+                ItemTypeVector successfullyProcessed = this->m_processItemsCallback(itemsToPersist, std::bind(&BackgroundWorker<ItemType>::ShouldKeepProcessingItems, this));
 
                 // Remove the items from the queue
                 {
@@ -333,7 +343,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::shared_ptr<concurrency::call<int>> m_debounceTimerCallback;
         std::chrono::milliseconds m_debounceTimeout;
         size_t m_debounceItemThreshold;
-        std::function<ItemTypeVector(ItemTypeVector&, const WorkerState&)> m_processItemsCallback;
+        std::function<ItemTypeVector(ItemTypeVector&, const std::function<bool()>&)> m_processItemsCallback;
         std::function<void(ItemTypeVector&)> m_postProcessItemsCallback;
         std::wstring m_tracePrefix;
         std::vector<ItemType_ptr> m_items;
