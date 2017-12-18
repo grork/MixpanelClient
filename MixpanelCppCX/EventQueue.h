@@ -107,6 +107,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// Configures the idle limits for the write to storage behaviour.
         /// This overrides the defaults, soley for testing purposes.
         /// </summary>
-        void SetWriteToStorageIdleLimits(std::chrono::milliseconds idleTimeout, size_t idleItemThreshold);
+        void SetWriteToStorageIdleLimits(const std::chrono::milliseconds& idleTimeout, const size_t& idleItemThreshold);
     };
 } } }
