@@ -181,6 +181,6 @@ task<void> EventQueue::ClearStorage()
 
 void EventQueue::SetWriteToStorageIdleLimits(std::chrono::milliseconds idleTimeout, size_t idleItemThreshold)
 {
-    m_writeToStorageWorker.SetDebounceTimeout(idleTimeout);
-    m_writeToStorageWorker.SetDebounceItemThreshold(idleItemThreshold);
+    m_writeToStorageWorker.SetIdleTimeout(idleTimeout);
+    m_writeToStorageWorker.SetItemThreshold(idleItemThreshold);
 }
