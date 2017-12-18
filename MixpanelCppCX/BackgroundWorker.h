@@ -37,7 +37,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         size_t GetQueueLength()
         {
-            lock_guard_mutex lock(m_accessLock);
+            lock_guard_mutex lock(m_itemsLock);
             return m_items.size();
         }
 
@@ -46,7 +46,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             TRACE_OUT(m_tracePrefix + L": Adding Item");
 
             {
-                lock_guard_mutex lock(m_accessLock);
+                lock_guard_mutex lock(m_itemsLock);
                 m_items.emplace_back(item);
             }
 
@@ -101,15 +101,22 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                 return;
             }
 
-            TRACE_OUT(m_tracePrefix + L": Starting Write To Storage worker");
-            m_workerThread = std::thread(&BackgroundWorker::Worker, this);
+            TRACE_OUT(m_tracePrefix + L": Starting worker");
+            {
+                std::unique_lock<mutex> lock(m_workerLock);
+                m_workerThread = std::thread(&BackgroundWorker::Worker, this);
+
+                TRACE_OUT(m_tracePrefix + L"Waiting to be notified worker has succesfully started");
+                m_hasWorkerStarted.wait(lock);
+            }
+
             this->TriggerWorkOrWaitForIdle();
         }
 
         void Clear()
         {
             TRACE_OUT(m_tracePrefix + L": Clearing");
-            lock_guard_mutex lock(m_accessLock);
+            lock_guard_mutex lock(m_itemsLock);
             m_items.clear();
             TRACE_OUT(m_tracePrefix + L": Cleared");
         }
@@ -233,13 +240,23 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             m_state = WorkerState::None;
             m_workerStarted = true;
 
+            {
+                // Signal to people who started us that we're
+                // now actually started. This allows us to be
+                // sure in the starting location that we're
+                // in the loop, and not going to stop any state
+                // (e.g. the worker state)
+                std::unique_lock<mutex> lock(m_workerLock);
+                m_hasWorkerStarted.notify_one();
+            }
+
             while (m_state < WorkerState::Shutdown)
             {
                 TRACE_OUT(m_tracePrefix + L": Worker Starting Loop Iteration");
                 ItemTypeVector itemsToPersist;
 
                 {
-                    std::unique_lock<std::mutex> lock(m_accessLock);
+                    std::unique_lock<std::mutex> lock(m_itemsLock);
 
                     // If we don't have anything in the queue, lets wait for something
                     // to be in it, or to shutdown.
@@ -307,7 +324,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
                 // Remove the items from the queue
                 {
-                    lock_guard_mutex lock(m_accessLock);
+                    lock_guard_mutex lock(m_itemsLock);
 
                     TRACE_OUT(m_tracePrefix + L": Clearing Queue of processed items");
 
@@ -354,8 +371,10 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::function<void(ItemTypeVector&)> m_postProcessItemsCallback;
         std::wstring m_tracePrefix;
         std::vector<ItemType_ptr> m_items;
-        std::mutex m_accessLock;
+        std::mutex m_itemsLock;
         std::condition_variable m_hasItems;
+        std::mutex m_workerLock;
+        std::condition_variable m_hasWorkerStarted;
         std::atomic<bool> m_workerStarted;
         std::thread m_workerThread;
         std::atomic<WorkerState> m_state;
