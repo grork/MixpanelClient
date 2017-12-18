@@ -12,8 +12,6 @@ using namespace Windows::Data::Json;
 using namespace Windows::Foundation::Collections;
 using namespace Windows::Storage;
 
-const wchar_t* TRACE_PREFIX = L"BackgroundWorkerTest";
-
 namespace CodevoidN { namespace  Tests
 {
     vector<shared_ptr<int>> processAll(const vector<shared_ptr<int>>& current, const function<bool()>& shouldKeepProcessing)
@@ -35,7 +33,7 @@ namespace CodevoidN { namespace  Tests
             BackgroundWorker<int> worker(
                 bind(processAll, placeholders::_1, placeholders::_2),
                 [](auto) { },
-                TRACE_PREFIX);
+                L"CanInstantiateWorker");
 
             worker.AddWork(make_shared<int>(7));
 
@@ -56,7 +54,7 @@ namespace CodevoidN { namespace  Tests
                 [&workDequeued](auto)
                 {
                     workDequeued.notify_all();
-                }, TRACE_PREFIX, 1000ms, 1);
+                }, L"WorkIsDeqeuedAfterThresholdBeforeTimeout", 1000ms, 1);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
@@ -89,7 +87,7 @@ namespace CodevoidN { namespace  Tests
                 [&workDequeued](auto)
             {
                 workDequeued.notify_all();
-            }, TRACE_PREFIX, 5000ms, 2);
+            }, L"WorkIsProcessedAfterQueueIsEmptiedAndItemsQueued", 5000ms, 2);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
@@ -135,7 +133,7 @@ namespace CodevoidN { namespace  Tests
                 [&workDequeued](auto)
                 {
                     workDequeued.notify_all();
-                }, TRACE_PREFIX, 1000ms, 2);
+                }, L"WorkIsDeqeuedAfterThresholdBeforeTimeoutWhenQueuedBeforeStarting", 1000ms, 2);
 
             worker.AddWork(make_shared<int>(7));
             worker.AddWork(make_shared<int>(9));
@@ -169,7 +167,7 @@ namespace CodevoidN { namespace  Tests
                 [&workDequeued](auto)
                 {
                     workDequeued.notify_all();
-                }, TRACE_PREFIX, 200ms, 10);
+                }, L"WorkIsDeqeuedAfterTimeoutBeforeThreshold", 200ms, 10);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
@@ -198,7 +196,7 @@ namespace CodevoidN { namespace  Tests
                 {
                     postProcessCalled = true;
                 },
-                TRACE_PREFIX, 1000ms, 10);
+                L"WorkIsDeqeuedOnShutdownDrainBeforeTimeoutOrThreshold", 1000ms, 10);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
@@ -227,7 +225,7 @@ namespace CodevoidN { namespace  Tests
                 {
                     postProcessCalled = true;
                 },
-                TRACE_PREFIX, 1000ms, 10);
+                L"WorkIsProcessedButNotPostProcessedWhenDrained", 1000ms, 10);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
@@ -262,7 +260,7 @@ namespace CodevoidN { namespace  Tests
             {
                 postProcessCalled = true;
             },
-                TRACE_PREFIX, 1000ms, 10);
+                L"WorkIsNotProcessedAndNotPostProcessedWhenDropped", 1000ms, 10);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
@@ -304,7 +302,7 @@ namespace CodevoidN { namespace  Tests
                 {
                     postProcessItemCount += (int)items.size();
                 },
-                TRACE_PREFIX, 1000ms, 4);
+                L"WorkStopsProcessingWhileProcessingCurrentWork", 1000ms, 4);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
@@ -358,7 +356,7 @@ namespace CodevoidN { namespace  Tests
                 {
                     postProcessItemCount += (int)items.size();
                 },
-                TRACE_PREFIX, 1000ms, 4);
+                L"WorkCorrectlyDropsAfterStartingToProcessItems", 1000ms, 4);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
@@ -398,7 +396,7 @@ namespace CodevoidN { namespace  Tests
                 {
                     postProcessCalled = true;
                 },
-                TRACE_PREFIX, 200ms, 10);
+                L"WorkRemainsUnchangedAfterPausing", 200ms, 10);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
@@ -427,7 +425,7 @@ namespace CodevoidN { namespace  Tests
             {
                 postProcessCalled = true;
             },
-                TRACE_PREFIX, 200ms, 10);
+                L"WorkRemainsUnchangedAfterPausingTwice", 200ms, 10);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
@@ -460,7 +458,7 @@ namespace CodevoidN { namespace  Tests
                 {
                     postProcessCalled = true;
                 },
-                TRACE_PREFIX, 200ms, 3);
+                L"WorkRemainsUnchangedAndPausedAfterPausingAndAddingWork", 200ms, 3);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
@@ -493,7 +491,7 @@ namespace CodevoidN { namespace  Tests
                 {
                     postProcessCalled = true;
                 },
-                TRACE_PREFIX, 200ms, 10);
+                L"WorkProcessedAfterResumingFromPausedState", 200ms, 10);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
@@ -526,7 +524,7 @@ namespace CodevoidN { namespace  Tests
                 {
                     postProcessCalled = true;
                 },
-                TRACE_PREFIX, 200ms, 10);
+                L"WorkProcessedAfterShuttingDownFromPausedState", 200ms, 10);
 
             worker.Start();
             this_thread::sleep_for(100ms); // Wait for worker to be ready
