@@ -22,7 +22,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             m_processItemsCallback(processItemsCallback),
             m_postProcessItemsCallback(postProcessItemsCallback),
             m_tracePrefix(tracePrefix),
-            m_workerStarted(false),
             m_state(WorkerState::None),
             m_debounceTimeout(debounceTimeout),
             m_debounceItemThreshold(debounceItemThreshold)
@@ -53,34 +52,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             TRACE_OUT(m_tracePrefix + L": Notifying worker thread");
 
             this->TriggerWorkOrWaitForIdle();
-        }
-
-        void TriggerWorkOrWaitForIdle()
-        {
-            if (m_state != WorkerState::Running)
-            {
-                TRACE_OUT(m_tracePrefix + L": Skipping triggering worker, since it's not started");
-                return;
-            }
-
-            CancelConcurrencyTimer(m_debounceTimer, m_debounceTimerCallback);
-
-            if (this->GetQueueLength() >= m_debounceItemThreshold)
-            {
-                m_hasItems.notify_one();
-            }
-            else
-            {
-                auto timer = CreateConcurrencyTimer(m_debounceTimeout, [this]() {
-                    TRACE_OUT(m_tracePrefix + L": Debounce Timer tiggered");
-                    m_hasItems.notify_one();
-                });
-
-                m_debounceTimer = std::get<0>(timer);
-                m_debounceTimerCallback = std::get<1>(timer);
-
-                m_debounceTimer->start();
-            }
         }
 
         void Start()
@@ -253,6 +224,34 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             TRACE_OUT(m_tracePrefix + L": Shutdown");
         }
 
+        void TriggerWorkOrWaitForIdle()
+        {
+            if (m_state != WorkerState::Running)
+            {
+                TRACE_OUT(m_tracePrefix + L": Skipping triggering worker, since it's not started");
+                return;
+            }
+
+            CancelConcurrencyTimer(m_debounceTimer, m_debounceTimerCallback);
+
+            if (this->GetQueueLength() >= m_debounceItemThreshold)
+            {
+                m_hasItems.notify_one();
+            }
+            else
+            {
+                auto timer = CreateConcurrencyTimer(m_debounceTimeout, [this]() {
+                    TRACE_OUT(m_tracePrefix + L": Debounce Timer tiggered");
+                    m_hasItems.notify_one();
+                });
+
+                m_debounceTimer = std::get<0>(timer);
+                m_debounceTimerCallback = std::get<1>(timer);
+
+                m_debounceTimer->start();
+            }
+        }
+
         void Worker()
         {
             // When we make the first iteration through the loops
@@ -422,7 +421,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::condition_variable m_hasItems;
         std::mutex m_workerLock;
         std::condition_variable m_hasWorkerStarted;
-        std::atomic<bool> m_workerStarted;
         std::thread m_workerThread;
         std::atomic<WorkerState> m_state;
     };
