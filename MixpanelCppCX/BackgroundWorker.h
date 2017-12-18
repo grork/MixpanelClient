@@ -199,10 +199,10 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             return (m_state < WorkerState::Drop);
         }
 
-        void Shutdown(const WorkerState state)
+        void Shutdown(const WorkerState targetState)
         {
             WorkerState previousState = m_state;
-            m_state = state;
+            m_state = targetState;
 
             TRACE_OUT(m_tracePrefix + L": Shutting down");
             if (!m_workerStarted && (previousState != WorkerState::Paused))
@@ -211,7 +211,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                 return;
             }
 
-            if ((previousState == WorkerState::Paused) && (state != WorkerState::Paused) && (this->GetQueueLength() > 0))
+            if ((previousState == WorkerState::Paused) && (targetState != WorkerState::Paused) && (this->GetQueueLength() > 0))
             {
                 TRACE_OUT(m_tracePrefix + L": Worker was paused, starting again to allow draining");
                 this->Start();
@@ -222,7 +222,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             if (m_workerThread.joinable())
             {
                 TRACE_OUT(m_tracePrefix + L": Waiting on Worker Thread");
-                m_state = state;
+                m_state = targetState;
                 m_hasItems.notify_one();
                 m_workerThread.join();
                 assert(!m_workerStarted);
