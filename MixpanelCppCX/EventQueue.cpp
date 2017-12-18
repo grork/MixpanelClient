@@ -161,7 +161,7 @@ task<void> EventQueue::Clear()
     co_await this->ClearStorage();
 }
 
-task<void> EventQueue::WriteItemToStorage(PayloadContainer_ptr item)
+task<void> EventQueue::WriteItemToStorage(const PayloadContainer_ptr item)
 {
     TRACE_OUT("Writing File: " + GetFileNameForId(item->Id));
     JsonObject^ payload = item->Payload;
@@ -179,7 +179,7 @@ task<void> EventQueue::ClearStorage()
     }
 }
 
-void EventQueue::SetWriteToStorageIdleLimits(std::chrono::milliseconds idleTimeout, size_t idleItemThreshold)
+void EventQueue::SetWriteToStorageIdleLimits(const std::chrono::milliseconds& idleTimeout, const size_t& idleItemThreshold)
 {
     m_writeToStorageWorker.SetIdleTimeout(idleTimeout);
     m_writeToStorageWorker.SetItemThreshold(idleItemThreshold);

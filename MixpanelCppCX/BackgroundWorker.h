@@ -75,7 +75,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// If the worker isn't started, items are just placed in the queue,
         /// and will be processed once the worker has been started.
         /// </summary>
-        void AddWork(ItemType_ptr item)
+        void AddWork(const ItemType_ptr item)
         {
             TRACE_OUT(m_tracePrefix + L": Adding Item");
 
@@ -174,7 +174,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             this->Shutdown(WorkerState::Drop);
         }
 
-        void SetIdleTimeout(std::chrono::milliseconds idleTimeout)
+        void SetIdleTimeout(const std::chrono::milliseconds idleTimeout)
         {
             if (this->HasEverBeenStarted())
             {
@@ -184,7 +184,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             m_idleTimeout = idleTimeout;
         }
 
-        void SetItemThreshold(size_t itemThreshold)
+        void SetItemThreshold(const size_t itemThreshold)
         {
             if (this->HasEverBeenStarted())
             {
@@ -246,13 +246,13 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// dropping (E.g draining, paused, running), we should keep
         /// doing potentially long running work on individual items.
         /// </summary>
-        bool ShouldKeepProcessingItems()
+        bool ShouldKeepProcessingItems() const
         {
             WorkerState currentState = m_state;
             return ((currentState > WorkerState::None) && (currentState < WorkerState::Drop));
         }
 
-        bool HasEverBeenStarted()
+        bool HasEverBeenStarted() const
         {
             return (m_state != WorkerState::None);
         }
