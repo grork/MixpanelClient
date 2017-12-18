@@ -216,7 +216,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             {
                 TRACE_OUT(m_tracePrefix + L": Waiting on Worker Thread");
                 m_state = state;
-                m_hasItems.notify_all();
+                m_hasItems.notify_one();
                 m_workerThread.join();
                 assert(!m_workerStarted);
             }
