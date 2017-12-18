@@ -302,7 +302,7 @@ namespace CodevoidN { namespace  Tests
                 },
                 [&postProcessItemCount](auto items)
                 {
-                    postProcessItemCount += items.size();
+                    postProcessItemCount += (int)items.size();
                 },
                 TRACE_PREFIX, 1000ms, 4);
 
@@ -351,12 +351,12 @@ namespace CodevoidN { namespace  Tests
                         this_thread::sleep_for(500ms);
                     }
 
-                    processedItemCount += items.size();
+                    processedItemCount += (int)items.size();
                     return items;
                 },
                 [&postProcessItemCount](auto items)
                 {
-                    postProcessItemCount += items.size();
+                    postProcessItemCount += (int)items.size();
                 },
                 TRACE_PREFIX, 1000ms, 4);
 
