@@ -12,19 +12,46 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         using lock_guard_mutex = std::lock_guard<std::mutex>;
 
     public:
+        /// <summary>
+        /// Creates, but does not start, a worker queue that is processed on
+        /// a background thread.
+        ///
+        /// <param name='processItemsCallback'>
+        /// Handler to process the actual item when required. This should do
+        /// the work of actually handling the items in the queue.
+        /// </param>
+        /// <param name='postProcessItemsCallback'>
+        /// When an item has been successfully processed, this can be used to perform
+        /// additional processing on those items after they've been removed from the
+        /// main queue. The primary use case is to allow them to be placed into another
+        /// queue for additional processing
+        /// </param>
+        /// <param name='tracePrefix'>
+        /// When built for 'Debugging', this is prefixed to all all trace logging.
+        /// Intended to help with diagnostics.
+        /// </param>
+        /// <param name='idleTimeout'>
+        /// Duration to wait for idle before processing items in the queue.
+        /// </param>
+        /// <param name='itemThreshold'>
+        /// Number of items to wait for before processing the queue, irrespective
+        /// of the idle time out. E.g. If you're adding events rapidly, you'll never
+        /// reach the idle timeout, so you'll want to start processing items.
+        /// </param>
+        /// </summary>
         BackgroundWorker(
             std::function<ItemTypeVector(ItemTypeVector&, const std::function<bool()>&)> processItemsCallback,
             std::function<void(ItemTypeVector&)> postProcessItemsCallback,
             const std::wstring& tracePrefix,
-            const std::chrono::milliseconds debounceTimeout = std::chrono::milliseconds(500),
-            size_t debounceItemThreshold = 10
+            const std::chrono::milliseconds idleTimeout = std::chrono::milliseconds(500),
+            size_t itemThreshold = 10
         ) :
             m_processItemsCallback(processItemsCallback),
             m_postProcessItemsCallback(postProcessItemsCallback),
             m_tracePrefix(tracePrefix),
             m_state(WorkerState::None),
-            m_debounceTimeout(debounceTimeout),
-            m_debounceItemThreshold(debounceItemThreshold)
+            m_idleTimeout(idleTimeout),
+            m_itemThreshold(itemThreshold)
         { }
 
         ~BackgroundWorker()
@@ -40,6 +67,14 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             return m_items.size();
         }
 
+        /// <summary>
+        /// Adds the supplied work to the queue for later processing.
+        /// Will reset the idle timer or start processing immediately if
+        /// the queue length has reached the supplied limit.
+        ///
+        /// If the worker isn't started, items are just placed in the queue,
+        /// and will be processed once the worker has been started.
+        /// </summary>
         void AddWork(ItemType_ptr item)
         {
             TRACE_OUT(m_tracePrefix + L": Adding Item");
@@ -54,6 +89,10 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             this->TriggerWorkOrWaitForIdle();
         }
 
+        /// <summary>
+        /// Starts the background processing inline with the idle timeout & item
+        /// limits. Will keep running until paused, shutdown, or instance is cleanedup
+        /// </summary>
         void Start()
         {
             if (m_processItemsCallback == nullptr)
@@ -85,6 +124,10 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             this->TriggerWorkOrWaitForIdle();
         }
 
+        /// <summary>
+        /// Removes any items that are currently in the queue, even if they're
+        /// currently being processed.
+        /// </summary>
         void Clear()
         {
             TRACE_OUT(m_tracePrefix + L": Clearing");
@@ -93,40 +136,62 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             TRACE_OUT(m_tracePrefix + L": Cleared");
         }
 
+        /// <summary>
+        /// Stops the worker from processing any more items after it's finished it's current batch.
+        /// This is intended to keep items in memory, assuming they'll be processed later.
+        /// 
+        /// Blocks the current thread until the queue has successfully paused.
+        ///
+        /// Note, if you pause and then destroy the queue without resuming the worker, the will
+        /// be started to process all the items as quickly as possible, but don't post-process
+        /// any of the items.
+        /// </summary>
         void Pause()
         {
             TRACE_OUT(m_tracePrefix + L": Trying To pause Worker");
             this->Shutdown(WorkerState::Paused);
         }
 
+        /// <summary>
+        /// Waits for worker to process (but not post process) all items currently in the queue.
+        ///
+        /// Blocks the current thread until the queue has successfully processed all items
+        /// </summary>
         void Shutdown()
         {
             this->Shutdown(WorkerState::Drain);
         }
 
+        /// <summary>
+        /// Stops processing all items, including the next single item in the queue.
+        ///
+        /// Blocks the current thread until the queue has successfully processed the current item.
+        ///
+        /// Leaves items in memory, and won't drain the queue on shutdown, causing items to be lost.
+        /// </summary>
         void ShutdownAndDrop()
         {
             this->Shutdown(WorkerState::Drop);
         }
 
-        void SetDebounceTimeout(std::chrono::milliseconds debounceTimeout)
+        void SetIdleTimeout(std::chrono::milliseconds idleTimeout)
         {
             if (this->HasEverBeenStarted())
             {
                 throw std::logic_error("Cannot change debounce timeout while worker is running");
             }
 
-            m_debounceTimeout = debounceTimeout;
+            m_idleTimeout = idleTimeout;
         }
 
-        void SetDebounceItemThreshold(size_t debounceItemThreshold)
+        void SetItemThreshold(size_t itemThreshold)
         {
             if (this->HasEverBeenStarted())
             {
                 throw std::logic_error("Cannot change debounce item threshold while worker is running");
             }
 
-            m_debounceItemThreshold = debounceItemThreshold;
+            m_itemThreshold = itemThreshold;
         }
 
     private:
@@ -210,7 +275,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                 this->Start();
             }
 
-            CancelConcurrencyTimer(m_debounceTimer, m_debounceTimerCallback);
+            CancelConcurrencyTimer(m_idleTimer, m_idleTimerCallback);
 
             if (m_workerThread.joinable())
             {
@@ -232,23 +297,23 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                 return;
             }
 
-            CancelConcurrencyTimer(m_debounceTimer, m_debounceTimerCallback);
+            CancelConcurrencyTimer(m_idleTimer, m_idleTimerCallback);
 
-            if (this->GetQueueLength() >= m_debounceItemThreshold)
+            if (this->GetQueueLength() >= m_itemThreshold)
             {
                 m_hasItems.notify_one();
             }
             else
             {
-                auto timer = CreateConcurrencyTimer(m_debounceTimeout, [this]() {
+                auto timer = CreateConcurrencyTimer(m_idleTimeout, [this]() {
                     TRACE_OUT(m_tracePrefix + L": Debounce Timer tiggered");
                     m_hasItems.notify_one();
                 });
 
-                m_debounceTimer = std::get<0>(timer);
-                m_debounceTimerCallback = std::get<1>(timer);
+                m_idleTimer = std::get<0>(timer);
+                m_idleTimerCallback = std::get<1>(timer);
 
-                m_debounceTimer->start();
+                m_idleTimer->start();
             }
         }
 
@@ -257,7 +322,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             // When we make the first iteration through the loops
             // we will want to wait if there aren't enough items in
             // the queue yet.
-            bool waitForFirstWakeUp = this->GetQueueLength() <= m_debounceItemThreshold;
+            bool waitForFirstWakeUp = this->GetQueueLength() <= m_itemThreshold;
             m_state = WorkerState::Running;
 
             {
@@ -409,19 +474,27 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             timer = nullptr;
         }
 
-        std::shared_ptr<concurrency::timer<int>> m_debounceTimer;
-        std::shared_ptr<concurrency::call<int>> m_debounceTimerCallback;
-        std::chrono::milliseconds m_debounceTimeout;
-        size_t m_debounceItemThreshold;
+        // Callbacks
         std::function<ItemTypeVector(ItemTypeVector&, const std::function<bool()>&)> m_processItemsCallback;
         std::function<void(ItemTypeVector&)> m_postProcessItemsCallback;
-        std::wstring m_tracePrefix;
+
+        // Idle timeout / item limits
+        std::shared_ptr<concurrency::timer<int>> m_idleTimer;
+        std::shared_ptr<concurrency::call<int>> m_idleTimerCallback;
+        std::chrono::milliseconds m_idleTimeout;
+        size_t m_itemThreshold;
+
+        // Items & Concurrency
         std::vector<ItemType_ptr> m_items;
         std::mutex m_itemsLock;
         std::condition_variable m_hasItems;
+
+        // Worker state & concurrency
         std::mutex m_workerLock;
         std::condition_variable m_hasWorkerStarted;
         std::thread m_workerThread;
         std::atomic<WorkerState> m_state;
+
+        std::wstring m_tracePrefix;
     };
 } } }
