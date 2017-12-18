@@ -57,7 +57,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         void TriggerWorkOrWaitForIdle()
         {
-            if (!m_workerStarted)
+            if (m_state != WorkerState::Running)
             {
                 TRACE_OUT(m_tracePrefix + L": Skipping triggering worker, since it's not started");
                 return;
@@ -95,7 +95,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                 throw std::invalid_argument("Must provide a PostProcessItems function start worker");
             }
 
-            if (m_workerStarted)
+            if (m_state == WorkerState::Running)
             {
                 TRACE_OUT(m_tracePrefix + L"Write To Storage worker already running");
                 return;
@@ -108,6 +108,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
                 TRACE_OUT(m_tracePrefix + L"Waiting to be notified worker has succesfully started");
                 m_hasWorkerStarted.wait(lock);
+                assert(m_state == WorkerState::Running);
             }
 
             this->TriggerWorkOrWaitForIdle();
@@ -139,7 +140,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         void SetDebounceTimeout(std::chrono::milliseconds debounceTimeout)
         {
-            if (m_workerStarted)
+            if (this->HasEverBeenStarted())
             {
                 throw std::logic_error("Cannot change debounce timeout while worker is running");
             }
@@ -149,7 +150,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         void SetDebounceItemThreshold(size_t debounceItemThreshold)
         {
-            if (m_workerStarted)
+            if (this->HasEverBeenStarted())
             {
                 throw std::logic_error("Cannot change debounce item threshold while worker is running");
             }
@@ -160,43 +161,64 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     private:
         enum class WorkerState
         {
+            /// <summary>
+            /// Queue has never started
+            /// </summary>
             None,
+
+            /// <summary>
+            /// Queue is currently processing items, and will keep
+            /// running until otherwise signaled. This will process
+            /// and post process items.
+            /// </summary>
+            Running,
+
+            /// <summary>
+            /// When signaled, it will process the current batch of
+            /// work, but won't post process it. From this state, it
+            /// can be started again, and will pick up where it left
+            /// off.
+            ///
+            /// Intended to be used when we just want to leave
+            /// items in memory, and don't mind if we loose them.
+            /// </summary>
             Paused,
+
+            /// <summary>
+            /// Process all current items in the queue, even if they we're
+            /// added after the current batch had started processing. This
+            /// is intended to be used for a clean shutdown once all the
+            /// in memory items have been successfully processed.
+            /// </summary>
             Drain,
+
+            /// <summary>
+            /// Stop processing any items or batches, including any batch you
+            /// are in the middle of handling, and leave everything in memory
+            /// </summary>
             Drop,
+
+            /// <summary>
+            /// Queue had started, and has subsequently shutdown.
+            /// </summary>
             Shutdown
         };
 
-        // concurrency::timer is weird, and requires you to set things up in weird ways
-        // (hence the pointers). Also, it can't be "Restarted" if it's a single timer
-        // so we need to recreate it every time. This function just wraps things up neatly.
-        std::tuple<std::shared_ptr<Concurrency::timer<int>>, std::shared_ptr<Concurrency::call<int>>> CreateConcurrencyTimer(std::chrono::milliseconds timeout, std::function<void()> callback)
-        {
-            auto callWrapper = std::make_shared<Concurrency::call<int>>([callback](int) {
-                callback();
-            });
-
-            auto timerInstance = std::make_shared<Concurrency::timer<int>>((int)timeout.count(), 0, callWrapper.get(), false);
-
-            return make_tuple(timerInstance, callWrapper);
-        }
-
-        // Per CreateConcurrencyTimer, this helps clean the timers up.
-        static void CancelConcurrencyTimer(std::shared_ptr<Concurrency::timer<int>>& timer, std::shared_ptr<Concurrency::call<int>>& target)
-        {
-            if (timer != nullptr && target != nullptr)
-            {
-                timer->stop();
-                timer->unlink_target(target.get());
-            }
-
-            target = nullptr;
-            timer = nullptr;
-        }
-
+        /// <summary>
+        /// Should we keep processing _individual_ items in the batch
+        /// The idea being that if we're running, and not shutdown or
+        /// dropping (E.g draining, paused, running), we should keep
+        /// doing potentially long running work on individual items.
+        /// </summary>
         bool ShouldKeepProcessingItems()
         {
-            return (m_state < WorkerState::Drop);
+            WorkerState currentState = m_state;
+            return ((currentState > WorkerState::None) && (currentState < WorkerState::Drop));
+        }
+
+        bool HasEverBeenStarted()
+        {
+            return (m_state != WorkerState::None);
         }
 
         void Shutdown(const WorkerState targetState)
@@ -205,7 +227,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             m_state = targetState;
 
             TRACE_OUT(m_tracePrefix + L": Shutting down");
-            if (!m_workerStarted && (previousState != WorkerState::Paused))
+            if ((previousState != WorkerState::Running) && (previousState != WorkerState::Paused))
             {
                 TRACE_OUT(m_tracePrefix + L": Not actually started");
                 return;
@@ -225,7 +247,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                 m_state = targetState;
                 m_hasItems.notify_one();
                 m_workerThread.join();
-                assert(!m_workerStarted);
+                assert(m_state != WorkerState::Running);
             }
 
             TRACE_OUT(m_tracePrefix + L": Shutdown");
@@ -237,8 +259,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             // we will want to wait if there aren't enough items in
             // the queue yet.
             bool waitForFirstWakeUp = this->GetQueueLength() <= m_debounceItemThreshold;
-            m_state = WorkerState::None;
-            m_workerStarted = true;
+            m_state = WorkerState::Running;
 
             {
                 // Signal to people who started us that we're
@@ -269,7 +290,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                             // If we're going away, we can ignore all other state
                             // and allow the thread to continue and eventually
                             // shutdown.
-                            if (m_state > WorkerState::None)
+                            if (m_state > WorkerState::Running)
                             {   
                                 return true;
                             }
@@ -359,8 +380,34 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
                 m_postProcessItemsCallback(successfullyProcessed);
             }
 
-            m_workerStarted = false;
             m_state = (m_state == WorkerState::Paused) ? WorkerState::Paused : WorkerState::Shutdown;
+        }
+
+        // concurrency::timer is weird, and requires you to set things up in weird ways
+        // (hence the pointers). Also, it can't be "Restarted" if it's a single timer
+        // so we need to recreate it every time. This function just wraps things up neatly.
+        std::tuple<std::shared_ptr<Concurrency::timer<int>>, std::shared_ptr<Concurrency::call<int>>> CreateConcurrencyTimer(std::chrono::milliseconds timeout, std::function<void()> callback)
+        {
+            auto callWrapper = std::make_shared<Concurrency::call<int>>([callback](int) {
+                callback();
+            });
+
+            auto timerInstance = std::make_shared<Concurrency::timer<int>>((int)timeout.count(), 0, callWrapper.get(), false);
+
+            return make_tuple(timerInstance, callWrapper);
+        }
+
+        // Per CreateConcurrencyTimer, this helps clean the timers up.
+        static void CancelConcurrencyTimer(std::shared_ptr<Concurrency::timer<int>>& timer, std::shared_ptr<Concurrency::call<int>>& target)
+        {
+            if (timer != nullptr && target != nullptr)
+            {
+                timer->stop();
+                timer->unlink_target(target.get());
+            }
+
+            target = nullptr;
+            timer = nullptr;
         }
 
         std::shared_ptr<concurrency::timer<int>> m_debounceTimer;
