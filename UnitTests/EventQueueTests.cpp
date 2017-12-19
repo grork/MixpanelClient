@@ -213,6 +213,24 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::AreEqual(0, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Didn't expect any files");
         }
 
+        TEST_METHOD(QueuingLowPriorityItemsDoesntTriggerWritingToDisk)
+        {
+            m_queue->SetWriteToStorageIdleLimits(50ms, 4);
+            m_queue->EnableQueuingToStorage();
+
+            this_thread::sleep_for(100ms);
+
+            m_queue->QueueEventForUpload(GenerateSamplePayload(), EventPriority::Low);
+            m_queue->QueueEventForUpload(GenerateSamplePayload(), EventPriority::Low);
+            m_queue->QueueEventForUpload(GenerateSamplePayload(), EventPriority::Low);
+            m_queue->QueueEventForUpload(GenerateSamplePayload(), EventPriority::Low);
+
+            this_thread::sleep_for(100ms);
+
+            Assert::AreEqual(4, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
+            m_queue->Clear();
+        }
+
         TEST_METHOD(QueueCanBeRestoredFromStorage)
         {
             auto item1 = GenerateSamplePayload();

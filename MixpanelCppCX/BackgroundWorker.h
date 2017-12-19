@@ -4,6 +4,15 @@
 #include "Tracing.h"
 
 namespace CodevoidN { namespace Utilities { namespace Mixpanel {
+    /// <summary>
+    /// Represents the importance of the work added to the BackgroundWorker
+    /// </summary>
+    enum class WorkPriority
+    {
+        Low,
+        Normal,
+    };
+
     template <typename ItemType>
     class BackgroundWorker
     {
@@ -74,8 +83,20 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         ///
         /// If the worker isn't started, items are just placed in the queue,
         /// and will be processed once the worker has been started.
+        ///
+        /// <param name='priority'>
+        /// Priority of the work being queued. This is used to control
+        /// whether the worker is signalled for this item -- e.g. no
+        /// point in waking the worker up to process the item if this one
+        /// isn't very important.
+        ///
+        /// It's important to note that this doesn't stop the items being
+        /// processed at all -- it just doesn't wake up the thread if it's
+        /// not already going to be woken e.g. this doesn't reset the idle
+        /// timeout.
+        /// </param>
         /// </summary>
-        void AddWork(const ItemType_ptr item)
+        void AddWork(const ItemType_ptr item, const WorkPriority priority = WorkPriority::Normal)
         {
             TRACE_OUT(m_tracePrefix + L": Adding Item");
 
@@ -86,7 +107,10 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
             TRACE_OUT(m_tracePrefix + L": Notifying worker thread");
 
-            this->TriggerWorkOrWaitForIdle();
+            if (priority != WorkPriority::Low)
+            {
+                this->TriggerWorkOrWaitForIdle();
+            }
         }
 
         /// <summary>

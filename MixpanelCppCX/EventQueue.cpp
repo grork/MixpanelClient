@@ -66,8 +66,7 @@ size_t EventQueue::GetWaitingForUploadLength()
     return m_waitingForUpload.size();
 }
 
-
-long long EventQueue::QueueEventForUpload(JsonObject^ payload)
+long long EventQueue::QueueEventForUpload(JsonObject^ payload, const EventPriority& priority)
 {
     if (m_state > QueueState::Running)
     {
@@ -76,10 +75,10 @@ long long EventQueue::QueueEventForUpload(JsonObject^ payload)
     }
 
     auto id = this->GetNextId();
-    auto item = make_shared<PayloadContainer>(id, payload);
+    auto item = make_shared<PayloadContainer>(id, payload, priority);
 
     TRACE_OUT("Event Queued: " + id);
-    m_writeToStorageWorker.AddWork(item);
+    m_writeToStorageWorker.AddWork(item, (item->Priority == EventPriority::Low ? WorkPriority::Low : WorkPriority::Normal));
 
     return id;
 }
@@ -101,16 +100,17 @@ task<void> EventQueue::RestorePendingUploadQueueFromStorage()
         // when it finds a non-numeric char and give me a number that we need
         auto rawString = file->Name->Data();
         auto id = std::wcstoll(rawString, nullptr, 0);
-        loadedPayload.emplace_back(make_shared<PayloadContainer>(id, payload));
+        // Note, it's assumed that items being restored from disk have lasted longer
+        // than a few seconds (E.g. across an app restart), we probably want  to get
+        // it to the network now.
+        loadedPayload.emplace_back(make_shared<PayloadContainer>(id, payload, EventPriority::Normal));
     }
 
     // Load the items loaded from storage into the upload queue.
     // Theres no need to put them in the waiting for storage queue (where new items
     // normally show up), because they're already on storage.
-    {
-        TRACE_OUT("Adding Items to upload queue");
-        this->AddItemsToUploadQueue(loadedPayload);
-    }
+    TRACE_OUT("Adding Items to upload queue");
+    this->AddItemsToUploadQueue(loadedPayload);
 }
 
 void EventQueue::EnableQueuingToStorage()
