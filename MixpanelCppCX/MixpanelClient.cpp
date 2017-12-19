@@ -23,7 +23,7 @@ using namespace Windows::Storage;
 
 // Sourced from:
 // http://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
-unsigned CodevoidN::Utilities::Mixpanel::WindowsTickToUnixSeconds(long long windowsTicks)
+unsigned CodevoidN::Utilities::Mixpanel::WindowsTickToUnixSeconds(const long long windowsTicks)
 {
     return (unsigned)(windowsTicks / WINDOWS_TICK - SEC_TO_UNIX_EPOCH);
 }
@@ -40,12 +40,12 @@ MixpanelClient::MixpanelClient(String^ token)
     this->AutomaticallyAttachTimeToEvents = true;
 }
 
-void MixpanelClient::Track(_In_ String^ name, _In_ IPropertySet^ properties)
+void MixpanelClient::Track(String^ name, IPropertySet^ properties)
 {
 	this->Track(name, properties, TrackSendPriority::Queue);
 }
 
-IAsyncAction^ MixpanelClient::Track(_In_ String^ name, _In_ IPropertySet^ properties, _In_ TrackSendPriority priority)
+IAsyncAction^ MixpanelClient::Track(String^ name, IPropertySet^ properties, TrackSendPriority priority)
 {
     if (name->IsEmpty())
     {
@@ -54,7 +54,7 @@ IAsyncAction^ MixpanelClient::Track(_In_ String^ name, _In_ IPropertySet^ proper
 
     if (m_token == DEFAULT_TOKEN)
     {
-        throw ref new InvalidArgumentException(L"You cannot send requests without setting an actual token");
+        throw ref new InvalidArgumentException(L"You cannot send requests without setting a token");
     }
 
     IJsonValue^ payload = this->GenerateTrackingJsonPayload(name, properties);
@@ -72,7 +72,7 @@ IAsyncAction^ MixpanelClient::Track(_In_ String^ name, _In_ IPropertySet^ proper
 	});
 }
 
-task<bool> MixpanelClient::PostTrackEventsToMixpanel(_In_ const vector<IJsonValue^>& events, _In_ TrackSendPriority priority)
+task<bool> MixpanelClient::PostTrackEventsToMixpanel(const vector<IJsonValue^>& events, TrackSendPriority priority)
 {
     auto uri = ref new Uri(MIXPANEL_TRACK_BASE_URL);
     auto jsonEvents = ref new JsonArray();
@@ -95,43 +95,43 @@ task<bool> MixpanelClient::PostTrackEventsToMixpanel(_In_ const vector<IJsonValu
 	return co_await task_from_result(false);
 }
 
-void MixpanelClient::SetSuperProperty(_In_ String^ name, _In_ String^ value)
+void MixpanelClient::SetSuperProperty(String^ name, String^ value)
 {
     this->InitializeSuperPropertyCollection();
     m_superProperties->Insert(name, value);
 }
 
-void MixpanelClient::SetSuperProperty(_In_ String^ name, _In_ double value)
+void MixpanelClient::SetSuperProperty(String^ name, double value)
 {
     this->InitializeSuperPropertyCollection();
     m_superProperties->Insert(name, value);
 }
 
-void MixpanelClient::SetSuperProperty(_In_ String^ name, _In_ bool value)
+void MixpanelClient::SetSuperProperty(String^ name, bool value)
 {
     this->InitializeSuperPropertyCollection();
     m_superProperties->Insert(name, value);
 }
 
-String^ MixpanelClient::GetSuperPropertyAsString(_In_ String^ name)
+String^ MixpanelClient::GetSuperPropertyAsString(String^ name)
 {
     this->InitializeSuperPropertyCollection();
     return static_cast<String^>(m_superProperties->Lookup(name));
 }
 
-double MixpanelClient::GetSuperPropertyAsDouble(_In_ String^ name)
+double MixpanelClient::GetSuperPropertyAsDouble(String^ name)
 {
     this->InitializeSuperPropertyCollection();
     return static_cast<double>(m_superProperties->Lookup(name));
 }
 
-bool MixpanelClient::GetSuperPropertyAsBool(_In_ String^ name)
+bool MixpanelClient::GetSuperPropertyAsBool(String^ name)
 {
     this->InitializeSuperPropertyCollection();
     return static_cast<bool>(m_superProperties->Lookup(name));
 }
 
-bool MixpanelClient::HasSuperProperty(_In_ String^ name)
+bool MixpanelClient::HasSuperProperty(String^ name)
 {
     this->InitializeSuperPropertyCollection();
     if (!m_superProperties)
@@ -167,7 +167,7 @@ void MixpanelClient::ClearSuperProperties()
     m_superProperties = nullptr;
 }
 
-JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(_In_ Platform::String^ name, _In_ IPropertySet^ properties)
+JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(String^ name, IPropertySet^ properties)
 {
     JsonObject^ propertiesPayload = ref new JsonObject();
     MixpanelClient::AppendPropertySetToJsonPayload(properties, propertiesPayload);
@@ -194,7 +194,7 @@ JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(_In_ Platform::String^ n
     return trackPayload;
 }
 
-void MixpanelClient::AppendPropertySetToJsonPayload(_In_ IPropertySet^ properties, _In_ JsonObject^ toAppendTo)
+void MixpanelClient::AppendPropertySetToJsonPayload(IPropertySet^ properties, JsonObject^ toAppendTo)
 {
     for (const auto& kvp : properties)
     {

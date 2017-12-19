@@ -29,7 +29,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// Constructs a new Mixpanel Client object to tracking usage
         /// <param name="token">The Mixpanel API Token to be used for this object</param>
         /// </summary>
-        MixpanelClient(_In_ Platform::String^ token);
+        MixpanelClient(Platform::String^ token);
 
         /// <summary>
         /// Logs a datapoint to the Mixpanel Service with the supplied event name, and property set.
@@ -44,7 +44,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// </param>
         /// </summary>
 		[Windows::Foundation::Metadata::DefaultOverload]
-        void Track(_In_ Platform::String^ name, _In_ Windows::Foundation::Collections::IPropertySet^ properties);
+        void Track(Platform::String^ name, Windows::Foundation::Collections::IPropertySet^ properties);
 
 		/// <summary>
 		/// Logs a datapoint to the Mixpanel Service with the supplied event name, and property set.
@@ -62,9 +62,9 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 		/// <param name="sendPriority">The time frame in which to send this datapoint</param>
 		/// </summary>
 		[Windows::Foundation::Metadata::OverloadAttribute(L"TrackWithSendPriority")]
-		Windows::Foundation::IAsyncAction^ Track(_In_ Platform::String^ name,
-				            _In_ Windows::Foundation::Collections::IPropertySet^ properties,
-			                _In_ TrackSendPriority sendPriority);
+		Windows::Foundation::IAsyncAction^ Track(Platform::String^ name,
+				            Windows::Foundation::Collections::IPropertySet^ properties,
+			                TrackSendPriority sendPriority);
 
         /// <summary>
         /// Sets a property &amp; it's value that will be attached to all datapoints logged with
@@ -74,13 +74,13 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// <param name="value">Value to set for the super property</param>
         /// </summary>
         [Windows::Foundation::Metadata::DefaultOverload]
-        void SetSuperProperty(_In_ Platform::String^ name, _In_ Platform::String^ value);
+        void SetSuperProperty(Platform::String^ name, Platform::String^ value);
         
         [Windows::Foundation::Metadata::OverloadAttribute(L"SetSuperPropertyAsDouble")]
-        void SetSuperProperty(_In_ Platform::String^ name, _In_ double value);
+        void SetSuperProperty(Platform::String^ name, double value);
 
         [Windows::Foundation::Metadata::OverloadAttribute(L"SetSuperPropertyAsBoolean")]
-        void SetSuperProperty(_In_ Platform::String^ name, _In_ bool value);
+        void SetSuperProperty(Platform::String^ name, bool value);
 
         /// <summary>
         /// Reads a currently set super property from any set super properties, and returns it as a String.
@@ -89,7 +89,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// data type of the super property is not a String, an InvalidCastException will be thrown
         /// <param name="name">Name of the super property to read</param>
         /// </summary>
-        Platform::String^ GetSuperPropertyAsString(_In_ Platform::String^ name);
+        Platform::String^ GetSuperPropertyAsString(Platform::String^ name);
 
         /// <summary>
         /// Reads a currently set super property from any set super properties, and returns it as a Double.
@@ -98,7 +98,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// data type of the super property is not a Double, an InvalidCastException will be thrown
         /// <param name="name">Name of the super property to read</param>
         /// </summary>
-        double GetSuperPropertyAsDouble(_In_ Platform::String^ name);
+        double GetSuperPropertyAsDouble(Platform::String^ name);
 
         /// <summary>
         /// Reads a currently set super property from any set super properties, and returns it as a Boolean.
@@ -107,7 +107,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// data type of the super property is not a Boolean, an InvalidCastException will be thrown
         /// <param name="name">Name of the super property to read</param>
         /// </summary>
-        bool GetSuperPropertyAsBool(_In_ Platform::String^ name);
+        bool GetSuperPropertyAsBool(Platform::String^ name);
 
         /// <summary>
         /// Checks if the super property has been set. Primarily intended to allow people to avoid
@@ -115,7 +115,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         ///
         /// <param name="name">Super Property to check for being present</param>
         /// </summary>
-        bool HasSuperProperty(_In_ Platform::String^ name);
+        bool HasSuperProperty(Platform::String^ name);
         
         /// <summary>
         /// Clears any super propreties that might be present
@@ -132,13 +132,13 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         property bool AutomaticallyAttachTimeToEvents;
 
     internal:
-        static void AppendPropertySetToJsonPayload(_In_ Windows::Foundation::Collections::IPropertySet^ properties, _In_ Windows::Data::Json::JsonObject^ toAppendTo);
-        Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(_In_ Platform::String^ eventName, _In_ Windows::Foundation::Collections::IPropertySet^ properties);
+        static void AppendPropertySetToJsonPayload(Windows::Foundation::Collections::IPropertySet^ properties, Windows::Data::Json::JsonObject^ toAppendTo);
+        Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
         property bool PersistSuperPropertiesToApplicationData;
 
     private:
         void InitializeSuperPropertyCollection();
-        concurrency::task<bool> PostTrackEventsToMixpanel(_In_ const std::vector<Windows::Data::Json::IJsonValue^>& payload, _In_ TrackSendPriority priority);
+        concurrency::task<bool> PostTrackEventsToMixpanel(const std::vector<Windows::Data::Json::IJsonValue^>& payload, TrackSendPriority priority);
 
         Platform::String^ m_token;
         Windows::Foundation::Collections::IPropertySet^ m_superProperties;
