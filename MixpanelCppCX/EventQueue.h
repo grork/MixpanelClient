@@ -91,7 +91,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         };
 
         std::atomic<long long> m_baseId;
-        QueueState m_state;
+        std::atomic<QueueState> m_state;
 
         Windows::Storage::StorageFolder^ m_localStorage;
         CodevoidN::Utilities::Mixpanel::BackgroundWorker<PayloadContainer> m_writeToStorageWorker;
