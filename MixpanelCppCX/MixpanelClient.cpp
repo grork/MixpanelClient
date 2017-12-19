@@ -17,7 +17,7 @@ using namespace Windows::Storage;
 
 #define WINDOWS_TICK 10000000
 #define SEC_TO_UNIX_EPOCH 11644473600LL
-#define MIXPANEL_TRACK_BASE_URL L"https://api.mixpanel.com/track?data="
+#define MIXPANEL_TRACK_BASE_URL L"https://api.mixpanel.com/track"
 #define DEFAULT_TOKEN L"DEFAULT_TOKEN"
 #define SUPER_PROPERTIES_CONTAINER_NAME L"Codevoid_Utilities_Mixpanel"
 
