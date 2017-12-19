@@ -18,8 +18,8 @@
     <ClCompile Include="MixPanelTests.cpp" />
     <ClCompile Include="EncoderTests.cpp" />
     <ClCompile Include="RequestHelperTests.cpp" />
-    <ClCompile Include="EventQueueTests.cpp" />
     <ClCompile Include="BackgroundWorkerTest.cpp" />
+    <ClCompile Include="EventStorageQueueTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
