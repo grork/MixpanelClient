@@ -403,7 +403,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             IPropertySet^ properties = ref new PropertySet();
             properties->Insert(L"StringValue", L"Value");
             
-            m_client->Track(L"TestEvent", properties);
+            AsyncHelper::RunSynced(m_client->Track(L"TestEvent", properties, TrackSendPriority::Immediately));
         }
 #endif
     };
