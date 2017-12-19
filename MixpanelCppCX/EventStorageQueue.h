@@ -90,7 +90,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::atomic<QueueState> m_state;
 
         Windows::Storage::StorageFolder^ m_localStorage;
-        CodevoidN::Utilities::Mixpanel::BackgroundWorker<PayloadContainer> m_writeToStorageWorker;
+        CodevoidN::Utilities::BackgroundWorker<PayloadContainer> m_writeToStorageWorker;
 
         std::function<void(const std::vector<std::shared_ptr<PayloadContainer>>&)> m_writtenToStorageCallback;
 
