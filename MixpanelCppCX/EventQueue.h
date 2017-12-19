@@ -55,11 +55,11 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         concurrency::task<void> PersistAllQueuedItemsToStorageAndShutdown();
 
         /// <summary>
-        /// Restores the queue state from any saved state on disk.
-        /// Completes when it's finished loading from disk, and the
-        /// data is now available in the queue.
+        /// Loads any persisted items from storage.
+        /// Completes when it's finished loading from disk, and returns
+        /// those items to the caller
         /// </summary>
-        concurrency::task<void> RestorePendingUploadQueueFromStorage();
+        static concurrency::task<std::vector<std::shared_ptr<PayloadContainer>>> LoadItemsQueuedToStorage(Windows::Storage::StorageFolder^ folder);
 
         /// <summary>
         /// Clears any items in the queue, and from storage.
