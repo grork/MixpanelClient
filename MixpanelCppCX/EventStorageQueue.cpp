@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "BackgroundWorker.h"
-#include "EventQueue.h"
+#include "EventStorageQueue.h"
 #include "Tracing.h"
 
 using namespace CodevoidN::Utilities::Mixpanel;
@@ -19,7 +19,7 @@ String^ GetFileNameForId(const long long& id)
     return ref new String(to_wstring(id).append(L".json").c_str());
 }
 
-EventQueue::EventQueue(
+EventStorageQueue::EventStorageQueue(
     StorageFolder^ localStorage,
     function<void(const vector<shared_ptr<PayloadContainer>>&)> writtenToStorageCallback
 ) :
@@ -27,8 +27,8 @@ EventQueue::EventQueue(
     m_state(QueueState::None),
     m_writtenToStorageCallback(writtenToStorageCallback),
     m_writeToStorageWorker(
-        bind(&EventQueue::WriteItemsToStorage, this, placeholders::_1, placeholders::_2),
-        bind(&EventQueue::HandleProcessedItems, this, placeholders::_1),
+        bind(&EventStorageQueue::WriteItemsToStorage, this, placeholders::_1, placeholders::_2),
+        bind(&EventStorageQueue::HandleProcessedItems, this, placeholders::_1),
         wstring(L"WriteToStorage")
     )
 {
@@ -44,14 +44,14 @@ EventQueue::EventQueue(
     m_baseId = time_point_cast<milliseconds>(system_clock::now()).time_since_epoch().count();
 }
 
-EventQueue::~EventQueue()
+EventStorageQueue::~EventStorageQueue()
 {
     TRACE_OUT("Event Queue being destroyed");
 
     this->PersistAllQueuedItemsToStorageAndShutdown().wait();
 }
 
-long long EventQueue::GetNextId()
+long long EventStorageQueue::GetNextId()
 {
     // This is intended to use atomic to allow for
     // lock-less increment.
@@ -59,12 +59,12 @@ long long EventQueue::GetNextId()
     return newId;
 }
 
-size_t EventQueue::GetWaitingToWriteToStorageLength()
+size_t EventStorageQueue::GetWaitingToWriteToStorageLength()
 {
     return m_writeToStorageWorker.GetQueueLength();
 }
 
-long long EventQueue::QueueEventToStorage(JsonObject^ payload, const EventPriority& priority)
+long long EventStorageQueue::QueueEventToStorage(JsonObject^ payload, const EventPriority& priority)
 {
     if (m_state > QueueState::Running)
     {
@@ -81,7 +81,7 @@ long long EventQueue::QueueEventToStorage(JsonObject^ payload, const EventPriori
     return id;
 }
 
-task<vector<shared_ptr<PayloadContainer>>> EventQueue::LoadItemsQueuedToStorage(StorageFolder^ sourceFolder)
+task<vector<shared_ptr<PayloadContainer>>> EventStorageQueue::LoadItemsQueuedToStorage(StorageFolder^ sourceFolder)
 {
     TRACE_OUT("Restoring items from storage");
     auto files = co_await sourceFolder->GetFilesAsync();
@@ -112,12 +112,12 @@ task<vector<shared_ptr<PayloadContainer>>> EventQueue::LoadItemsQueuedToStorage(
     return loadedPayload;
 }
 
-void EventQueue::EnableQueuingToStorage()
+void EventStorageQueue::EnableQueuingToStorage()
 {
     m_writeToStorageWorker.Start();
 }
 
-PayloadContainers EventQueue::WriteItemsToStorage(const PayloadContainers& items, const function<bool()>& shouldKeepProcessing)
+PayloadContainers EventStorageQueue::WriteItemsToStorage(const PayloadContainers& items, const function<bool()>& shouldKeepProcessing)
 {
     PayloadContainers successfullyProcessedItems;
 
@@ -135,7 +135,7 @@ PayloadContainers EventQueue::WriteItemsToStorage(const PayloadContainers& items
     return successfullyProcessedItems;
 }
 
-void EventQueue::HandleProcessedItems(const PayloadContainers& itemsWrittenToStorage)
+void EventStorageQueue::HandleProcessedItems(const PayloadContainers& itemsWrittenToStorage)
 {
     TRACE_OUT("Calling Written To Storage Callback");
     if (m_writtenToStorageCallback != nullptr)
@@ -144,7 +144,7 @@ void EventQueue::HandleProcessedItems(const PayloadContainers& itemsWrittenToSto
     }
 }
 
-task<void> EventQueue::PersistAllQueuedItemsToStorageAndShutdown()
+task<void> EventStorageQueue::PersistAllQueuedItemsToStorageAndShutdown()
 {
     m_state = QueueState::Drain;
 
@@ -154,14 +154,14 @@ task<void> EventQueue::PersistAllQueuedItemsToStorageAndShutdown()
     });
 }
 
-task<void> EventQueue::Clear()
+task<void> EventStorageQueue::Clear()
 {
     m_writeToStorageWorker.Clear();
 
     co_await this->ClearStorage();
 }
 
-task<void> EventQueue::WriteItemToStorage(const PayloadContainer_ptr item)
+task<void> EventStorageQueue::WriteItemToStorage(const PayloadContainer_ptr item)
 {
     TRACE_OUT("Writing File: " + GetFileNameForId(item->Id));
     JsonObject^ payload = item->Payload;
@@ -170,7 +170,7 @@ task<void> EventQueue::WriteItemToStorage(const PayloadContainer_ptr item)
     co_await FileIO::WriteTextAsync(file, payload->Stringify());
 }
 
-task<void> EventQueue::ClearStorage()
+task<void> EventStorageQueue::ClearStorage()
 {
     auto files = co_await m_localStorage->GetFilesAsync();
     for (auto&& file : files)
@@ -179,7 +179,7 @@ task<void> EventQueue::ClearStorage()
     }
 }
 
-void EventQueue::SetWriteToStorageIdleLimits(const std::chrono::milliseconds& idleTimeout, const size_t& idleItemThreshold)
+void EventStorageQueue::SetWriteToStorageIdleLimits(const std::chrono::milliseconds& idleTimeout, const size_t& idleItemThreshold)
 {
     m_writeToStorageWorker.SetIdleTimeout(idleTimeout);
     m_writeToStorageWorker.SetItemThreshold(idleItemThreshold);

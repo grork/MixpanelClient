@@ -3,7 +3,7 @@
 
 #include "CppUnitTest.h"
 #include "AsyncHelper.h"
-#include "EventQueue.h"
+#include "EventStorageQueue.h"
 
 using namespace Platform;
 using namespace std;
@@ -19,7 +19,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 {
     static task<StorageFolder^> GetAndClearTestFolder()
     {
-        auto storageFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync("EventQueueTests",
+        auto storageFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync("EventStorageQueueTests",
             CreationCollisionOption::OpenIfExists);
 
         auto files = co_await storageFolder->GetFilesAsync();
@@ -45,10 +45,10 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
         return payload;
     }
 
-    TEST_CLASS(EventQueueTests)
+    TEST_CLASS(EventStorageQueueTests)
     {
     private:
-        shared_ptr<EventQueue> m_queue;
+        shared_ptr<EventStorageQueue> m_queue;
         StorageFolder^ m_queueFolder;
         vector<shared_ptr<PayloadContainer>> m_writtenItems;
         function<void(const vector<shared_ptr<PayloadContainer>>&)> m_processWrittenItemsCallback;
@@ -74,9 +74,9 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
                 m_writtenItems = vector<shared_ptr<PayloadContainer>>();
             }
 
-            m_processWrittenItemsCallback = bind(&EventQueueTests::ProcessAllWrittenItems, this, placeholders::_1);
+            m_processWrittenItemsCallback = bind(&EventStorageQueueTests::ProcessAllWrittenItems, this, placeholders::_1);
             m_queueFolder = AsyncHelper::RunSynced(GetAndClearTestFolder());
-            m_queue = make_shared<EventQueue>(m_queueFolder, m_processWrittenItemsCallback);
+            m_queue = make_shared<EventStorageQueue>(m_queueFolder, m_processWrittenItemsCallback);
         }
 
         TEST_METHOD(ConstructionThrowsIfNoFolderProvided)
@@ -84,7 +84,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             bool exceptionSeen = false;
             try
             {
-                auto result = make_unique<EventQueue>(nullptr, nullptr);
+                auto result = make_unique<EventStorageQueue>(nullptr, nullptr);
             }
             catch (const invalid_argument&)
             {
@@ -262,7 +262,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             AsyncHelper::RunSynced(this->WritePayload(2, item2));
             AsyncHelper::RunSynced(this->WritePayload(3, item3));
 
-            auto queue = AsyncHelper::RunSynced(EventQueue::LoadItemsQueuedToStorage(m_queueFolder));
+            auto queue = AsyncHelper::RunSynced(EventStorageQueue::LoadItemsQueuedToStorage(m_queueFolder));
             Assert::AreEqual(3, (int)queue.size(), L"Expected items in the successfully written queue");
         }
         

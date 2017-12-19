@@ -3,7 +3,7 @@
 #include "BackgroundWorker.h"
 
 namespace CodevoidN { namespace  Tests { namespace Mixpanel {
-    class EventQueueTests;
+    class EventStorageQueueTests;
 } } }
 
 namespace CodevoidN { namespace Utilities { namespace Mixpanel {
@@ -30,16 +30,16 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     /// <summary>
     /// MixpanelClient offers a API for interacting with Mixpanel for UWP apps running on Windows 10+
     /// </summary>
-    class EventQueue
+    class EventStorageQueue
     {
-        friend class CodevoidN::Tests::Mixpanel::EventQueueTests;
+        friend class CodevoidN::Tests::Mixpanel::EventStorageQueueTests;
 
     public:
-        EventQueue(
+        EventStorageQueue(
             Windows::Storage::StorageFolder^ localStorage,
             std::function<void(const std::vector<std::shared_ptr<PayloadContainer>>&)> writtenToStorageCallback
         );
-        ~EventQueue();
+        ~EventStorageQueue();
 
         /// <summary>	
         /// Adds <paramref name="data" /> to the queue, and returns of the ID added to that data object.
