@@ -24,7 +24,6 @@
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="UnitTestApp.xaml.h" />
-    <ClInclude Include="MixpanelApiKeys.h" />
     <ClInclude Include="AsyncHelper.h" />
   </ItemGroup>
   <ItemGroup>
