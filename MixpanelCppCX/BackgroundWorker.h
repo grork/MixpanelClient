@@ -98,14 +98,27 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// </summary>
         void AddWork(const ItemType_ptr item, const WorkPriority priority = WorkPriority::Normal)
         {
-            TRACE_OUT(m_tracePrefix + L": Adding Item");
+            TRACE_OUT(m_tracePrefix + L": Adding Item. Priority: " + to_wstring((int)priority));
 
             {
                 lock_guard_mutex lock(m_itemsLock);
                 m_items.emplace_back(item);
             }
 
-            TRACE_OUT(m_tracePrefix + L": Notifying worker thread");
+            if (priority != WorkPriority::Low)
+            {
+                this->TriggerWorkOrWaitForIdle();
+            }
+        }
+
+        void AddWork(const ItemTypeVector& itemsToAdd, const WorkPriority priority = WorkPriority::Normal)
+        {
+            TRACE_OUT(m_tracePrefix + L": Adding Items: " + to_wstring(itemsToAdd.size()));
+
+            {
+                lock_guard_mutex lock(m_itemsLock);
+                m_items.insert(end(m_items), begin(itemsToAdd), end(itemsToAdd));
+            }
 
             if (priority != WorkPriority::Low)
             {
@@ -509,7 +522,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         size_t m_itemThreshold;
 
         // Items & Concurrency
-        std::vector<ItemType_ptr> m_items;
+        ItemTypeVector m_items;
         std::mutex m_itemsLock;
         std::condition_variable m_hasItems;
 
