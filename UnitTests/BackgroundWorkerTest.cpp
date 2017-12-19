@@ -21,7 +21,7 @@ namespace CodevoidN { namespace  Tests
             return vector<shared_ptr<int>>();
         }
 
-        return vector<shared_ptr<int>>(current.begin(), current.end());
+        return vector<shared_ptr<int>>(begin(current), end(current));
     }
 
     TEST_CLASS(BackgroundWorkerTests)
