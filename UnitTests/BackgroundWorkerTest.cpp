@@ -5,7 +5,7 @@
 
 using namespace Platform;
 using namespace std;
-using namespace CodevoidN::Utilities::Mixpanel;
+using namespace CodevoidN::Utilities;
 using namespace concurrency;
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace Windows::Data::Json;

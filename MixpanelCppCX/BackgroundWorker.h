@@ -3,7 +3,7 @@
 #include <agents.h>
 #include "Tracing.h"
 
-namespace CodevoidN { namespace Utilities { namespace Mixpanel {
+namespace CodevoidN { namespace Utilities {
     /// <summary>
     /// Represents the importance of the work added to the BackgroundWorker
     /// </summary>
@@ -534,4 +534,4 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         std::wstring m_tracePrefix;
     };
-} } }
+} }
