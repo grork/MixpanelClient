@@ -73,6 +73,38 @@ namespace CodevoidN { namespace  Tests
             Assert::IsTrue(status, L"Queue didn't reach 0 before timeout");
         }
 
+        TEST_METHOD(BulkAddedWorkIsDeqeuedAfterThresholdBeforeTimeout)
+        {
+            condition_variable workDequeued;
+            mutex workMutex;
+            unique_lock<mutex> workLock(workMutex);
+
+            // We want this worker to wait 1000ms for the items to dequeue, or
+            // when there is > 1 item in the queue. The 1000ms is there to allow
+            // us to timeout
+            BackgroundWorker<int> worker(bind(
+                processAll, placeholders::_1, placeholders::_2),
+                [&workDequeued](auto)
+            {
+                workDequeued.notify_all();
+            }, L"WorkIsDeqeuedAfterThresholdBeforeTimeout", 1000ms, 1);
+
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+
+            worker.AddWork({ make_shared<int>(7), make_shared<int>(9) });
+
+            auto status = workDequeued.wait_for(workLock, 750ms, [&worker]() {
+                return worker.GetQueueLength() == 0;
+            });
+
+            size_t queueLength = worker.GetQueueLength();
+            worker.Shutdown();
+
+            Assert::AreEqual(0, (int)queueLength, L"Items still in queue");
+            Assert::IsTrue(status, L"Queue didn't reach 0 before timeout");
+        }
+
         TEST_METHOD(WorkIsProcessedAfterQueueIsEmptiedAndItemsQueued)
         {
             condition_variable workDequeued;
