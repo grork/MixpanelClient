@@ -81,10 +81,10 @@ long long EventQueue::QueueEventToStorage(JsonObject^ payload, const EventPriori
     return id;
 }
 
-task<void> EventQueue::RestorePendingUploadQueueFromStorage()
+task<vector<shared_ptr<PayloadContainer>>> EventQueue::LoadItemsQueuedToStorage(StorageFolder^ sourceFolder)
 {
     TRACE_OUT("Restoring items from storage");
-    auto files = co_await m_localStorage->GetFilesAsync();
+    auto files = co_await sourceFolder->GetFilesAsync();
     PayloadContainers loadedPayload;
 
     for (auto&& file : files)
@@ -108,7 +108,8 @@ task<void> EventQueue::RestorePendingUploadQueueFromStorage()
     // Theres no need to put them in the waiting for storage queue (where new items
     // normally show up), because they're already on storage.
     TRACE_OUT("Calling Processed Items Handler");
-    this->HandleProcessedItems(loadedPayload);
+    
+    return loadedPayload;
 }
 
 void EventQueue::EnableQueuingToStorage()

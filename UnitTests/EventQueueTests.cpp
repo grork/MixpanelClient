@@ -262,17 +262,8 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             AsyncHelper::RunSynced(this->WritePayload(2, item2));
             AsyncHelper::RunSynced(this->WritePayload(3, item3));
 
-            shared_ptr<EventQueue> queue = AsyncHelper::RunSynced(this->GetQueueFromStorage());
-            Assert::AreEqual(0, (int)queue->GetWaitingToWriteToStorageLength(), L"Expected no items waiting to write to storage");
-            Assert::AreEqual(3, (int)this->GetWrittenItemsSize(), L"Expected items in the successfully written queue");
-        }
-
-        task<shared_ptr<EventQueue>> GetQueueFromStorage()
-        {
-            auto queue = make_shared<EventQueue>(m_queueFolder, m_processWrittenItemsCallback);
-            co_await queue->RestorePendingUploadQueueFromStorage();
-
-            return queue;
+            auto queue = AsyncHelper::RunSynced(EventQueue::LoadItemsQueuedToStorage(m_queueFolder));
+            Assert::AreEqual(3, (int)queue.size(), L"Expected items in the successfully written queue");
         }
         
         task<unsigned int> GetCurrentFileCountInQueueFolder()
