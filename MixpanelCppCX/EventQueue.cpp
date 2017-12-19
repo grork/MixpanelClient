@@ -19,12 +19,16 @@ String^ GetFileNameForId(const long long& id)
     return ref new String(to_wstring(id).append(L".json").c_str());
 }
 
-EventQueue::EventQueue(StorageFolder^ localStorage) :
+EventQueue::EventQueue(
+    StorageFolder^ localStorage,
+    function<void(const vector<shared_ptr<PayloadContainer>>&)> writtenToStorageCallback
+) :
     m_localStorage(localStorage),
     m_state(QueueState::None),
+    m_writtenToStorageCallback(writtenToStorageCallback),
     m_writeToStorageWorker(
         bind(&EventQueue::WriteItemsToStorage, this, placeholders::_1, placeholders::_2),
-        bind(&EventQueue::AddItemsToUploadQueue, this, placeholders::_1),
+        bind(&EventQueue::HandleProcessedItems, this, placeholders::_1),
         wstring(L"WriteToStorage")
     )
 {
@@ -60,13 +64,7 @@ size_t EventQueue::GetWaitingToWriteToStorageLength()
     return m_writeToStorageWorker.GetQueueLength();
 }
 
-size_t EventQueue::GetWaitingForUploadLength()
-{
-    lock_guard<mutex> lock(m_waitingForUploadQueueLock);
-    return m_waitingForUpload.size();
-}
-
-long long EventQueue::QueueEventForUpload(JsonObject^ payload, const EventPriority& priority)
+long long EventQueue::QueueEventToStorage(JsonObject^ payload, const EventPriority& priority)
 {
     if (m_state > QueueState::Running)
     {
@@ -109,8 +107,8 @@ task<void> EventQueue::RestorePendingUploadQueueFromStorage()
     // Load the items loaded from storage into the upload queue.
     // Theres no need to put them in the waiting for storage queue (where new items
     // normally show up), because they're already on storage.
-    TRACE_OUT("Adding Items to upload queue");
-    this->AddItemsToUploadQueue(loadedPayload);
+    TRACE_OUT("Calling Processed Items Handler");
+    this->HandleProcessedItems(loadedPayload);
 }
 
 void EventQueue::EnableQueuingToStorage()
@@ -136,12 +134,13 @@ PayloadContainers EventQueue::WriteItemsToStorage(const PayloadContainers& items
     return successfullyProcessedItems;
 }
 
-void EventQueue::AddItemsToUploadQueue(const PayloadContainers& itemsToUpload)
+void EventQueue::HandleProcessedItems(const PayloadContainers& itemsWrittenToStorage)
 {
-    TRACE_OUT("Adding persisted items to the upload queue");
-    lock_guard<mutex> uploadLock(m_waitingForUploadQueueLock);
-    m_waitingForUpload.reserve(m_waitingForUpload.size() + itemsToUpload.size());
-    m_waitingForUpload.insert(end(m_waitingForUpload), begin(itemsToUpload), end(itemsToUpload));
+    TRACE_OUT("Calling Written To Storage Callback");
+    if (m_writtenToStorageCallback != nullptr)
+    {
+        this->m_writtenToStorageCallback(itemsWrittenToStorage);
+    }
 }
 
 task<void> EventQueue::PersistAllQueuedItemsToStorageAndShutdown()

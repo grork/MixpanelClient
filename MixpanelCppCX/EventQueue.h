@@ -36,7 +36,8 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
     public:
         EventQueue(
-            Windows::Storage::StorageFolder^ localStorage
+            Windows::Storage::StorageFolder^ localStorage,
+            std::function<void(const std::vector<std::shared_ptr<PayloadContainer>>&)> writtenToStorageCallback
         );
         ~EventQueue();
 
@@ -45,7 +46,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         ///
         /// Items placed in the queue are processed after being first written to storage.
         /// </summary>
-        long long QueueEventForUpload(Windows::Data::Json::JsonObject^ data, const EventPriority& priority = EventPriority::Normal);
+        long long QueueEventToStorage(Windows::Data::Json::JsonObject^ data, const EventPriority& priority = EventPriority::Normal);
 
         /// <summary>
         /// Waits for the queued items to be written to disk before
@@ -71,11 +72,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::size_t GetWaitingToWriteToStorageLength();
 
         /// <summary>
-        /// Number of items in the upload queue.
-        /// </summary>
-        std::size_t GetWaitingForUploadLength();
-
-        /// <summary>
         /// Start logging any items queue to disk.
         /// </summary>
         void EnableQueuingToStorage();
@@ -96,8 +92,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         Windows::Storage::StorageFolder^ m_localStorage;
         CodevoidN::Utilities::Mixpanel::BackgroundWorker<PayloadContainer> m_writeToStorageWorker;
 
-        std::vector<std::shared_ptr<PayloadContainer>> m_waitingForUpload;
-        std::mutex m_waitingForUploadQueueLock;
+        std::function<void(const std::vector<std::shared_ptr<PayloadContainer>>&)> m_writtenToStorageCallback;
 
         /// <summary>
         /// When we're writing the files to disk, we use a 'base' ID created
@@ -109,7 +104,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         concurrency::task<void> WriteItemToStorage(const std::shared_ptr<PayloadContainer> item);
         std::vector<std::shared_ptr<PayloadContainer>> WriteItemsToStorage(const std::vector<std::shared_ptr<PayloadContainer>>& items, const std::function<bool()>& shouldKeepProcessing);
-        void AddItemsToUploadQueue(const std::vector<std::shared_ptr<PayloadContainer>>& itemsToUpload);
+        void HandleProcessedItems(const std::vector<std::shared_ptr<PayloadContainer>>& itemsToUpload);
         concurrency::task<void> ClearStorage();
 
         /// <summary>
