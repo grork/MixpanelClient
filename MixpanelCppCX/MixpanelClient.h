@@ -1,4 +1,5 @@
 #pragma once
+#include "EventStorageQueue.h"
 
 namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 	/// <summary>
@@ -32,6 +33,12 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         MixpanelClient(Platform::String^ token);
 
         /// <summary>
+        /// Initializes the client to be able to queue items to storage for
+        /// resiliancy. Must be called before tracking an event
+        /// </summary>
+        Windows::Foundation::IAsyncAction^ InitializeAsync();
+
+        /// <summary>
         /// Logs a datapoint to the Mixpanel Service with the supplied event name, and property set.
 		///
         /// These items are queued to be sent at a later time. If you wish to send them immediately
@@ -43,7 +50,6 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// For details on what can be used in these properties, see: https://mixpanel.com/help/reference/http
         /// </param>
         /// </summary>
-		[Windows::Foundation::Metadata::DefaultOverload]
         void Track(Platform::String^ name, Windows::Foundation::Collections::IPropertySet^ properties);
 
 		/// <summary>
@@ -61,8 +67,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 		/// </param>
 		/// <param name="sendPriority">The time frame in which to send this datapoint</param>
 		/// </summary>
-		[Windows::Foundation::Metadata::OverloadAttribute(L"TrackWithSendPriority")]
-		Windows::Foundation::IAsyncAction^ Track(Platform::String^ name,
+		Windows::Foundation::IAsyncAction^ TrackAsync(Platform::String^ name,
 				            Windows::Foundation::Collections::IPropertySet^ properties,
 			                TrackSendPriority sendPriority);
 
@@ -132,16 +137,36 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         property bool AutomaticallyAttachTimeToEvents;
 
     internal:
-        static void AppendPropertySetToJsonPayload(Windows::Foundation::Collections::IPropertySet^ properties, Windows::Data::Json::JsonObject^ toAppendTo);
+        /// <summary>
+        /// Allows synchronous initalization if one has the storage
+        /// folder to queue all the items to.
+        ///
+        /// Primary intended use is for testing
+        /// </summary>
+        void Initialize(Windows::Storage::StorageFolder^ queueFolder);
+
+        /// <summary>
+        /// Allows the queue to be shutdown cleanly for testing purposes
+        /// </summary>
+        concurrency::task<void> Shutdown();
+
         Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
         property bool PersistSuperPropertiesToApplicationData;
 
+        static void AppendPropertySetToJsonPayload(Windows::Foundation::Collections::IPropertySet^ properties, Windows::Data::Json::JsonObject^ toAppendTo);
+
     private:
+        /// <summary>
+        /// Intended to initalize the worker queues (but not start them), primarily
+        /// due to the need to open / create the queue folder if neededed.
+        /// </summary>
+        concurrency::task<void> Initialize();
         void InitializeSuperPropertyCollection();
         concurrency::task<bool> PostTrackEventsToMixpanel(const std::vector<Windows::Data::Json::IJsonValue^>& payload, TrackSendPriority priority);
 
         Platform::String^ m_token;
         Windows::Foundation::Collections::IPropertySet^ m_superProperties;
+        std::unique_ptr<CodevoidN::Utilities::Mixpanel::EventStorageQueue> m_eventStorageQueue;
     };
 
     unsigned WindowsTickToUnixSeconds(long long windowsTicks);
