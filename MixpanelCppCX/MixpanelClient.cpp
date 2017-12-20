@@ -69,24 +69,29 @@ task<void> MixpanelClient::Initialize()
 
 void MixpanelClient::Initialize(StorageFolder^ queueFolder)
 {
-    m_eventStorageQueue = make_unique<EventStorageQueue>(queueFolder, nullptr);
+    m_eventStorageQueue = make_unique<EventStorageQueue>(queueFolder, [this](auto writtenItems) {
+        if (m_writtenToStorageMockCallback == nullptr)
+        {
+            return;
+        }
+
+        m_writtenToStorageMockCallback(writtenItems);
+    });
 }
 
 void MixpanelClient::Track(String^ name, IPropertySet^ properties)
 {
+    this->ThrowIfNotInitialized();
 	this->TrackAsync(name, properties, TrackSendPriority::Queue);
 }
 
 IAsyncAction^ MixpanelClient::TrackAsync(String^ name, IPropertySet^ properties, TrackSendPriority priority)
 {
+    this->ThrowIfNotInitialized();
+
     if (name->IsEmpty())
     {
-        throw ref new NullReferenceException(L"Name cannot be empty or null");
-    }
-
-    if (m_token == DEFAULT_TOKEN)
-    {
-        throw ref new InvalidArgumentException(L"You cannot send requests without setting a token");
+        throw ref new InvalidArgumentException(L"Name cannot be empty or null");
     }
 
     IJsonValue^ payload = this->GenerateTrackingJsonPayload(name, properties);
@@ -297,4 +302,19 @@ void MixpanelClient::AppendPropertySetToJsonPayload(IPropertySet^ properties, Js
 
         throw ref new InvalidCastException(L"Property set includes unsupported data type: " + kvp->Key);
     }
+}
+
+void MixpanelClient::ThrowIfNotInitialized()
+{
+    if (m_eventStorageQueue != nullptr)
+    {
+        return;
+    }
+
+    throw ref new InvalidArgumentException(L"Client must be initialized");
+}
+
+void MixpanelClient::SetWrittenToStorageMock(function<void(vector<shared_ptr<PayloadContainer>>)> mockCallback)
+{
+    m_writtenToStorageMockCallback = mockCallback;
 }
