@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "EventStorageQueue.h"
 #include "MixpanelClient.h"
 #include "PayloadEncoder.h"
 #include "RequestHelper.h"
@@ -40,12 +41,43 @@ MixpanelClient::MixpanelClient(String^ token)
     this->AutomaticallyAttachTimeToEvents = true;
 }
 
-void MixpanelClient::Track(String^ name, IPropertySet^ properties)
+IAsyncAction^ MixpanelClient::InitializeAsync()
 {
-	this->Track(name, properties, TrackSendPriority::Queue);
+    return create_async([this]() {
+        this->Initialize().wait();
+    });
 }
 
-IAsyncAction^ MixpanelClient::Track(String^ name, IPropertySet^ properties, TrackSendPriority priority)
+task<void> MixpanelClient::Shutdown()
+{
+    if (m_eventStorageQueue == nullptr)
+    {
+        return;
+    }
+
+    co_await m_eventStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
+    m_eventStorageQueue = nullptr;
+}
+
+task<void> MixpanelClient::Initialize()
+{
+    auto folder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync("MixpanelUploadQueue",
+        CreationCollisionOption::OpenIfExists);
+
+    this->Initialize(folder);
+}
+
+void MixpanelClient::Initialize(StorageFolder^ queueFolder)
+{
+    m_eventStorageQueue = make_unique<EventStorageQueue>(queueFolder, nullptr);
+}
+
+void MixpanelClient::Track(String^ name, IPropertySet^ properties)
+{
+	this->TrackAsync(name, properties, TrackSendPriority::Queue);
+}
+
+IAsyncAction^ MixpanelClient::TrackAsync(String^ name, IPropertySet^ properties, TrackSendPriority priority)
 {
     if (name->IsEmpty())
     {
@@ -66,9 +98,7 @@ IAsyncAction^ MixpanelClient::Track(String^ name, IPropertySet^ properties, Trac
 	// working out, create_async doesn't like taking a task<void> and making it
 	// an IAsyncAction^. Futzing it through a lambda makes it happy.
 	return create_async([trackSendOperation]() {
-		return trackSendOperation.then([](bool) -> task<void> {
-			return task_from_result();
-		});
+        trackSendOperation.wait();
 	});
 }
 

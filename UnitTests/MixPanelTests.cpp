@@ -23,6 +23,25 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
     {
     private:
         MixpanelClient^ m_client;
+        StorageFolder^ m_storageFolder;
+
+        static task<StorageFolder^> GetAndClearTestFolder()
+        {
+            auto storageFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync("MixpanelClientTests",
+                CreationCollisionOption::OpenIfExists);
+
+            auto files = co_await storageFolder->GetFilesAsync();
+
+            if (files->Size > 0)
+            {
+                for (auto&& fileToDelete : files)
+                {
+                    co_await fileToDelete->DeleteAsync(StorageDeleteOption::PermanentDelete);
+                }
+            }
+
+            return storageFolder;
+        }
 
     public:
         TEST_METHOD_INITIALIZE(InitializeClass)
@@ -32,6 +51,19 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             // Disable Persistence of Super properties
             // to help maintain these tests as stateless
             m_client->PersistSuperPropertiesToApplicationData = false;
+
+            auto folder = AsyncHelper::RunSynced(GetAndClearTestFolder());
+            m_client->Initialize(folder);
+        }
+
+        TEST_METHOD_CLEANUP(CleanupClass)
+        {
+            if (m_client == nullptr)
+            {
+                return;
+            }
+
+            AsyncHelper::RunSynced(m_client->Shutdown());
         }
 
         TEST_METHOD(ConstructorThrowsWhenNoTokenProvided)
