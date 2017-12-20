@@ -1,6 +1,10 @@
 #pragma once
 #include "EventStorageQueue.h"
 
+namespace CodevoidN { namespace Tests { namespace Mixpanel {
+    class MixpanelTests;
+} } }
+
 namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 	/// <summary>
 	/// The priority to be used when sending track events
@@ -25,6 +29,8 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     /// </summary>
     public ref class MixpanelClient sealed
     {
+        friend class CodevoidN::Tests::Mixpanel::MixpanelTests;
+
     public:
         /// <summary>
         /// Constructs a new Mixpanel Client object to tracking usage
@@ -161,8 +167,12 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// due to the need to open / create the queue folder if neededed.
         /// </summary>
         concurrency::task<void> Initialize();
+        void ThrowIfNotInitialized();
         void InitializeSuperPropertyCollection();
         concurrency::task<bool> PostTrackEventsToMixpanel(const std::vector<Windows::Data::Json::IJsonValue^>& payload, TrackSendPriority priority);
+
+        void SetWrittenToStorageMock(std::function<void(std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>)> mock);
+        std::function<void(std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>)> m_writtenToStorageMockCallback;
 
         Platform::String^ m_token;
         Windows::Foundation::Collections::IPropertySet^ m_superProperties;

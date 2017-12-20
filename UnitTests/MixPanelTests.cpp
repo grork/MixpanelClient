@@ -66,24 +66,6 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             AsyncHelper::RunSynced(m_client->Shutdown());
         }
 
-        TEST_METHOD(ConstructorThrowsWhenNoTokenProvided)
-        {
-            MixpanelClient^ constructedClient;
-            bool exceptionSeen = false;
-
-            try
-            {
-                constructedClient = ref new MixpanelClient(nullptr);
-            }
-            catch (InvalidArgumentException^ e)
-            {
-                exceptionSeen = true;
-            }
-
-            Assert::IsTrue(exceptionSeen, L"Didn't get exception while constructing client w/out a token");
-            Assert::IsNull(constructedClient, L"Client was constructed despite not being provided token");
-        }
-
         TEST_METHOD(TrackThrowsWithMissingEventName)
         {
             bool exceptionThrown = false;
@@ -92,7 +74,23 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             {
                 m_client->Track(nullptr, ref new ValueSet());
             }
-            catch (NullReferenceException^ ex)
+            catch (InvalidArgumentException^ ex)
+            {
+                exceptionThrown = true;
+            }
+
+            Assert::IsTrue(exceptionThrown, L"Didn't get expected exception");
+        }
+
+        TEST_METHOD(TrackThrowsIfNotInitialized)
+        {
+            bool exceptionThrown = false;
+
+            try
+            {
+                m_client->Track("Faux", ref new ValueSet());
+            }
+            catch (InvalidArgumentException^ ex)
             {
                 exceptionThrown = true;
             }
@@ -435,7 +433,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             IPropertySet^ properties = ref new PropertySet();
             properties->Insert(L"StringValue", L"Value");
             
-            AsyncHelper::RunSynced(m_client->Track(L"TestEvent", properties, TrackSendPriority::Immediately));
+            AsyncHelper::RunSynced(m_client->TrackAsync(L"TestEvent", properties, TrackSendPriority::Immediately));
         }
 #endif
     };
