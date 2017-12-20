@@ -64,7 +64,7 @@ size_t EventStorageQueue::GetWaitingToWriteToStorageLength()
     return m_writeToStorageWorker.GetQueueLength();
 }
 
-long long EventStorageQueue::QueueEventToStorage(JsonObject^ payload, const EventPriority& priority)
+long long EventStorageQueue::QueueEventToStorage(IJsonValue^ payload, const EventPriority& priority)
 {
     if (m_state > QueueState::Running)
     {
@@ -164,7 +164,7 @@ task<void> EventStorageQueue::Clear()
 task<void> EventStorageQueue::WriteItemToStorage(const PayloadContainer_ptr item)
 {
     TRACE_OUT("Writing File: " + GetFileNameForId(item->Id));
-    JsonObject^ payload = item->Payload;
+    IJsonValue^ payload = item->Payload;
 
     auto file = co_await m_localStorage->CreateFileAsync(GetFileNameForId(item->Id));
     co_await FileIO::WriteTextAsync(file, payload->Stringify());

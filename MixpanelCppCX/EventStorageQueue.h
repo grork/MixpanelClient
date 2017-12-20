@@ -16,14 +16,14 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     struct PayloadContainer
     {
         PayloadContainer(const long long id,
-            Windows::Data::Json::JsonObject^ payload,
+            Windows::Data::Json::IJsonValue^ payload,
             const EventPriority priority) :
             Id(id), Payload(payload), Priority(priority)
         {
         }
 
         long long Id;
-        Windows::Data::Json::JsonObject^ Payload;
+        Windows::Data::Json::IJsonValue^ Payload;
         EventPriority Priority;
     };
 
@@ -46,7 +46,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         ///
         /// Items placed in the queue are processed after being first written to storage.
         /// </summary>
-        long long QueueEventToStorage(Windows::Data::Json::JsonObject^ data, const EventPriority& priority = EventPriority::Normal);
+        long long QueueEventToStorage(Windows::Data::Json::IJsonValue^ data, const EventPriority& priority = EventPriority::Normal);
 
         /// <summary>
         /// Waits for the queued items to be written to disk before
