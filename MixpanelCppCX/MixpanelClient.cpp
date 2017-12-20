@@ -81,13 +81,7 @@ void MixpanelClient::Initialize(StorageFolder^ queueFolder)
 
 void MixpanelClient::Track(String^ name, IPropertySet^ properties)
 {
-    this->ThrowIfNotInitialized();
-	this->TrackAsync(name, properties, TrackSendPriority::Queue);
-}
-
-IAsyncAction^ MixpanelClient::TrackAsync(String^ name, IPropertySet^ properties, TrackSendPriority priority)
-{
-    this->ThrowIfNotInitialized();
+	this->ThrowIfNotInitialized();
 
     if (name->IsEmpty())
     {
@@ -95,19 +89,10 @@ IAsyncAction^ MixpanelClient::TrackAsync(String^ name, IPropertySet^ properties,
     }
 
     IJsonValue^ payload = this->GenerateTrackingJsonPayload(name, properties);
-
-    // Pass the single payload from this event
-	auto trackSendOperation = this->PostTrackEventsToMixpanel({ payload }, priority);
-
-	// Why the nesting? Because for reasons, I'm not particularily interested in
-	// working out, create_async doesn't like taking a task<void> and making it
-	// an IAsyncAction^. Futzing it through a lambda makes it happy.
-	return create_async([trackSendOperation]() {
-        trackSendOperation.wait();
-	});
+	m_eventStorageQueue->QueueEventToStorage(payload);
 }
 
-task<bool> MixpanelClient::PostTrackEventsToMixpanel(const vector<IJsonValue^>& events, TrackSendPriority priority)
+task<bool> MixpanelClient::PostTrackEventsToMixpanel(const vector<IJsonValue^>& events)
 {
     auto uri = ref new Uri(MIXPANEL_TRACK_BASE_URL);
     auto jsonEvents = ref new JsonArray();
@@ -121,13 +106,8 @@ task<bool> MixpanelClient::PostTrackEventsToMixpanel(const vector<IJsonValue^>& 
     auto formPayload = ref new Map<String^, String^>();
     formPayload->Insert(L"data", encodedAndHashedPayload);
 
-	if (priority == TrackSendPriority::Immediately)
-	{
-		static RequestHelper^ rh = ref new RequestHelper();
-		return co_await rh->PostRequest(uri, formPayload);
-	}
-
-	return co_await task_from_result(false);
+	static RequestHelper^ rh = ref new RequestHelper();
+	return co_await rh->PostRequest(uri, formPayload);
 }
 
 void MixpanelClient::SetSuperProperty(String^ name, String^ value)

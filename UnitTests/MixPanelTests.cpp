@@ -85,10 +85,11 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
         TEST_METHOD(TrackThrowsIfNotInitialized)
         {
             bool exceptionThrown = false;
+			auto client = ref new MixpanelClient(DEFAULT_TOKEN);
 
             try
             {
-                m_client->Track("Faux", ref new ValueSet());
+                client->Track("Faux", ref new ValueSet());
             }
             catch (InvalidArgumentException^ ex)
             {
@@ -426,15 +427,5 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             auto rawTimeValue = propertiesPayload->GetNamedValue("time");
             Assert::IsFalse(JsonValueType::Number == rawTimeValue->ValueType, L"Time was not the correct type");
         }
-
-#if DEFAULT_TOKEN_SET == 1
-        TEST_METHOD(CanSendTrackRequest)
-        {
-            IPropertySet^ properties = ref new PropertySet();
-            properties->Insert(L"StringValue", L"Value");
-            
-            AsyncHelper::RunSynced(m_client->TrackAsync(L"TestEvent", properties, TrackSendPriority::Immediately));
-        }
-#endif
     };
 } } }
