@@ -105,38 +105,53 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// </summary>
         property bool AutomaticallyAttachTimeToEvents;
 
-    internal:
-        /// <summary>
-        /// Allows synchronous initalization if one has the storage
-        /// folder to queue all the items to.
-        ///
-        /// Primary intended use is for testing
-        /// </summary>
-        void Initialize(Windows::Storage::StorageFolder^ queueFolder);
-
-        /// <summary>
-        /// Allows the queue to be shutdown cleanly for testing purposes
-        /// </summary>
-        concurrency::task<void> Shutdown();
-
-        Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
-        property bool PersistSuperPropertiesToApplicationData;
-
-        static void AppendPropertySetToJsonPayload(Windows::Foundation::Collections::IPropertySet^ properties, Windows::Data::Json::JsonObject^ toAppendTo);
-
     private:
+		/// <summary>
+		/// Allows synchronous initalization if one has the storage
+		/// folder to queue all the items to.
+		///
+		/// Primary intended use is for testing
+		/// </summary>
+		void Initialize(Windows::Storage::StorageFolder^ queueFolder);
+
+		/// <summary>
+		/// Allows the queue to be shutdown cleanly for testing purposes
+		/// </summary>
+		concurrency::task<void> Shutdown();
+
+		/// <summary>
+		/// By default all the super properties are persisted to storage.
+		/// For testing, we don't want to do that. Settings this flag
+		/// disables that option, and keeps everything in memory for the
+		/// lifetime of this instance.
+		/// </summary>
+		property bool PersistSuperPropertiesToApplicationData;
+
         /// <summary>
         /// Intended to initalize the worker queues (but not start them), primarily
         /// due to the need to open / create the queue folder if neededed.
         /// </summary>
         concurrency::task<void> Initialize();
-        void ThrowIfNotInitialized();
-        void InitializeSuperPropertyCollection();
+
+		/// <summary>
+		/// Sends the supplied JSON items to the service as a batch.
+		/// The returned task will be completed when all the supplied items
+		/// have been sent to the service.
+		/// </summary>
         concurrency::task<bool> PostTrackEventsToMixpanel(const std::vector<Windows::Data::Json::IJsonValue^>& payload);
 
+		// Helpers for testing the persist to storage behaviour
         void SetWrittenToStorageMock(std::function<void(std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>)> mock);
         std::function<void(std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>)> m_writtenToStorageMockCallback;
 
+		Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
+		static void AppendPropertySetToJsonPayload(Windows::Foundation::Collections::IPropertySet^ properties, Windows::Data::Json::JsonObject^ toAppendTo);
+		void ThrowIfNotInitialized();
+		void InitializeSuperPropertyCollection();
+
+		/// <summary>
+		/// The API Token being used for all requests
+		/// </summary>
         Platform::String^ m_token;
         Windows::Foundation::Collections::IPropertySet^ m_superProperties;
         std::unique_ptr<CodevoidN::Utilities::Mixpanel::EventStorageQueue> m_eventStorageQueue;
