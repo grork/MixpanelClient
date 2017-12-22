@@ -105,6 +105,23 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// </summary>
         property bool AutomaticallyAttachTimeToEvents;
 
+		/// <summary>
+		/// Begins processing any events that get queued -- either currently, or in the future.s
+		/// </summary>
+		void Start();
+
+		/// <summary>
+		/// Stops processing items for uploading, and persists anything in memory to storage.
+		/// It will return when the items have been persisted to disk.
+		/// </summary>
+		Windows::Foundation::IAsyncAction^ Pause();
+
+		/// <summary>
+		/// Removes any items that have been persisted to storage. e.g. If the user
+		/// signs out, clear anything pending upload.
+		/// </summary>
+		Windows::Foundation::IAsyncAction^ ClearStorageAsync();
+
     private:
 		/// <summary>
 		/// Allows synchronous initalization if one has the storage

@@ -48,6 +48,18 @@ IAsyncAction^ MixpanelClient::InitializeAsync()
     });
 }
 
+void MixpanelClient::Start()
+{
+	m_eventStorageQueue->EnableQueuingToStorage();
+}
+
+IAsyncAction^ MixpanelClient::Pause()
+{
+	return create_async([this]() {
+		return m_eventStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
+	});
+}
+
 task<void> MixpanelClient::Shutdown()
 {
     if (m_eventStorageQueue == nullptr)
@@ -57,6 +69,14 @@ task<void> MixpanelClient::Shutdown()
 
     co_await m_eventStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
     m_eventStorageQueue = nullptr;
+}
+
+IAsyncAction^ MixpanelClient::ClearStorageAsync()
+{
+	this->ThrowIfNotInitialized();
+	return create_async([this]() {
+		return m_eventStorageQueue->Clear();
+	});
 }
 
 task<void> MixpanelClient::Initialize()
@@ -87,6 +107,11 @@ void MixpanelClient::Track(String^ name, IPropertySet^ properties)
     {
         throw ref new InvalidArgumentException(L"Name cannot be empty or null");
     }
+
+	if (properties == nullptr)
+	{
+		properties = ref new PropertySet();
+	}
 
     IJsonValue^ payload = this->GenerateTrackingJsonPayload(name, properties);
 	m_eventStorageQueue->QueueEventToStorage(payload);

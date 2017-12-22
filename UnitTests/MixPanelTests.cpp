@@ -3,6 +3,7 @@
 #include "MixpanelClient.h"
 #include "AsyncHelper.h"
 
+using namespace std;
 using namespace Platform;
 using namespace CodevoidN::Tests::Utilities;
 using namespace CodevoidN::Utilities::Mixpanel;
@@ -17,6 +18,8 @@ using namespace Windows::Storage;
 #define DEFAULT_TOKEN_SET 0
 #define DEFAULT_TOKEN L"DEFAULT_TOKEN"
 
+#define OVERRIDE_STORAGE_FOLDER L"MixpanelClientTests"
+
 namespace CodevoidN { namespace  Tests { namespace Mixpanel
 {
     TEST_CLASS(MixpanelTests)
@@ -27,7 +30,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
         static task<StorageFolder^> GetAndClearTestFolder()
         {
-            auto storageFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync("MixpanelClientTests",
+            auto storageFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(OVERRIDE_STORAGE_FOLDER,
                 CreationCollisionOption::OpenIfExists);
 
             auto files = co_await storageFolder->GetFilesAsync();
@@ -427,5 +430,56 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             auto rawTimeValue = propertiesPayload->GetNamedValue("time");
             Assert::IsFalse(JsonValueType::Number == rawTimeValue->ValueType, L"Time was not the correct type");
         }
+
+		TEST_METHOD(QueuedEventsAreProcessedToStorage)
+		{
+			vector<shared_ptr<PayloadContainer>> written;
+
+			m_client->SetWrittenToStorageMock([&written](auto wasWritten) {
+				written.insert(begin(written), begin(wasWritten), end(wasWritten));
+			});
+
+			m_client->Start();
+			m_client->Track(L"TestEvent", nullptr);
+
+			this_thread::sleep_for(750ms);
+
+			Assert::AreEqual(1, (int)written.size(), L"Event wasn't written to disk");
+		}
+
+		TEST_METHOD(QueueCanBePaused)
+		{
+			m_client->Start();
+
+			m_client->Track(L"TestEvent", nullptr);
+			AsyncHelper::RunSynced(m_client->Pause());
+		}
+
+		TEST_METHOD(QueueCanBeCleared)
+		{
+			m_client->Start();
+			m_client->Track(L"TestEvent", nullptr);
+			AsyncHelper::RunSynced(m_client->Pause());
+
+			auto fileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
+				auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(OVERRIDE_STORAGE_FOLDER);
+				auto files = co_await folder->GetFilesAsync();
+
+				return files->Size;
+			}));
+
+			Assert::AreEqual(1, fileCount, L"Wrong number of persisted items found");
+
+			AsyncHelper::RunSynced(m_client->ClearStorageAsync());
+
+			fileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
+				auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(OVERRIDE_STORAGE_FOLDER);
+				auto files = co_await folder->GetFilesAsync();
+
+				return files->Size;
+			}));
+
+			Assert::AreEqual(0, fileCount, L"Didn't expect to find any items");
+		}
     };
 } } }
