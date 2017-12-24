@@ -13,25 +13,20 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel {
     TEST_CLASS(RequestHelperTests)
     {
     public:
-        TEST_METHOD(CanConstructRequestHelper)
-        {
-            auto rh = ref new RequestHelper();
-        }
-
         TEST_METHOD(RequestIndicatesFailureWhenFailing)
         {
-            auto rh = ref new RequestHelper();
+			RequestHelper rh;
             auto payload = ref new Map<String^, String^>();
-            auto wasSuccessful = rh->PostRequest(ref new Uri(L"https://fake.codevoid.net"), payload).get();
+            auto wasSuccessful = rh.PostRequest(ref new Uri(L"https://fake.codevoid.net"), payload).get();
             Assert::IsFalse(wasSuccessful);
         }
 
         TEST_METHOD(CanMakeRequestToPlaceholdService)
         {
-            auto rh = ref new RequestHelper();
+			RequestHelper rh;
             auto payload = ref new Map<String^, String^>();
             payload->Insert(L"data", "data");
-            auto wasSuccessful = rh->PostRequest(ref new Uri(L"https://jsonplaceholder.typicode.com/posts"), payload).get();
+            auto wasSuccessful = rh.PostRequest(ref new Uri(L"https://jsonplaceholder.typicode.com/posts"), payload).get();
             Assert::IsTrue(wasSuccessful);
         }
     };
