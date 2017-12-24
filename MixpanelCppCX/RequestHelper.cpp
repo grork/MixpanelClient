@@ -11,13 +11,23 @@ using namespace Windows::Web::Http::Headers;
 
 RequestHelper::RequestHelper()
 {
-    this->UserAgent = ref new HttpProductInfoHeaderValue(L"Codevoid.Utilities.MixpanelClient", L"1.0");
+	this->UserAgent(ref new HttpProductInfoHeaderValue(L"Codevoid.Utilities.MixpanelClient", L"1.0"));
+}
+
+HttpProductInfoHeaderValue^ RequestHelper::UserAgent()
+{
+	return m_userAgent;
+}
+
+void RequestHelper::UserAgent(Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ userAgent)
+{
+	m_userAgent = userAgent;
 }
 
 task<bool> RequestHelper::PostRequest(_In_ Uri^ uri, IMap<String^, String^>^ payload)
 {
     HttpClient^ client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->Append(this->UserAgent);
+    client->DefaultRequestHeaders->UserAgent->Append(this->UserAgent());
 
     try
     {

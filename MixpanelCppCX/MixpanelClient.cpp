@@ -131,8 +131,8 @@ task<bool> MixpanelClient::PostTrackEventsToMixpanel(const vector<IJsonValue^>& 
     auto formPayload = ref new Map<String^, String^>();
     formPayload->Insert(L"data", encodedAndHashedPayload);
 
-	static RequestHelper^ rh = ref new RequestHelper();
-	return co_await rh->PostRequest(uri, formPayload);
+	static RequestHelper rh;
+	return co_await rh.PostRequest(uri, formPayload);
 }
 
 void MixpanelClient::SetSuperProperty(String^ name, String^ value)
