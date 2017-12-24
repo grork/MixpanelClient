@@ -144,6 +144,8 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
         {
             m_queue->SetWriteToStorageIdleLimits(1000ms, 10);
             m_queue->EnableQueuingToStorage();
+
+			this_thread::sleep_for(50ms);
             
             for (int i = 0; i < 11; i++)
             {
@@ -151,7 +153,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             }
 
             AsyncHelper::RunSynced(create_task([] {
-                std::this_thread::sleep_for(100ms);
+                std::this_thread::sleep_for(300ms);
             }));
 
             Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
