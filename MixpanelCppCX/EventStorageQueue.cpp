@@ -179,6 +179,19 @@ task<void> EventStorageQueue::ClearStorage()
     }
 }
 
+task<void> EventStorageQueue::RemoveEventFromStorage(PayloadContainer& itemToRemove)
+{
+	TRACE_OUT("Removing File: " + GetFileNameForId(itemToRemove.Id));
+
+	auto fileToDelete = co_await m_localStorage->TryGetItemAsync(GetFileNameForId(itemToRemove.Id));
+	if (fileToDelete == nullptr)
+	{
+		return;
+	}
+
+	co_await fileToDelete->DeleteAsync();
+}
+
 void EventStorageQueue::SetWriteToStorageIdleLimits(const std::chrono::milliseconds& idleTimeout, const size_t& idleItemThreshold)
 {
     m_writeToStorageWorker.SetIdleTimeout(idleTimeout);

@@ -76,6 +76,12 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// </summary>
         void EnableQueuingToStorage();
 
+		/// <summary>
+		/// Removes the supplied event from storage if it is present
+		/// If it's still in the queue, that is left in place.
+		/// </summary>
+		concurrency::task<void> RemoveEventFromStorage(PayloadContainer& container);
+
     private:
         enum class QueueState
         {
