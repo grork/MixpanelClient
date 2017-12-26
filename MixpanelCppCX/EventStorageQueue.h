@@ -59,7 +59,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// Completes when it's finished loading from disk, and returns
         /// those items to the caller
         /// </summary>
-        static concurrency::task<std::vector<std::shared_ptr<PayloadContainer>>> LoadItemsQueuedToStorage(Windows::Storage::StorageFolder^ folder);
+        static concurrency::task<std::vector<std::shared_ptr<PayloadContainer>>> LoadItemsFromStorage(Windows::Storage::StorageFolder^ folder);
 
         /// <summary>
         /// Clears any items in the queue, and from storage.

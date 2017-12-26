@@ -264,7 +264,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             AsyncHelper::RunSynced(this->WritePayload(2, item2));
             AsyncHelper::RunSynced(this->WritePayload(3, item3));
 
-            auto queue = AsyncHelper::RunSynced(EventStorageQueue::LoadItemsQueuedToStorage(m_queueFolder));
+            auto queue = AsyncHelper::RunSynced(EventStorageQueue::LoadItemsFromStorage(m_queueFolder));
             Assert::AreEqual(3, (int)queue.size(), L"Expected items in the successfully written queue");
         }
         
