@@ -153,7 +153,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             }
 
             AsyncHelper::RunSynced(create_task([] {
-                std::this_thread::sleep_for(300ms);
+                std::this_thread::sleep_for(500ms);
             }));
 
             Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
@@ -267,6 +267,24 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             auto queue = AsyncHelper::RunSynced(EventStorageQueue::LoadItemsFromStorage(m_queueFolder));
             Assert::AreEqual(3, (int)queue.size(), L"Expected items in the successfully written queue");
         }
+
+		TEST_METHOD(ItemsCanBeRemovedFromStorage)
+		{
+			m_queue->SetWriteToStorageIdleLimits(10ms, 1);
+			m_queue->EnableQueuingToStorage();
+			auto result = m_queue->QueueEventToStorage(GenerateSamplePayload());
+			Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");
+			Assert::AreEqual(1, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
+
+			this_thread::sleep_for(50ms);
+
+			Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
+			Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
+
+			AsyncHelper::RunSynced(m_queue->RemoveEventFromStorage(*(m_writtenItems.front())));
+
+			Assert::AreEqual(0, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Item wasn't deleted");
+		}
         
         task<unsigned int> GetCurrentFileCountInQueueFolder()
         {
