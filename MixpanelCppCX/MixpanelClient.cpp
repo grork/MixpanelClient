@@ -131,7 +131,14 @@ void MixpanelClient::Track(String^ name, IPropertySet^ properties)
 
 void MixpanelClient::AddItemsToUploadQueue(vector<shared_ptr<PayloadContainer>> itemsToUpload)
 {
-	m_uploadWorker.AddWork(itemsToUpload, WorkPriority::Normal);
+	// If there are any normal priority items, we'll make the work we queue
+	// as normal too -- but otherwise, no point in waking up the network stack
+	// to process the low priority items.
+	bool anyNormalPriorityItems = any_of(begin(itemsToUpload), end(itemsToUpload), [](auto item) -> bool {
+		return item->Priority == EventPriority::Normal;
+	});
+
+	m_uploadWorker.AddWork(itemsToUpload, anyNormalPriorityItems ? WorkPriority::Normal : WorkPriority::Low);
 }
 
 vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleEventBatchUpload(const vector<shared_ptr<PayloadContainer>>& items, const function<bool()>& /*shouldKeepProcessing*/)
