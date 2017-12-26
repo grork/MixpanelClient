@@ -29,7 +29,14 @@ unsigned CodevoidN::Utilities::Mixpanel::WindowsTickToUnixSeconds(const long lon
     return (unsigned)(windowsTicks / WINDOWS_TICK - SEC_TO_UNIX_EPOCH);
 }
 
-MixpanelClient::MixpanelClient(String^ token)
+MixpanelClient::MixpanelClient(String^ token) :
+	m_uploadWorker(
+		[this](const auto& items, const auto& shouldContinueProcessing) -> auto {
+			return this->HandleEventBatchUpload(items, shouldContinueProcessing);
+		},
+		nullptr,
+		wstring(L"UploadToMixpanel")
+	)
 {
     if (token->IsEmpty())
     {
@@ -120,6 +127,19 @@ void MixpanelClient::Track(String^ name, IPropertySet^ properties)
 
     IJsonValue^ payload = this->GenerateTrackingJsonPayload(name, properties);
 	m_eventStorageQueue->QueueEventToStorage(payload);
+}
+
+void MixpanelClient::AddItemsToUploadQueue(vector<shared_ptr<PayloadContainer>> itemsToUpload)
+{
+	m_uploadWorker.AddWork(itemsToUpload, WorkPriority::Normal);
+}
+
+vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleEventBatchUpload(const vector<shared_ptr<PayloadContainer>>& items, const function<bool()>& /*shouldKeepProcessing*/)
+{
+	vector<shared_ptr<PayloadContainer>> successfulItems;
+	successfulItems.insert(begin(successfulItems), begin(items), end(items));
+
+	return successfulItems;
 }
 
 task<bool> MixpanelClient::PostTrackEventsToMixpanel(const vector<IJsonValue^>& events)
