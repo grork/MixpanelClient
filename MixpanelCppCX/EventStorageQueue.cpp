@@ -81,7 +81,7 @@ long long EventStorageQueue::QueueEventToStorage(IJsonValue^ payload, const Even
     return id;
 }
 
-task<vector<shared_ptr<PayloadContainer>>> EventStorageQueue::LoadItemsQueuedToStorage(StorageFolder^ sourceFolder)
+task<vector<shared_ptr<PayloadContainer>>> EventStorageQueue::LoadItemsFromStorage(StorageFolder^ sourceFolder)
 {
     TRACE_OUT("Restoring items from storage");
     auto files = co_await sourceFolder->GetFilesAsync();
