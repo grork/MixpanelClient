@@ -56,7 +56,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             m_client->PersistSuperPropertiesToApplicationData = false;
 
             auto folder = AsyncHelper::RunSynced(GetAndClearTestFolder());
-            m_client->Initialize(folder);
+            m_client->Initialize(folder, make_unique<RequestHelper>());
         }
 
         TEST_METHOD_CLEANUP(CleanupClass)

@@ -13,7 +13,7 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel {
     TEST_CLASS(RequestHelperTests)
     {
     public:
-        TEST_METHOD(RequestIndicatesFailureWhenFailing)
+        TEST_METHOD(RequestIndicatesFailureWhenCallingNonExistantEndPoint)
         {
 			RequestHelper rh;
             auto payload = ref new Map<String^, String^>();
@@ -21,7 +21,7 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel {
             Assert::IsFalse(wasSuccessful);
         }
 
-        TEST_METHOD(CanMakeRequestToPlaceholdService)
+        TEST_METHOD(CanMakeRequestToPlaceholderService)
         {
 			RequestHelper rh;
             auto payload = ref new Map<String^, String^>();

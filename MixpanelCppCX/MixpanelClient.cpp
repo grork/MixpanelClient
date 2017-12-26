@@ -84,10 +84,10 @@ task<void> MixpanelClient::Initialize()
     auto folder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync("MixpanelUploadQueue",
         CreationCollisionOption::OpenIfExists);
 
-    this->Initialize(folder);
+    this->Initialize(folder, make_unique<RequestHelper>());
 }
 
-void MixpanelClient::Initialize(StorageFolder^ queueFolder)
+void MixpanelClient::Initialize(StorageFolder^ queueFolder, unique_ptr<IRequestHelper> requestHelper)
 {
     m_eventStorageQueue = make_unique<EventStorageQueue>(queueFolder, [this](auto writtenItems) {
         if (m_writtenToStorageMockCallback == nullptr)
@@ -97,6 +97,8 @@ void MixpanelClient::Initialize(StorageFolder^ queueFolder)
 
         m_writtenToStorageMockCallback(writtenItems);
     });
+
+	m_requestHelper = std::move(requestHelper);
 }
 
 void MixpanelClient::Track(String^ name, IPropertySet^ properties)

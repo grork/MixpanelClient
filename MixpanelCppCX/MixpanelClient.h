@@ -1,5 +1,6 @@
 #pragma once
 #include "EventStorageQueue.h"
+#include "RequestHelper.h"
 
 namespace CodevoidN { namespace Tests { namespace Mixpanel {
     class MixpanelTests;
@@ -129,7 +130,10 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 		///
 		/// Primary intended use is for testing
 		/// </summary>
-		void Initialize(Windows::Storage::StorageFolder^ queueFolder);
+		void Initialize(
+			Windows::Storage::StorageFolder^ queueFolder,
+			std::unique_ptr<CodevoidN::Utilities::Mixpanel::IRequestHelper> requestHelper
+		);
 
 		/// <summary>
 		/// Allows the queue to be shutdown cleanly for testing purposes
@@ -172,6 +176,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         Platform::String^ m_token;
         Windows::Foundation::Collections::IPropertySet^ m_superProperties;
         std::unique_ptr<CodevoidN::Utilities::Mixpanel::EventStorageQueue> m_eventStorageQueue;
+		std::unique_ptr<CodevoidN::Utilities::Mixpanel::IRequestHelper> m_requestHelper;
     };
 
     unsigned WindowsTickToUnixSeconds(long long windowsTicks);
