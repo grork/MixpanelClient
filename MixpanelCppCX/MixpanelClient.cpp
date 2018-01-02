@@ -32,9 +32,12 @@ unsigned CodevoidN::Utilities::Mixpanel::WindowsTickToUnixSeconds(const long lon
 MixpanelClient::MixpanelClient(String^ token) :
 	m_uploadWorker(
 		[this](const auto& items, const auto& shouldContinueProcessing) -> auto {
+            // Not using std::bind, because ref classes & it don't play nice
 			return this->HandleEventBatchUpload(items, shouldContinueProcessing);
 		},
-		nullptr,
+        [this](const auto& items) -> void {
+            this->HandleCompletedUploads(items);
+        },
 		wstring(L"UploadToMixpanel")
 	)
 {
@@ -139,6 +142,14 @@ void MixpanelClient::AddItemsToUploadQueue(vector<shared_ptr<PayloadContainer>> 
 	});
 
 	m_uploadWorker.AddWork(itemsToUpload, anyNormalPriorityItems ? WorkPriority::Normal : WorkPriority::Low);
+}
+
+void MixpanelClient::HandleCompletedUploads(const vector<shared_ptr<PayloadContainer>>& items)
+{
+    for (auto&& item : items)
+    {
+        m_eventStorageQueue->RemoveEventFromStorage(*item).get();
+    }
 }
 
 vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleEventBatchUpload(const vector<shared_ptr<PayloadContainer>>& items, const function<bool()>& /*shouldKeepProcessing*/)
