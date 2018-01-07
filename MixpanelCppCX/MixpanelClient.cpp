@@ -76,6 +76,12 @@ IAsyncAction^ MixpanelClient::Pause()
 
 task<void> MixpanelClient::Shutdown()
 {
+    // The upload queue can be stuck in long running
+    // operations, so we dont want it to drain or reach
+    // a 'safe' place. We want it to give up as soon as
+    // we're trying to get out of dodge.
+    m_uploadWorker.ShutdownAndDrop();
+
     if (m_eventStorageQueue == nullptr)
     {
         return;
