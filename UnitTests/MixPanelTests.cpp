@@ -22,6 +22,15 @@ using namespace Windows::Storage;
 
 namespace CodevoidN { namespace  Tests { namespace Mixpanel
 {
+    class TestRequestHelper : public IRequestHelper
+    {
+    public:
+        virtual concurrency::task<bool> PostRequest(Uri^, IMap<String^, IJsonValue^>^) override
+        {
+            return task_from_result(true);
+        }
+    };
+
     TEST_CLASS(MixpanelTests)
     {
     private:
@@ -50,7 +59,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
         TEST_METHOD_INITIALIZE(InitializeClass)
         {
             m_client = ref new MixpanelClient(DEFAULT_TOKEN);
-            
+
             // Disable Persistence of Super properties
             // to help maintain these tests as stateless
             m_client->PersistSuperPropertiesToApplicationData = false;
@@ -91,7 +100,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
         TEST_METHOD(TrackThrowsIfNotInitialized)
         {
             bool exceptionThrown = false;
-			auto client = ref new MixpanelClient(DEFAULT_TOKEN);
+            auto client = ref new MixpanelClient(DEFAULT_TOKEN);
 
             try
             {
@@ -145,7 +154,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             {
                 MixpanelClient::AppendPropertySetToJsonPayload(properties, result);
             }
-            catch(InvalidCastException^ ex)
+            catch (InvalidCastException^ ex)
             {
                 exceptionThrown = true;
             }
@@ -178,7 +187,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::IsTrue(result->HasKey(L"IntValue"), L"IntValue not present");
             int number = static_cast<int>(result->GetNamedNumber(L"IntValue"));
             Assert::AreEqual(42, number, L"IntValue doesn't match");
-            
+
             // Validate that that DoubleValue is present, and matches
             Assert::IsTrue(result->HasKey(L"DoubleValue"), L"DoubleValue not present");
             double number2 = static_cast<double>(result->GetNamedNumber(L"DoubleValue"));
@@ -399,7 +408,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
             auto propertiesPayload = trackPayload->GetNamedObject("properties");
-            
+
             // Validate that the time property is not present (Since it was turned
             // off automatic attachment explicitly above)
             Assert::IsFalse(propertiesPayload->HasKey(L"time"), L"time key shouldn't be present");
@@ -434,55 +443,55 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::IsFalse(JsonValueType::Number == rawTimeValue->ValueType, L"Time was not the correct type");
         }
 
-		TEST_METHOD(QueuedEventsAreProcessedToStorage)
-		{
-			vector<shared_ptr<PayloadContainer>> written;
+        TEST_METHOD(QueuedEventsAreProcessedToStorage)
+        {
+            vector<shared_ptr<PayloadContainer>> written;
 
-			m_client->SetWrittenToStorageMock([&written](auto wasWritten) {
-				written.insert(begin(written), begin(wasWritten), end(wasWritten));
-			});
+            m_client->SetWrittenToStorageMock([&written](auto wasWritten) {
+                written.insert(begin(written), begin(wasWritten), end(wasWritten));
+            });
 
-			m_client->Start();
-			m_client->Track(L"TestEvent", nullptr);
+            m_client->Start();
+            m_client->Track(L"TestEvent", nullptr);
 
-			this_thread::sleep_for(750ms);
+            this_thread::sleep_for(750ms);
 
-			Assert::AreEqual(1, (int)written.size(), L"Event wasn't written to disk");
-		}
+            Assert::AreEqual(1, (int)written.size(), L"Event wasn't written to disk");
+        }
 
-		TEST_METHOD(QueueCanBePaused)
-		{
-			m_client->Start();
+        TEST_METHOD(QueueCanBePaused)
+        {
+            m_client->Start();
 
-			m_client->Track(L"TestEvent", nullptr);
-			AsyncHelper::RunSynced(m_client->Pause());
-		}
+            m_client->Track(L"TestEvent", nullptr);
+            AsyncHelper::RunSynced(m_client->Pause());
+        }
 
-		TEST_METHOD(QueueCanBeCleared)
-		{
-			m_client->Start();
-			m_client->Track(L"TestEvent", nullptr);
-			AsyncHelper::RunSynced(m_client->Pause());
+        TEST_METHOD(QueueCanBeCleared)
+        {
+            m_client->Start();
+            m_client->Track(L"TestEvent", nullptr);
+            AsyncHelper::RunSynced(m_client->Pause());
 
-			auto fileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
-				auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(OVERRIDE_STORAGE_FOLDER);
-				auto files = co_await folder->GetFilesAsync();
+            auto fileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
+                auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(OVERRIDE_STORAGE_FOLDER);
+                auto files = co_await folder->GetFilesAsync();
 
-				return files->Size;
-			}));
+                return files->Size;
+            }));
 
-			Assert::AreEqual(1, fileCount, L"Wrong number of persisted items found");
+            Assert::AreEqual(1, fileCount, L"Wrong number of persisted items found");
 
-			AsyncHelper::RunSynced(m_client->ClearStorageAsync());
+            AsyncHelper::RunSynced(m_client->ClearStorageAsync());
 
-			fileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
-				auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(OVERRIDE_STORAGE_FOLDER);
-				auto files = co_await folder->GetFilesAsync();
+            fileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
+                auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(OVERRIDE_STORAGE_FOLDER);
+                auto files = co_await folder->GetFilesAsync();
 
-				return files->Size;
-			}));
+                return files->Size;
+            }));
 
-			Assert::AreEqual(0, fileCount, L"Didn't expect to find any items");
-		}
+            Assert::AreEqual(0, fileCount, L"Didn't expect to find any items");
+        }
     };
 } } }

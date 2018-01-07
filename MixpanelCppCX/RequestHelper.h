@@ -9,14 +9,14 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
     class RequestHelper : public IRequestHelper
     {
-	public:
+    public:
         RequestHelper();
 
         Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ UserAgent();
 		void UserAgent(Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ userAgent);
-        concurrency::task<bool> PostRequest(_In_ Windows::Foundation::Uri^ uri, Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^ payload);
+        virtual concurrency::task<bool> PostRequest(_In_ Windows::Foundation::Uri^ uri, Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^ payload);
 
-	private:
-		Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ m_userAgent;
+    private:
+        Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ m_userAgent;
     };
 } } }
