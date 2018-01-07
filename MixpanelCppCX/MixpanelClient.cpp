@@ -22,6 +22,8 @@ constexpr wchar_t MIXPANEL_TRACK_BASE_URL[] = L"https://api.mixpanel.com/track";
 #define DEFAULT_TOKEN L"DEFAULT_TOKEN"
 #define SUPER_PROPERTIES_CONTAINER_NAME L"Codevoid_Utilities_Mixpanel"
 
+constexpr vector<shared_ptr<PayloadContainer>>::difference_type DEFAULT_UPLOAD_SIZE_STRIDE = 50;
+
 // Sourced from:
 // http://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
 unsigned CodevoidN::Utilities::Mixpanel::WindowsTickToUnixSeconds(const long long windowsTicks)
@@ -60,12 +62,14 @@ IAsyncAction^ MixpanelClient::InitializeAsync()
 
 void MixpanelClient::Start()
 {
+    m_uploadWorker.Start();
 	m_eventStorageQueue->EnableQueuingToStorage();
 }
 
 IAsyncAction^ MixpanelClient::Pause()
 {
 	return create_async([this]() {
+        m_uploadWorker.Pause();
 		return m_eventStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
 	});
 }
@@ -154,10 +158,57 @@ void MixpanelClient::HandleCompletedUploads(const vector<shared_ptr<PayloadConta
 
 vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleEventBatchUpload(const vector<shared_ptr<PayloadContainer>>& items, const function<bool()>& /*shouldKeepProcessing*/)
 {
-	vector<shared_ptr<PayloadContainer>> successfulItems;
-	successfulItems.insert(begin(successfulItems), begin(items), end(items));
+    vector<shared_ptr<PayloadContainer>>::difference_type strideSize = DEFAULT_UPLOAD_SIZE_STRIDE;
+    vector<shared_ptr<PayloadContainer>> successfulItems;
+    auto front = begin(items);
+    auto back = end(items);
 
-	return successfulItems;
+    TRACE_OUT(L"MixpanelClient: Beginning upload of " + to_wstring(items.size()) + L" items");
+    while (front != back)
+    {
+        auto first = front;
+
+        // Find the last item -- capping at the end of the collection if the stride
+        // size would put it past the end of the collection.
+        auto last = (distance(front, back) >= strideSize) ? (front + strideSize) : back;
+        vector<IJsonValue^> eventPayload(distance(front, last)); // Pre-allocate the size.
+
+        TRACE_OUT(L"MixpanelClient: Copying JsonValues to payload");
+        while(first < last)
+        {
+            eventPayload.push_back((*first)->Payload);
+            first++;
+        }
+
+        TRACE_OUT(L"MixpanelClient: Sending " + to_wstring(eventPayload.size()) + L" events to service");
+        if (!this->PostTrackEventsToMixpanel(eventPayload).get())
+        {
+            TRACE_OUT(L"MixpanelClient: Upload failed");
+            if (strideSize != 1)
+            {
+                TRACE_OUT(L"MixpanelClient: Switching to single-event upload");
+                strideSize = 1;
+
+                // Just go around the loop again to reprocess the items
+                // in the smaller stride size -- because we're using our
+                // local iterator, and not updating the while iterator
+                // we can just jump back to the top of the loop again
+                continue;
+            }
+        }
+        else
+        {
+            // These items were successfully processed, so we can now
+            // put these in the list to be removed from our queue
+            successfulItems.insert(end(successfulItems), front, last);
+        }
+
+        // Move to the beginning of the next item.
+        front = first;
+    }
+
+    TRACE_OUT(L"MixpanelClient: Batch complete. " + to_wstring(successfulItems.size()) + L" items were successfully uploaded");
+    return successfulItems;
 }
 
 task<bool> MixpanelClient::PostTrackEventsToMixpanel(const vector<IJsonValue^>& events)
