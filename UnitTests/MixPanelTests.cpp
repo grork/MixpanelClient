@@ -36,6 +36,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
     private:
         MixpanelClient^ m_client;
         StorageFolder^ m_storageFolder;
+        shared_ptr<TestRequestHelper> m_requestHelper;
 
         static task<StorageFolder^> GetAndClearTestFolder()
         {
@@ -66,9 +67,10 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
             auto folder = AsyncHelper::RunSynced(GetAndClearTestFolder());
             
+            m_requestHelper = make_shared<TestRequestHelper>();
             // The URL here is a helpful endpoint on the internet that just round-files
             // the requests to enable simple testing.
-            m_client->Initialize(folder, ref new Uri(L"https://jsonplaceholder.typicode.com/posts"), make_unique<RequestHelper>());
+            m_client->Initialize(folder, ref new Uri(L"https://jsonplaceholder.typicode.com/posts"), m_requestHelper);
         }
 
         TEST_METHOD_CLEANUP(CleanupClass)

@@ -133,7 +133,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 		void Initialize(
 			Windows::Storage::StorageFolder^ queueFolder,
             Windows::Foundation::Uri^ serviceUri,
-			std::unique_ptr<CodevoidN::Utilities::Mixpanel::IRequestHelper> requestHelper
+			std::shared_ptr<CodevoidN::Utilities::Mixpanel::IRequestHelper> requestHelper
 		);
 
 		/// <summary>
@@ -187,7 +187,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         Windows::Foundation::Uri^ m_serviceUri;
         std::unique_ptr<CodevoidN::Utilities::Mixpanel::EventStorageQueue> m_eventStorageQueue;
 		CodevoidN::Utilities::BackgroundWorker<CodevoidN::Utilities::Mixpanel::PayloadContainer> m_uploadWorker;
-		std::unique_ptr<CodevoidN::Utilities::Mixpanel::IRequestHelper> m_requestHelper;
+		std::shared_ptr<CodevoidN::Utilities::Mixpanel::IRequestHelper> m_requestHelper;
     };
 
     unsigned WindowsTickToUnixSeconds(long long windowsTicks);

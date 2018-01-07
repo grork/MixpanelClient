@@ -109,7 +109,7 @@ task<void> MixpanelClient::Initialize()
 
 void MixpanelClient::Initialize(StorageFolder^ queueFolder,
                                 Uri^ serviceUri,
-                                unique_ptr<IRequestHelper> requestHelper)
+                                shared_ptr<IRequestHelper> requestHelper)
 {
     m_eventStorageQueue = make_unique<EventStorageQueue>(queueFolder, [this](auto writtenItems) {
         if (m_writtenToStorageMockCallback == nullptr)
@@ -120,7 +120,7 @@ void MixpanelClient::Initialize(StorageFolder^ queueFolder,
         m_writtenToStorageMockCallback(writtenItems);
     });
 
-	m_requestHelper = std::move(requestHelper);
+	m_requestHelper = requestHelper;
     m_serviceUri = serviceUri;
 }
 
