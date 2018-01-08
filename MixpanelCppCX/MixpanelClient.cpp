@@ -16,9 +16,10 @@ using namespace Windows::Foundation;
 using namespace Windows::Foundation::Collections;
 using namespace Windows::Storage;
 
+constexpr wchar_t MIXPANEL_TRACK_BASE_URL[] = L"https://api.mixpanel.com/track";
+
 #define WINDOWS_TICK 10000000
 #define SEC_TO_UNIX_EPOCH 11644473600LL
-#define MIXPANEL_TRACK_BASE_URL L"https://api.mixpanel.com/track"
 #define DEFAULT_TOKEN L"DEFAULT_TOKEN"
 #define SUPER_PROPERTIES_CONTAINER_NAME L"Codevoid_Utilities_Mixpanel"
 
@@ -84,10 +85,12 @@ task<void> MixpanelClient::Initialize()
     auto folder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync("MixpanelUploadQueue",
         CreationCollisionOption::OpenIfExists);
 
-    this->Initialize(folder, make_unique<RequestHelper>());
+    this->Initialize(folder, ref new Uri(StringReference(MIXPANEL_TRACK_BASE_URL)), make_unique<RequestHelper>());
 }
 
-void MixpanelClient::Initialize(StorageFolder^ queueFolder, unique_ptr<IRequestHelper> requestHelper)
+void MixpanelClient::Initialize(StorageFolder^ queueFolder,
+                                Uri^ serviceUri,
+                                unique_ptr<IRequestHelper> requestHelper)
 {
     m_eventStorageQueue = make_unique<EventStorageQueue>(queueFolder, [this](auto writtenItems) {
         if (m_writtenToStorageMockCallback == nullptr)
@@ -99,6 +102,7 @@ void MixpanelClient::Initialize(StorageFolder^ queueFolder, unique_ptr<IRequestH
     });
 
 	m_requestHelper = std::move(requestHelper);
+    m_serviceUri = serviceUri;
 }
 
 void MixpanelClient::Track(String^ name, IPropertySet^ properties)
@@ -121,7 +125,6 @@ void MixpanelClient::Track(String^ name, IPropertySet^ properties)
 
 task<bool> MixpanelClient::PostTrackEventsToMixpanel(const vector<IJsonValue^>& events)
 {
-    auto uri = ref new Uri(MIXPANEL_TRACK_BASE_URL);
     auto jsonEvents = ref new JsonArray();
     
     for (auto&& payload : events)
@@ -133,7 +136,7 @@ task<bool> MixpanelClient::PostTrackEventsToMixpanel(const vector<IJsonValue^>& 
     auto formPayload = ref new Map<String^, String^>();
     formPayload->Insert(L"data", encodedAndHashedPayload);
 
-	return co_await m_requestHelper->PostRequest(uri, formPayload);
+	return co_await m_requestHelper->PostRequest(m_serviceUri, formPayload);
 }
 
 void MixpanelClient::SetSuperProperty(String^ name, String^ value)
