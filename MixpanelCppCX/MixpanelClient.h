@@ -132,6 +132,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 		/// </summary>
 		void Initialize(
 			Windows::Storage::StorageFolder^ queueFolder,
+            Windows::Foundation::Uri^ serviceUri,
 			std::unique_ptr<CodevoidN::Utilities::Mixpanel::IRequestHelper> requestHelper
 		);
 
@@ -175,6 +176,8 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 		/// </summary>
         Platform::String^ m_token;
         Windows::Foundation::Collections::IPropertySet^ m_superProperties;
+
+        Windows::Foundation::Uri^ m_serviceUri;
         std::unique_ptr<CodevoidN::Utilities::Mixpanel::EventStorageQueue> m_eventStorageQueue;
 		std::unique_ptr<CodevoidN::Utilities::Mixpanel::IRequestHelper> m_requestHelper;
     };

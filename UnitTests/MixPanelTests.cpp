@@ -56,7 +56,10 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             m_client->PersistSuperPropertiesToApplicationData = false;
 
             auto folder = AsyncHelper::RunSynced(GetAndClearTestFolder());
-            m_client->Initialize(folder, make_unique<RequestHelper>());
+            
+            // The URL here is a helpful endpoint on the internet that just round-files
+            // the requests to enable simple testing.
+            m_client->Initialize(folder, ref new Uri(L"https://jsonplaceholder.typicode.com/posts"), make_unique<RequestHelper>());
         }
 
         TEST_METHOD_CLEANUP(CleanupClass)
