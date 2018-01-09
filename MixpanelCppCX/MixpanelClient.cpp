@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "EventStorageQueue.h"
 #include "MixpanelClient.h"
-#include "PayloadEncoder.h"
 #include "RequestHelper.h"
 #include <chrono>
 
@@ -132,9 +131,8 @@ task<bool> MixpanelClient::PostTrackEventsToMixpanel(const vector<IJsonValue^>& 
         jsonEvents->Append(payload);
     }
 
-    auto encodedAndHashedPayload = EncodeJson(jsonEvents);
-    auto formPayload = ref new Map<String^, String^>();
-    formPayload->Insert(L"data", encodedAndHashedPayload);
+    auto formPayload = ref new Map<String^, IJsonValue^>();
+    formPayload->Insert(L"data", jsonEvents);
 
 	return co_await m_requestHelper->PostRequest(m_serviceUri, formPayload);
 }

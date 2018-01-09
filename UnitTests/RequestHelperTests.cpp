@@ -7,6 +7,7 @@ using namespace concurrency;
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace Platform;
 using namespace Platform::Collections;
+using namespace Windows::Data::Json;
 using namespace Windows::Foundation;
 
 namespace CodevoidN { namespace Tests { namespace Mixpanel {
@@ -16,7 +17,7 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel {
         TEST_METHOD(RequestIndicatesFailureWhenCallingNonExistantEndPoint)
         {
 			RequestHelper rh;
-            auto payload = ref new Map<String^, String^>();
+            auto payload = ref new Map<String^, IJsonValue^>();
             auto wasSuccessful = rh.PostRequest(ref new Uri(L"https://fake.codevoid.net"), payload).get();
             Assert::IsFalse(wasSuccessful);
         }
@@ -24,8 +25,8 @@ namespace CodevoidN { namespace Tests { namespace Mixpanel {
         TEST_METHOD(CanMakeRequestToPlaceholderService)
         {
 			RequestHelper rh;
-            auto payload = ref new Map<String^, String^>();
-            payload->Insert(L"data", "data");
+            auto payload = ref new Map<String^, IJsonValue^>();
+            payload->Insert(L"data", JsonObject::Parse("{ \"data\": 0 }"));
             auto wasSuccessful = rh.PostRequest(ref new Uri(L"https://jsonplaceholder.typicode.com/posts"), payload).get();
             Assert::IsTrue(wasSuccessful);
         }
