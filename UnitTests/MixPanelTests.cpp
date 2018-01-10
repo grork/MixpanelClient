@@ -25,10 +25,30 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
     class TestRequestHelper : public IRequestHelper
     {
     public:
-        virtual concurrency::task<bool> PostRequest(Uri^, IMap<String^, IJsonValue^>^) override
+        virtual concurrency::task<bool> PostRequest(Uri^, IMap<String^, IJsonValue^>^ payload) override
         {
+            // Data is intended in the 'data' keyed item in the payload.
+            // Assume it's a JsonArray...
+            JsonArray^ data = dynamic_cast<JsonArray^>(payload->Lookup(L"data"));
+            vector<IJsonValue^> items;
+
+            // Copy into a vector for easier access.
+            for (unsigned int i = 0; i < data->Size; i++)
+            {
+                items.push_back(data->GetAt(i));
+            }
+
+            this->RequestPayloads.push_back(items);
+
             return task_from_result(true);
         }
+
+        void ClearPayloads()
+        {
+            this->RequestPayloads.clear();
+        }
+
+        vector<vector<IJsonValue^>> RequestPayloads;
     };
 
     TEST_CLASS(MixpanelTests)
@@ -494,6 +514,16 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             }));
 
             Assert::AreEqual(0, fileCount, L"Didn't expect to find any items");
+        }
+
+        TEST_METHOD(QueueIsUploaded)
+        {
+            m_client->Start();
+            m_client->Track(L"TestEvent", nullptr);
+
+            this_thread::sleep_for(1100ms);
+
+            Assert::AreEqual(1, (int)m_requestHelper->RequestPayloads.size(), L"Wrong number of payloads sent");
         }
     };
 } } }
