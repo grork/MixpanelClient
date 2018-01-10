@@ -114,6 +114,7 @@ void MixpanelClient::Initialize(StorageFolder^ queueFolder,
     m_eventStorageQueue = make_unique<EventStorageQueue>(queueFolder, [this](auto writtenItems) {
         if (m_writtenToStorageMockCallback == nullptr)
         {
+            this->AddItemsToUploadQueue(writtenItems);
             return;
         }
 
@@ -142,7 +143,7 @@ void MixpanelClient::Track(String^ name, IPropertySet^ properties)
 	m_eventStorageQueue->QueueEventToStorage(payload);
 }
 
-void MixpanelClient::AddItemsToUploadQueue(vector<shared_ptr<PayloadContainer>> itemsToUpload)
+void MixpanelClient::AddItemsToUploadQueue(const vector<shared_ptr<PayloadContainer>>& itemsToUpload)
 {
 	// If there are any normal priority items, we'll make the work we queue
 	// as normal too -- but otherwise, no point in waking up the network stack
@@ -176,11 +177,11 @@ vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleEventBatchUpload(cons
 
         // Find the last item -- capping at the end of the collection if the stride
         // size would put it past the end of the collection.
-        auto last = (distance(front, back) >= strideSize) ? (front + strideSize) : back;
+        auto last = (distance(front, back) >= strideSize) ? (front + strideSize) : prev(back);
         vector<IJsonValue^> eventPayload(distance(front, last)); // Pre-allocate the size.
 
         TRACE_OUT(L"MixpanelClient: Copying JsonValues to payload");
-        while(first < last)
+        while(first <= last)
         {
             eventPayload.push_back((*first)->Payload);
             first++;
@@ -206,7 +207,7 @@ vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleEventBatchUpload(cons
         {
             // These items were successfully processed, so we can now
             // put these in the list to be removed from our queue
-            successfulItems.insert(end(successfulItems), front, last);
+            successfulItems.insert(end(successfulItems), front, next(last));
         }
 
         // Move to the beginning of the next item.
