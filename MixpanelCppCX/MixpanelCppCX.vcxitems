@@ -19,7 +19,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)EventStorageQueue.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)MixpanelClient.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)PayloadEncoder.h" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)RequestHelper.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)shared_pch.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)Tracing.h" />
   </ItemGroup>
@@ -27,7 +26,6 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)EventStorageQueue.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)MixpanelClient.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)PayloadEncoder.cpp" />
-    <ClCompile Include="$(MSBuildThisFileDirectory)RequestHelper.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Tracing.cpp" />
   </ItemGroup>
 </Project>

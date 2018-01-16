@@ -219,7 +219,6 @@
     <ClCompile Include="BackgroundWorkerTest.cpp" />
     <ClCompile Include="EncoderTests.cpp" />
     <ClCompile Include="EventStorageQueueTests.cpp" />
-    <ClCompile Include="RequestHelperTests.cpp" />
     <ClCompile Include="UnitTestApp.xaml.cpp">
       <DependentUpon>UnitTestApp.xaml</DependentUpon>
     </ClCompile>

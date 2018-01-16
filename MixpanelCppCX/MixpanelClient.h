@@ -1,6 +1,5 @@
 #pragma once
 #include "EventStorageQueue.h"
-#include "RequestHelper.h"
 
 namespace CodevoidN { namespace Tests { namespace Mixpanel {
     class MixpanelTests;
@@ -132,8 +131,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 		/// </summary>
 		void Initialize(
 			Windows::Storage::StorageFolder^ queueFolder,
-            Windows::Foundation::Uri^ serviceUri,
-			std::shared_ptr<CodevoidN::Utilities::Mixpanel::IRequestHelper> requestHelper
+            Windows::Foundation::Uri^ serviceUri
 		);
 
 		/// <summary>
@@ -162,6 +160,17 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 		/// </summary>
         concurrency::task<bool> PostTrackEventsToMixpanel(const std::vector<Windows::Data::Json::IJsonValue^>& payload);
 
+		static concurrency::task<bool> SendRequestToService(Windows::Foundation::Uri^ uri,
+													 Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^ payload,
+													 Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ userAgent);
+		
+		// Helpers to testing upload logic
+        void SetUploadToServiceMock(const std::function<concurrency::task<bool>(
+            Windows::Foundation::Uri^,
+            Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^,
+            Windows::Web::Http::Headers::HttpProductInfoHeaderValue^
+        )> mock);
+
 		// Helpers for testing the persist to storage behaviour
         void SetWrittenToStorageMock(const std::function<void(std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>)> mock);
         std::function<void(const std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>)> m_writtenToStorageMockCallback;
@@ -185,9 +194,13 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         Windows::Foundation::Collections::IPropertySet^ m_superProperties;
 
         Windows::Foundation::Uri^ m_serviceUri;
+		Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ m_userAgent;
         std::unique_ptr<CodevoidN::Utilities::Mixpanel::EventStorageQueue> m_eventStorageQueue;
 		CodevoidN::Utilities::BackgroundWorker<CodevoidN::Utilities::Mixpanel::PayloadContainer> m_uploadWorker;
-		std::shared_ptr<CodevoidN::Utilities::Mixpanel::IRequestHelper> m_requestHelper;
+		std::function<concurrency::task<bool>(
+			Windows::Foundation::Uri^,
+			Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^,
+			Windows::Web::Http::Headers::HttpProductInfoHeaderValue^)> m_requestHelper;
     };
 
     unsigned WindowsTickToUnixSeconds(long long windowsTicks);

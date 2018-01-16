@@ -5,6 +5,7 @@
 
 using namespace std;
 using namespace Platform;
+using namespace Platform::Collections;
 using namespace CodevoidN::Tests::Utilities;
 using namespace CodevoidN::Utilities::Mixpanel;
 using namespace concurrency;
@@ -12,6 +13,7 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace Windows::Data::Json;
 using namespace Windows::Foundation::Collections;
 using namespace Windows::Storage;
+using namespace Windows::Web::Http::Headers;
 
 // Set to 1, and an actual token to test sending
 // request to the service.
@@ -22,41 +24,11 @@ using namespace Windows::Storage;
 
 namespace CodevoidN { namespace  Tests { namespace Mixpanel
 {
-    class TestRequestHelper : public IRequestHelper
-    {
-    public:
-        virtual concurrency::task<bool> PostRequest(Uri^, IMap<String^, IJsonValue^>^ payload) override
-        {
-            // Data is intended in the 'data' keyed item in the payload.
-            // Assume it's a JsonArray...
-            JsonArray^ data = dynamic_cast<JsonArray^>(payload->Lookup(L"data"));
-            vector<IJsonValue^> items;
-
-            // Copy into a vector for easier access.
-            for (unsigned int i = 0; i < data->Size; i++)
-            {
-                items.push_back(data->GetAt(i));
-            }
-
-            this->RequestPayloads.push_back(items);
-
-            return task_from_result(true);
-        }
-
-        void ClearPayloads()
-        {
-            this->RequestPayloads.clear();
-        }
-
-        vector<vector<IJsonValue^>> RequestPayloads;
-    };
-
     TEST_CLASS(MixpanelTests)
     {
     private:
         MixpanelClient^ m_client;
         StorageFolder^ m_storageFolder;
-        shared_ptr<TestRequestHelper> m_requestHelper;
 
         static task<StorageFolder^> GetAndClearTestFolder()
         {
@@ -76,6 +48,22 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             return storageFolder;
         }
 
+		static vector<IJsonValue^> CaptureRequestPayloads(IMap<String^, IJsonValue^>^ payload)
+		{
+			// Data is intended in the 'data' keyed item in the payload.
+			// Assume it's a JsonArray...
+			JsonArray^ data = dynamic_cast<JsonArray^>(payload->Lookup(L"data"));
+			vector<IJsonValue^> items;
+
+			// Copy into a vector for easier access.
+			for (unsigned int i = 0; i < data->Size; i++)
+			{
+				items.push_back(data->GetAt(i));
+			}
+
+            return items;
+		}
+
     public:
         TEST_METHOD_INITIALIZE(InitializeClass)
         {
@@ -86,11 +74,17 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             m_client->PersistSuperPropertiesToApplicationData = false;
 
             auto folder = AsyncHelper::RunSynced(GetAndClearTestFolder());
-            
-            m_requestHelper = make_shared<TestRequestHelper>();
+
             // The URL here is a helpful endpoint on the internet that just round-files
             // the requests to enable simple testing.
-            m_client->Initialize(folder, ref new Uri(L"https://jsonplaceholder.typicode.com/posts"), m_requestHelper);
+            m_client->Initialize(folder, ref new Uri(L"https://jsonplaceholder.typicode.com/posts"));
+
+            // Set the default service mock to avoid sending things to the
+            // internet when we don't really need to.
+            m_client->SetUploadToServiceMock([](auto uri, auto payload, auto)
+            {
+                return task_from_result(true);
+            });
         }
 
         TEST_METHOD_CLEANUP(CleanupClass)
@@ -195,7 +189,6 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             auto calendar = ref new Windows::Globalization::Calendar();
             auto insertedDateTime = calendar->GetDateTime();
             properties->Insert(L"DateTimeValue", insertedDateTime);
-
 
             auto result = ref new JsonObject();
             MixpanelClient::AppendPropertySetToJsonPayload(properties, result);
@@ -516,14 +509,42 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::AreEqual(0, fileCount, L"Didn't expect to find any items");
         }
 
+		TEST_METHOD(RequestIndicatesFailureWhenCallingNonExistantEndPoint)
+		{
+			auto payload = ref new Map<String^, IJsonValue^>();
+			auto wasSuccessful = MixpanelClient::SendRequestToService(
+				ref new Uri(L"https://fake.codevoid.net"),
+				payload,
+				ref new HttpProductInfoHeaderValue(L"Codevoid.Mixpanel.MixpanelTests", L"1.0")).get();
+			Assert::IsFalse(wasSuccessful);
+		}
+
+		TEST_METHOD(CanMakeRequestToPlaceholderService)
+		{
+			auto payload = ref new Map<String^, IJsonValue^>();
+			payload->Insert(L"data", JsonObject::Parse("{ \"data\": 0 }"));
+			auto wasSuccessful = MixpanelClient::SendRequestToService(
+				ref new Uri(L"https://jsonplaceholder.typicode.com/posts"),
+				payload,
+				ref new HttpProductInfoHeaderValue(L"Codevoid.Mixpanel.MixpanelTests", L"1.0")).get();
+			Assert::IsTrue(wasSuccessful);
+		}
+
         TEST_METHOD(QueueIsUploaded)
         {
+            vector<vector<IJsonValue^>> capturedPayloads;
+            m_client->SetUploadToServiceMock([&capturedPayloads](auto, auto payloads, auto)
+            {
+                capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
+                return task_from_result(true);
+            });
             m_client->Start();
             m_client->Track(L"TestEvent", nullptr);
 
             this_thread::sleep_for(1100ms);
 
-            Assert::AreEqual(1, (int)m_requestHelper->RequestPayloads.size(), L"Wrong number of payloads sent");
+            Assert::AreEqual(1, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
+            Assert::AreEqual(1, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
         }
     };
 } } }
