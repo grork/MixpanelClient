@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "EventStorageQueue.h"
 #include "MixpanelClient.h"
-#include "RequestHelper.h"
+#include "PayloadEncoder.h"
 #include <chrono>
 
 using namespace CodevoidN::Utilities::Mixpanel;
@@ -14,6 +14,8 @@ using namespace Windows::Data::Json;
 using namespace Windows::Foundation;
 using namespace Windows::Foundation::Collections;
 using namespace Windows::Storage;
+using namespace Windows::Web::Http;
+using namespace Windows::Web::Http::Headers;
 
 constexpr wchar_t MIXPANEL_TRACK_BASE_URL[] = L"https://api.mixpanel.com/track";
 
@@ -32,6 +34,7 @@ unsigned CodevoidN::Utilities::Mixpanel::WindowsTickToUnixSeconds(const long lon
 }
 
 MixpanelClient::MixpanelClient(String^ token) :
+	m_userAgent(ref new HttpProductInfoHeaderValue(L"Codevoid.Utilities.MixpanelClient", L"1.0")),
 	m_uploadWorker(
 		[this](const auto& items, const auto& shouldContinueProcessing) -> auto {
             // Not using std::bind, because ref classes & it don't play nice
@@ -104,12 +107,11 @@ task<void> MixpanelClient::Initialize()
     auto folder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync("MixpanelUploadQueue",
         CreationCollisionOption::OpenIfExists);
 
-    this->Initialize(folder, ref new Uri(StringReference(MIXPANEL_TRACK_BASE_URL)), make_unique<RequestHelper>());
+	this->Initialize(folder, ref new Uri(StringReference(MIXPANEL_TRACK_BASE_URL)));
 }
 
 void MixpanelClient::Initialize(StorageFolder^ queueFolder,
-                                Uri^ serviceUri,
-                                shared_ptr<IRequestHelper> requestHelper)
+                                Uri^ serviceUri)
 {
     m_eventStorageQueue = make_unique<EventStorageQueue>(queueFolder, [this](auto writtenItems) {
         if (m_writtenToStorageMockCallback == nullptr)
@@ -121,8 +123,8 @@ void MixpanelClient::Initialize(StorageFolder^ queueFolder,
         m_writtenToStorageMockCallback(writtenItems);
     });
 
-	m_requestHelper = requestHelper;
     m_serviceUri = serviceUri;
+    m_requestHelper = &MixpanelClient::SendRequestToService;
 }
 
 void MixpanelClient::Track(String^ name, IPropertySet^ properties)
@@ -230,7 +232,36 @@ task<bool> MixpanelClient::PostTrackEventsToMixpanel(const vector<IJsonValue^>& 
     auto formPayload = ref new Map<String^, IJsonValue^>();
     formPayload->Insert(L"data", jsonEvents);
 
-	return co_await m_requestHelper->PostRequest(m_serviceUri, formPayload);
+	return co_await m_requestHelper(m_serviceUri, formPayload, m_userAgent);
+}
+
+task<bool> MixpanelClient::SendRequestToService(Uri^ uri, IMap<String^, IJsonValue^>^ payload, HttpProductInfoHeaderValue^ userAgent)
+{
+	HttpClient^ client = ref new HttpClient();
+	client->DefaultRequestHeaders->UserAgent->Append(userAgent);
+
+	Map<String^, String^>^ encodedPayload = ref new Map<String^, String^>();
+
+	for (auto&& pair : payload)
+	{
+		encodedPayload->Insert(pair->Key, EncodeJson(pair->Value));
+	}
+
+	try
+	{
+		auto content = ref new HttpFormUrlEncodedContent(encodedPayload);
+		auto requestResult = co_await client->PostAsync(uri, content);
+		return requestResult->IsSuccessStatusCode;
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
+void MixpanelClient::SetUploadToServiceMock(const function<task<bool>(Uri^, IMap<String^, IJsonValue^>^, HttpProductInfoHeaderValue^)> mock)
+{
+    m_requestHelper = mock;
 }
 
 void MixpanelClient::SetSuperProperty(String^ name, String^ value)
