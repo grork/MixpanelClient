@@ -179,8 +179,10 @@ vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleEventBatchUpload(cons
 
         // Find the last item -- capping at the end of the collection if the stride
         // size would put it past the end of the collection.
-        auto last = (distance(front, back) >= strideSize) ? (front + strideSize) : prev(back);
-        vector<IJsonValue^> eventPayload(distance(front, last)); // Pre-allocate the size.
+        auto totalSize = distance(front, back);
+        auto last = (totalSize >= strideSize) ? (front + (strideSize - 1)) : prev(back);
+        vector<IJsonValue^> eventPayload;
+        eventPayload.reserve(distance(front, last)); // Pre-allocate the size.
 
         TRACE_OUT(L"MixpanelClient: Copying JsonValues to payload");
         while(first <= last)
