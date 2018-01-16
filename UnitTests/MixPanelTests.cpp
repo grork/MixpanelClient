@@ -546,5 +546,51 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::AreEqual(1, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
             Assert::AreEqual(1, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
         }
+
+        TEST_METHOD(BatchesIncludeMoreThanOneItem)
+        {
+            vector<vector<IJsonValue^>> capturedPayloads;
+            m_client->SetUploadToServiceMock([&capturedPayloads](auto, auto payloads, auto)
+            {
+                capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
+                return task_from_result(true);
+            });
+
+            m_client->Track(L"TestEvent1", nullptr);
+            m_client->Track(L"TestEvent2", nullptr);
+            m_client->Track(L"TestEvent3", nullptr);
+            m_client->Track(L"TestEvent4", nullptr);
+
+            m_client->Start();
+
+            this_thread::sleep_for(1100ms);
+
+            Assert::AreEqual(1, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
+            Assert::AreEqual(4, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
+        }
+
+        TEST_METHOD(ItemsAreSpreadAcrossMultipleBatches)
+        {
+            vector<vector<IJsonValue^>> capturedPayloads;
+            m_client->SetUploadToServiceMock([&capturedPayloads](auto, auto payloads, auto)
+            {
+                capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
+                return task_from_result(true);
+            });
+
+            for (int i = 0; i < 150; i++)
+            {
+                m_client->Track(L"TrackEvent", nullptr);
+            }
+
+            m_client->Start();
+
+            this_thread::sleep_for(2000ms);
+
+            Assert::AreEqual(3, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
+            Assert::AreEqual(50, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
+            Assert::AreEqual(50, (int)(capturedPayloads[1].size()), L"Wrong number of items in the second payload");
+            Assert::AreEqual(50, (int)(capturedPayloads[2].size()), L"Wrong number of items in the third payload");
+        }
     };
 } } }
