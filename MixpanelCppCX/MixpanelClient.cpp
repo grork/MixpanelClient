@@ -454,3 +454,16 @@ void MixpanelClient::SetWrittenToStorageMock(function<void(vector<shared_ptr<Pay
 {
     m_writtenToStorageMockCallback = mockCallback;
 }
+
+void MixpanelClient::ConfigureForTesting(const milliseconds& idleTimeout, const size_t& itemThreshold)
+{
+	m_eventStorageQueue->DontWriteToStorageForTestPurposeses();
+	m_eventStorageQueue->SetWriteToStorageIdleLimits(idleTimeout, itemThreshold);
+	m_uploadWorker.SetIdleTimeout(idleTimeout);
+	m_uploadWorker.SetItemThreshold(itemThreshold);
+}
+
+void MixpanelClient::ForceWritingToStorage()
+{
+	m_eventStorageQueue->NoReallyWriteToStorageDuringTesting();
+}

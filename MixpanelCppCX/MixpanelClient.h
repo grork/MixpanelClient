@@ -135,6 +135,19 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 		);
 
 		/// <summary>
+		///	Configures the class for simpler / faster testing by:
+		/// * Turning off writing to disk
+		/// * Allows explicitly setting the variout timeouts & thresholds for the workers
+		/// </summary>
+		void ConfigureForTesting(const std::chrono::milliseconds& idleTimeout, const size_t& itemThreshold);
+
+		/// <summary>
+		/// For every rule, there is an exception. This enables some tests to
+		/// actually write to disk.
+		/// </summary>
+		void ForceWritingToStorage();
+
+		/// <summary>
 		/// Allows the queue to be shutdown cleanly for testing purposes
 		/// </summary>
 		concurrency::task<void> Shutdown();
