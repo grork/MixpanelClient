@@ -124,6 +124,20 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
         }
 
+		TEST_METHOD(ItemsAreNotWrittenToDiskWhenAskedToSkipForTesting)
+		{
+			m_queue->DontWriteToStorageForTestPurposeses();
+			m_queue->EnableQueuingToStorage();
+			auto result = m_queue->QueueEventToStorage(GenerateSamplePayload());
+			Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");
+			Assert::AreEqual(1, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
+
+			AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorageAndShutdown());
+
+			Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
+			Assert::AreEqual(0, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
+		}
+
         TEST_METHOD(ItemsAreQueuedToDiskAfterDelay)
         {
             m_queue->SetWriteToStorageIdleLimits(100ms, 10);

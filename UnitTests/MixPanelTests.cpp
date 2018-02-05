@@ -4,6 +4,7 @@
 #include "AsyncHelper.h"
 
 using namespace std;
+using namespace std::chrono;
 using namespace Platform;
 using namespace Platform::Collections;
 using namespace CodevoidN::Tests::Utilities;
@@ -21,6 +22,7 @@ using namespace Windows::Web::Http::Headers;
 #define DEFAULT_TOKEN L"DEFAULT_TOKEN"
 
 #define OVERRIDE_STORAGE_FOLDER L"MixpanelClientTests"
+constexpr milliseconds DEFAULT_IDLE_TIMEOUT = 10ms;
 
 namespace CodevoidN { namespace  Tests { namespace Mixpanel
 {
@@ -28,7 +30,6 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
     {
     private:
         MixpanelClient^ m_client;
-        StorageFolder^ m_storageFolder;
 
         static task<StorageFolder^> GetAndClearTestFolder()
         {
@@ -67,7 +68,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
     public:
         TEST_METHOD_INITIALIZE(InitializeClass)
         {
-            m_client = ref new MixpanelClient(DEFAULT_TOKEN);
+			m_client = ref new MixpanelClient(DEFAULT_TOKEN);
 
             // Disable Persistence of Super properties
             // to help maintain these tests as stateless
@@ -78,6 +79,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             // The URL here is a helpful endpoint on the internet that just round-files
             // the requests to enable simple testing.
             m_client->Initialize(folder, ref new Uri(L"https://jsonplaceholder.typicode.com/posts"));
+			m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 10);
 
             // Set the default service mock to avoid sending things to the
             // internet when we don't really need to.
@@ -87,6 +89,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             });
         }
 
+#pragma region Tracking Events and Super Properties
         TEST_METHOD_CLEANUP(CleanupClass)
         {
             if (m_client == nullptr)
@@ -457,7 +460,9 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             auto rawTimeValue = propertiesPayload->GetNamedValue("time");
             Assert::IsFalse(JsonValueType::Number == rawTimeValue->ValueType, L"Time was not the correct type");
         }
+#pragma endregion
 
+#pragma region Asynchronous Queueing and Upload
         TEST_METHOD(QueuedEventsAreProcessedToStorage)
         {
             vector<shared_ptr<PayloadContainer>> written;
@@ -466,10 +471,12 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
                 written.insert(begin(written), begin(wasWritten), end(wasWritten));
             });
 
+			m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
+
             m_client->Start();
             m_client->Track(L"TestEvent", nullptr);
 
-            this_thread::sleep_for(750ms);
+            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
 
             Assert::AreEqual(1, (int)written.size(), L"Event wasn't written to disk");
         }
@@ -484,6 +491,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
         TEST_METHOD(QueueCanBeCleared)
         {
+			m_client->ForceWritingToStorage();
             m_client->Start();
             m_client->Track(L"TestEvent", nullptr);
             AsyncHelper::RunSynced(m_client->Pause());
@@ -538,10 +546,13 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
                 capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
                 return task_from_result(true);
             });
+
+			m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
+
             m_client->Start();
             m_client->Track(L"TestEvent", nullptr);
 
-            this_thread::sleep_for(1100ms);
+            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
 
             Assert::AreEqual(1, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
             Assert::AreEqual(1, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
@@ -555,6 +566,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
                 capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
                 return task_from_result(true);
             });
+			m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 4);
 
             m_client->Track(L"TestEvent1", nullptr);
             m_client->Track(L"TestEvent2", nullptr);
@@ -563,7 +575,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
             m_client->Start();
 
-            this_thread::sleep_for(1100ms);
+            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
 
             Assert::AreEqual(1, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
             Assert::AreEqual(4, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
@@ -585,7 +597,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
             m_client->Start();
 
-            this_thread::sleep_for(2000ms);
+            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
 
             Assert::AreEqual(3, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
             Assert::AreEqual(50, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
@@ -595,25 +607,27 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
         TEST_METHOD(ItemsAreRetriedIndividuallyAfterAFailure)
         {
-            vector<vector<IJsonValue^>> capturedPayloads;
-            int itemCount = 0;
+			shared_ptr<vector<int>> capturedPayloadCounts = make_shared<vector<int>>();
+            int itemsSeenCount = 0;
+			int itemsSuccessfullyUploaded = 0;
             constexpr int FAILURE_TRIGGER = 75; // Fail in second batch
 
-            m_client->SetUploadToServiceMock([&capturedPayloads, &itemCount, &FAILURE_TRIGGER](auto, auto payloads, auto)
+            m_client->SetUploadToServiceMock([capturedPayloadCounts, &itemsSeenCount, &itemsSuccessfullyUploaded, &FAILURE_TRIGGER](auto, auto payloads, auto)
             {
-                vector<IJsonValue^> capturedItems;
+				int itemsInThisBatch = 0;
 
-                for (auto&& item : MixpanelTests::CaptureRequestPayloads(payloads))
+                for (auto item : MixpanelTests::CaptureRequestPayloads(payloads))
                 {
-                    itemCount++;
-                    capturedItems.push_back(item);
-                    if (itemCount == FAILURE_TRIGGER)
+                    itemsSeenCount++;
+					itemsInThisBatch++;
+                    if (itemsSeenCount == FAILURE_TRIGGER)
                     {
                         return task_from_result(false);
                     }
                 }
 
-                capturedPayloads.push_back(capturedItems);
+				itemsSuccessfullyUploaded += itemsInThisBatch;
+				capturedPayloadCounts->push_back(itemsInThisBatch);
 
                 return task_from_result(true);
             });
@@ -625,24 +639,32 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
             m_client->Start();
 
-            this_thread::sleep_for(2000ms);
+			while (itemsSuccessfullyUploaded != 100)
+			{
+				this_thread::sleep_for(1ms);
+			}
+
+			Assert::AreEqual(51, (int)capturedPayloadCounts->size(), L"Wrong number of payloads sent");
+			for (int i = 1; i < 50; i++)
+			{
+				Assert::AreEqual(1, (*capturedPayloadCounts)[i], L"Wrong number of items in single-item-payloads");
+			}
 
             for (int i = 0; i < 50; i++)
             {
                 m_client->Track(L"TrackEvent", nullptr);
             }
 
-            this_thread::sleep_for(4000ms);
+			while (itemsSuccessfullyUploaded != 150)
+			{
+				this_thread::sleep_for(1ms);
+			}
 
-            Assert::AreEqual(52, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
-            Assert::AreEqual(50, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
-            
-            for (int i = 1; i < 51; i++)
-            {
-                Assert::AreEqual(1, (int)(capturedPayloads[i].size()), L"Wrong number of items in single-item-payloads");
-            }
+            Assert::AreEqual(52, (int)capturedPayloadCounts->size(), L"Wrong number of payloads sent");
+            Assert::AreEqual(50, (*capturedPayloadCounts)[51], L"Wrong number of items in the third payload");
 
-            Assert::AreEqual(50, (int)(capturedPayloads[51].size()), L"Wrong number of items in the third payload");
+			m_client->Shutdown().wait();
         }
+#pragma endregion
     };
 } } }

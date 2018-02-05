@@ -20,12 +20,13 @@ String^ GetFileNameForId(const long long& id)
 }
 
 EventStorageQueue::EventStorageQueue(
-    StorageFolder^ localStorage,
-    function<void(const vector<shared_ptr<PayloadContainer>>&)> writtenToStorageCallback
+	StorageFolder^ localStorage,
+	function<void(const vector<shared_ptr<PayloadContainer>>&)> writtenToStorageCallback
 ) :
-    m_localStorage(localStorage),
-    m_state(QueueState::None),
-    m_writtenToStorageCallback(writtenToStorageCallback),
+	m_localStorage(localStorage),
+	m_state(QueueState::None),
+	m_writtenToStorageCallback(writtenToStorageCallback),
+	m_dontWriteToStorageForTestPurposes(false),
     m_writeToStorageWorker(
         bind(&EventStorageQueue::WriteItemsToStorage, this, placeholders::_1, placeholders::_2),
         bind(&EventStorageQueue::HandleProcessedItems, this, placeholders::_1),
@@ -128,7 +129,11 @@ PayloadContainers EventStorageQueue::WriteItemsToStorage(const PayloadContainers
             break;
         }
 
-        this->WriteItemToStorage(item).wait();
+		if (!m_dontWriteToStorageForTestPurposes)
+		{
+			this->WriteItemToStorage(item).wait();
+		}
+
         successfullyProcessedItems.emplace_back(item);
     }
 
@@ -196,4 +201,14 @@ void EventStorageQueue::SetWriteToStorageIdleLimits(const std::chrono::milliseco
 {
     m_writeToStorageWorker.SetIdleTimeout(idleTimeout);
     m_writeToStorageWorker.SetItemThreshold(idleItemThreshold);
+}
+
+void EventStorageQueue::DontWriteToStorageForTestPurposeses()
+{
+	m_dontWriteToStorageForTestPurposes = true;
+}
+
+void EventStorageQueue::NoReallyWriteToStorageDuringTesting()
+{
+	m_dontWriteToStorageForTestPurposes = false;
 }
