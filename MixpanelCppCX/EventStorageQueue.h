@@ -76,31 +76,31 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// </summary>
         void EnableQueuingToStorage();
 
-		/// <summary>
-		/// Removes the supplied event from storage if it is present
-		/// If it's still in the queue, that is left in place.
-		/// </summary>
-		concurrency::task<void> RemoveEventFromStorage(PayloadContainer& container);
+        /// <summary>
+        /// Removes the supplied event from storage if it is present
+        /// If it's still in the queue, that is left in place.
+        /// </summary>
+        concurrency::task<void> RemoveEventFromStorage(PayloadContainer& container);
 
-		/// <summary>
-		/// Configures the idle limits for the write to storage behaviour.
-		/// This overrides the defaults, soley for testing purposes.
-		/// </summary>
-		void SetWriteToStorageIdleLimits(const std::chrono::milliseconds& idleTimeout, const size_t& idleItemThreshold);
+        /// <summary>
+        /// Configures the idle limits for the write to storage behaviour.
+        /// This overrides the defaults, soley for testing purposes.
+        /// </summary>
+        void SetWriteToStorageIdleLimits(const std::chrono::milliseconds& idleTimeout, const size_t& idleItemThreshold);
 
-		/// <summary>
-		/// Disables the act of writing the payloads to disk to help with testing.
-		/// Intended for 2nd level test cases which are validating their composed behaviour
-		/// but don't really need anything written to disk.
-		/// </summary>
-		void DontWriteToStorageForTestPurposeses();
+        /// <summary>
+        /// Disables the act of writing the payloads to disk to help with testing.
+        /// Intended for 2nd level test cases which are validating their composed behaviour
+        /// but don't really need anything written to disk.
+        /// </summary>
+        void DontWriteToStorageForTestPurposeses();
 
-		/// <summary>
-		/// Forced the act of writing the payloads to disk to help with testing.
-		/// Intended for 2nd level test cases which are validating their composed behaviour
-		/// really does want things written to disk.
-		/// </summary>
-		void NoReallyWriteToStorageDuringTesting();
+        /// <summary>
+        /// Forced the act of writing the payloads to disk to help with testing.
+        /// Intended for 2nd level test cases which are validating their composed behaviour
+        /// really does want things written to disk.
+        /// </summary>
+        void NoReallyWriteToStorageDuringTesting();
 
     private:
         enum class QueueState
@@ -117,7 +117,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         Windows::Storage::StorageFolder^ m_localStorage;
         CodevoidN::Utilities::BackgroundWorker<PayloadContainer> m_writeToStorageWorker;
-		bool m_dontWriteToStorageForTestPurposes;
+        bool m_dontWriteToStorageForTestPurposes;
 
         std::function<void(const std::vector<std::shared_ptr<PayloadContainer>>&)> m_writtenToStorageCallback;
 

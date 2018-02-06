@@ -57,26 +57,26 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             return storageFolder;
         }
 
-		static vector<IJsonValue^> CaptureRequestPayloads(IMap<String^, IJsonValue^>^ payload)
-		{
-			// Data is intended in the 'data' keyed item in the payload.
-			// Assume it's a JsonArray...
-			JsonArray^ data = dynamic_cast<JsonArray^>(payload->Lookup(L"data"));
-			vector<IJsonValue^> items;
+        static vector<IJsonValue^> CaptureRequestPayloads(IMap<String^, IJsonValue^>^ payload)
+        {
+            // Data is intended in the 'data' keyed item in the payload.
+            // Assume it's a JsonArray...
+            JsonArray^ data = dynamic_cast<JsonArray^>(payload->Lookup(L"data"));
+            vector<IJsonValue^> items;
 
-			// Copy into a vector for easier access.
-			for (unsigned int i = 0; i < data->Size; i++)
-			{
-				items.push_back(data->GetAt(i));
-			}
+            // Copy into a vector for easier access.
+            for (unsigned int i = 0; i < data->Size; i++)
+            {
+                items.push_back(data->GetAt(i));
+            }
 
             return items;
-		}
+        }
 
     public:
         TEST_METHOD_INITIALIZE(InitializeClass)
         {
-			m_client = ref new MixpanelClient(DEFAULT_TOKEN);
+            m_client = ref new MixpanelClient(DEFAULT_TOKEN);
 
             // Disable Persistence of Super properties
             // to help maintain these tests as stateless
@@ -87,7 +87,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             // The URL here is a helpful endpoint on the internet that just round-files
             // the requests to enable simple testing.
             m_client->Initialize(folder, ref new Uri(L"https://jsonplaceholder.typicode.com/posts"));
-			m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 10);
+            m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 10);
 
             // Set the default service mock to avoid sending things to the
             // internet when we don't really need to.
@@ -479,7 +479,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
                 written.insert(begin(written), begin(wasWritten), end(wasWritten));
             });
 
-			m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
+            m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
 
             m_client->Start();
             m_client->Track(L"TestEvent", nullptr);
@@ -499,7 +499,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
         TEST_METHOD(QueueCanBeCleared)
         {
-			m_client->ForceWritingToStorage();
+            m_client->ForceWritingToStorage();
             m_client->Start();
             m_client->Track(L"TestEvent", nullptr);
             AsyncHelper::RunSynced(m_client->Pause());
@@ -525,26 +525,26 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::AreEqual(0, fileCount, L"Didn't expect to find any items");
         }
 
-		TEST_METHOD(RequestIndicatesFailureWhenCallingNonExistantEndPoint)
-		{
-			auto payload = ref new Map<String^, IJsonValue^>();
-			auto wasSuccessful = MixpanelClient::SendRequestToService(
-				ref new Uri(L"https://fake.codevoid.net"),
-				payload,
-				ref new HttpProductInfoHeaderValue(L"Codevoid.Mixpanel.MixpanelTests", L"1.0")).get();
-			Assert::IsFalse(wasSuccessful);
-		}
+        TEST_METHOD(RequestIndicatesFailureWhenCallingNonExistantEndPoint)
+        {
+            auto payload = ref new Map<String^, IJsonValue^>();
+            auto wasSuccessful = MixpanelClient::SendRequestToService(
+                ref new Uri(L"https://fake.codevoid.net"),
+                payload,
+                ref new HttpProductInfoHeaderValue(L"Codevoid.Mixpanel.MixpanelTests", L"1.0")).get();
+            Assert::IsFalse(wasSuccessful);
+        }
 
-		TEST_METHOD(CanMakeRequestToPlaceholderService)
-		{
-			auto payload = ref new Map<String^, IJsonValue^>();
-			payload->Insert(L"data", JsonObject::Parse("{ \"data\": 0 }"));
-			auto wasSuccessful = MixpanelClient::SendRequestToService(
-				ref new Uri(L"https://jsonplaceholder.typicode.com/posts"),
-				payload,
-				ref new HttpProductInfoHeaderValue(L"Codevoid.Mixpanel.MixpanelTests", L"1.0")).get();
-			Assert::IsTrue(wasSuccessful);
-		}
+        TEST_METHOD(CanMakeRequestToPlaceholderService)
+        {
+            auto payload = ref new Map<String^, IJsonValue^>();
+            payload->Insert(L"data", JsonObject::Parse("{ \"data\": 0 }"));
+            auto wasSuccessful = MixpanelClient::SendRequestToService(
+                ref new Uri(L"https://jsonplaceholder.typicode.com/posts"),
+                payload,
+                ref new HttpProductInfoHeaderValue(L"Codevoid.Mixpanel.MixpanelTests", L"1.0")).get();
+            Assert::IsTrue(wasSuccessful);
+        }
 
         TEST_METHOD(QueueIsUploaded)
         {
@@ -555,7 +555,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
                 return task_from_result(true);
             });
 
-			m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
+            m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
 
             m_client->Start();
             m_client->Track(L"TestEvent", nullptr);
@@ -574,7 +574,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
                 capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
                 return task_from_result(true);
             });
-			m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 4);
+            m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 4);
 
             m_client->Track(L"TestEvent1", nullptr);
             m_client->Track(L"TestEvent2", nullptr);
@@ -615,27 +615,27 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
         TEST_METHOD(ItemsAreRetriedIndividuallyAfterAFailure)
         {
-			shared_ptr<vector<int>> capturedPayloadCounts = make_shared<vector<int>>();
+            shared_ptr<vector<int>> capturedPayloadCounts = make_shared<vector<int>>();
             int itemsSeenCount = 0;
-			int itemsSuccessfullyUploaded = 0;
+            int itemsSuccessfullyUploaded = 0;
             constexpr int FAILURE_TRIGGER = 75; // Fail in second batch
 
             m_client->SetUploadToServiceMock([capturedPayloadCounts, &itemsSeenCount, &itemsSuccessfullyUploaded, &FAILURE_TRIGGER](auto, auto payloads, auto)
             {
-				int itemsInThisBatch = 0;
+                int itemsInThisBatch = 0;
 
                 for (auto item : MixpanelTests::CaptureRequestPayloads(payloads))
                 {
                     itemsSeenCount++;
-					itemsInThisBatch++;
+                    itemsInThisBatch++;
                     if (itemsSeenCount == FAILURE_TRIGGER)
                     {
                         return task_from_result(false);
                     }
                 }
 
-				itemsSuccessfullyUploaded += itemsInThisBatch;
-				capturedPayloadCounts->push_back(itemsInThisBatch);
+                itemsSuccessfullyUploaded += itemsInThisBatch;
+                capturedPayloadCounts->push_back(itemsInThisBatch);
 
                 return task_from_result(true);
             });
@@ -649,11 +649,11 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
             SpinWaitForItemCount(itemsSuccessfullyUploaded, 100);
 
-			Assert::AreEqual(51, (int)capturedPayloadCounts->size(), L"Wrong number of payloads sent");
-			for (int i = 1; i < 50; i++)
-			{
-				Assert::AreEqual(1, (*capturedPayloadCounts)[i], L"Wrong number of items in single-item-payloads");
-			}
+            Assert::AreEqual(51, (int)capturedPayloadCounts->size(), L"Wrong number of payloads sent");
+            for (int i = 1; i < 50; i++)
+            {
+                Assert::AreEqual(1, (*capturedPayloadCounts)[i], L"Wrong number of items in single-item-payloads");
+            }
 
             for (int i = 0; i < 50; i++)
             {
@@ -665,7 +665,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             Assert::AreEqual(52, (int)capturedPayloadCounts->size(), L"Wrong number of payloads sent");
             Assert::AreEqual(50, (*capturedPayloadCounts)[51], L"Wrong number of items in the third payload");
 
-			m_client->Shutdown().wait();
+            m_client->Shutdown().wait();
         }
 
         TEST_METHOD(ItemsThatFailAreRetriedMoreThanOnce)
