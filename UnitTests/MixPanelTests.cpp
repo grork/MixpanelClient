@@ -24,6 +24,14 @@ using namespace Windows::Web::Http::Headers;
 #define OVERRIDE_STORAGE_FOLDER L"MixpanelClientTests"
 constexpr milliseconds DEFAULT_IDLE_TIMEOUT = 10ms;
 
+void SpinWaitForItemCount(const int& count, const int target)
+{
+    while (count < target)
+    {
+        this_thread::sleep_for(1ms);
+    }
+}
+
 namespace CodevoidN { namespace  Tests { namespace Mixpanel
 {
     TEST_CLASS(MixpanelTests)
@@ -639,10 +647,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
             m_client->Start();
 
-			while (itemsSuccessfullyUploaded != 100)
-			{
-				this_thread::sleep_for(1ms);
-			}
+            SpinWaitForItemCount(itemsSuccessfullyUploaded, 100);
 
 			Assert::AreEqual(51, (int)capturedPayloadCounts->size(), L"Wrong number of payloads sent");
 			for (int i = 1; i < 50; i++)
@@ -655,10 +660,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
                 m_client->Track(L"TrackEvent", nullptr);
             }
 
-			while (itemsSuccessfullyUploaded != 150)
-			{
-				this_thread::sleep_for(1ms);
-			}
+            SpinWaitForItemCount(itemsSuccessfullyUploaded, 150);
 
             Assert::AreEqual(52, (int)capturedPayloadCounts->size(), L"Wrong number of payloads sent");
             Assert::AreEqual(50, (*capturedPayloadCounts)[51], L"Wrong number of items in the third payload");
