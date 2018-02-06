@@ -28,9 +28,9 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         /// <summary>
         /// Logs a datapoint to the Mixpanel Service with the supplied event name, and property set.
-		///
+        ///
         /// These items are queued to be sent at a later time, based on connecivity, queue length, and
-		/// other ambient conditions.
+        /// other ambient conditions.
         /// <param name="name">The event name for the tracking call</param>
         /// <param name="properties">
         /// A value type only list of parameters to attach to this event.
@@ -105,60 +105,60 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// </summary>
         property bool AutomaticallyAttachTimeToEvents;
 
-		/// <summary>
-		/// Begins processing any events that get queued -- either currently, or in the future.s
-		/// </summary>
-		void Start();
+        /// <summary>
+        /// Begins processing any events that get queued -- either currently, or in the future.s
+        /// </summary>
+        void Start();
 
-		/// <summary>
-		/// Stops processing items for uploading, and persists anything in memory to storage.
-		/// It will return when the items have been persisted to disk.
-		/// </summary>
-		Windows::Foundation::IAsyncAction^ Pause();
+        /// <summary>
+        /// Stops processing items for uploading, and persists anything in memory to storage.
+        /// It will return when the items have been persisted to disk.
+        /// </summary>
+        Windows::Foundation::IAsyncAction^ Pause();
 
-		/// <summary>
-		/// Removes any items that have been persisted to storage. e.g. If the user
-		/// signs out, clear anything pending upload.
-		/// </summary>
-		Windows::Foundation::IAsyncAction^ ClearStorageAsync();
+        /// <summary>
+        /// Removes any items that have been persisted to storage. e.g. If the user
+        /// signs out, clear anything pending upload.
+        /// </summary>
+        Windows::Foundation::IAsyncAction^ ClearStorageAsync();
 
     private:
-		/// <summary>
-		/// Allows synchronous initalization if one has the storage
-		/// folder to queue all the items to.
-		///
-		/// Primary intended use is for testing
-		/// </summary>
-		void Initialize(
-			Windows::Storage::StorageFolder^ queueFolder,
+        /// <summary>
+        /// Allows synchronous initalization if one has the storage
+        /// folder to queue all the items to.
+        ///
+        /// Primary intended use is for testing
+        /// </summary>
+        void Initialize(
+            Windows::Storage::StorageFolder^ queueFolder,
             Windows::Foundation::Uri^ serviceUri
-		);
+        );
 
-		/// <summary>
-		///	Configures the class for simpler / faster testing by:
-		/// * Turning off writing to disk
-		/// * Allows explicitly setting the variout timeouts & thresholds for the workers
-		/// </summary>
-		void ConfigureForTesting(const std::chrono::milliseconds& idleTimeout, const size_t& itemThreshold);
+        /// <summary>
+        ///	Configures the class for simpler / faster testing by:
+        /// * Turning off writing to disk
+        /// * Allows explicitly setting the variout timeouts & thresholds for the workers
+        /// </summary>
+        void ConfigureForTesting(const std::chrono::milliseconds& idleTimeout, const size_t& itemThreshold);
 
-		/// <summary>
-		/// For every rule, there is an exception. This enables some tests to
-		/// actually write to disk.
-		/// </summary>
-		void ForceWritingToStorage();
+        /// <summary>
+        /// For every rule, there is an exception. This enables some tests to
+        /// actually write to disk.
+        /// </summary>
+        void ForceWritingToStorage();
 
-		/// <summary>
-		/// Allows the queue to be shutdown cleanly for testing purposes
-		/// </summary>
-		concurrency::task<void> Shutdown();
+        /// <summary>
+        /// Allows the queue to be shutdown cleanly for testing purposes
+        /// </summary>
+        concurrency::task<void> Shutdown();
 
-		/// <summary>
-		/// By default all the super properties are persisted to storage.
-		/// For testing, we don't want to do that. Settings this flag
-		/// disables that option, and keeps everything in memory for the
-		/// lifetime of this instance.
-		/// </summary>
-		property bool PersistSuperPropertiesToApplicationData;
+        /// <summary>
+        /// By default all the super properties are persisted to storage.
+        /// For testing, we don't want to do that. Settings this flag
+        /// disables that option, and keeps everything in memory for the
+        /// lifetime of this instance.
+        /// </summary>
+        property bool PersistSuperPropertiesToApplicationData;
 
         /// <summary>
         /// Intended to initalize the worker queues (but not start them), primarily
@@ -166,54 +166,54 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// </summary>
         concurrency::task<void> Initialize();
 
-		/// <summary>
-		/// Sends the supplied JSON items to the service as a batch.
-		/// The returned task will be completed when all the supplied items
-		/// have been sent to the service.
-		/// </summary>
+        /// <summary>
+        /// Sends the supplied JSON items to the service as a batch.
+        /// The returned task will be completed when all the supplied items
+        /// have been sent to the service.
+        /// </summary>
         concurrency::task<bool> PostTrackEventsToMixpanel(const std::vector<Windows::Data::Json::IJsonValue^>& payload);
 
-		static concurrency::task<bool> SendRequestToService(Windows::Foundation::Uri^ uri,
-													 Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^ payload,
-													 Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ userAgent);
-		
-		// Helpers to testing upload logic
+        static concurrency::task<bool> SendRequestToService(Windows::Foundation::Uri^ uri,
+                                                     Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^ payload,
+                                                     Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ userAgent);
+        
+        // Helpers to testing upload logic
         void SetUploadToServiceMock(const std::function<concurrency::task<bool>(
             Windows::Foundation::Uri^,
             Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^,
             Windows::Web::Http::Headers::HttpProductInfoHeaderValue^
         )> mock);
 
-		// Helpers for testing the persist to storage behaviour
+        // Helpers for testing the persist to storage behaviour
         void SetWrittenToStorageMock(const std::function<void(std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>)> mock);
         std::function<void(const std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>)> m_writtenToStorageMockCallback;
 
-		std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>
-			HandleEventBatchUpload(
-				const std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>& items,
-				const std::function<bool()>& shouldKeepProcessing
-			);
+        std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>
+            HandleEventBatchUpload(
+                const std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>& items,
+                const std::function<bool()>& shouldKeepProcessing
+            );
         void HandleCompletedUploads(const std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>& items);
-		void AddItemsToUploadQueue(const std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>& items);
-		Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
-		static void AppendPropertySetToJsonPayload(Windows::Foundation::Collections::IPropertySet^ properties, Windows::Data::Json::JsonObject^ toAppendTo);
-		void ThrowIfNotInitialized();
-		void InitializeSuperPropertyCollection();
+        void AddItemsToUploadQueue(const std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>& items);
+        Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
+        static void AppendPropertySetToJsonPayload(Windows::Foundation::Collections::IPropertySet^ properties, Windows::Data::Json::JsonObject^ toAppendTo);
+        void ThrowIfNotInitialized();
+        void InitializeSuperPropertyCollection();
 
-		/// <summary>
-		/// The API Token being used for all requests
-		/// </summary>
+        /// <summary>
+        /// The API Token being used for all requests
+        /// </summary>
         Platform::String^ m_token;
         Windows::Foundation::Collections::IPropertySet^ m_superProperties;
 
         Windows::Foundation::Uri^ m_serviceUri;
-		Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ m_userAgent;
+        Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ m_userAgent;
         std::unique_ptr<CodevoidN::Utilities::Mixpanel::EventStorageQueue> m_eventStorageQueue;
-		CodevoidN::Utilities::BackgroundWorker<CodevoidN::Utilities::Mixpanel::PayloadContainer> m_uploadWorker;
-		std::function<concurrency::task<bool>(
-			Windows::Foundation::Uri^,
-			Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^,
-			Windows::Web::Http::Headers::HttpProductInfoHeaderValue^)> m_requestHelper;
+        CodevoidN::Utilities::BackgroundWorker<CodevoidN::Utilities::Mixpanel::PayloadContainer> m_uploadWorker;
+        std::function<concurrency::task<bool>(
+            Windows::Foundation::Uri^,
+            Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^,
+            Windows::Web::Http::Headers::HttpProductInfoHeaderValue^)> m_requestHelper;
     };
 
     unsigned WindowsTickToUnixSeconds(long long windowsTicks);

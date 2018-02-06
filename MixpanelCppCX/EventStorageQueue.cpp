@@ -20,13 +20,13 @@ String^ GetFileNameForId(const long long& id)
 }
 
 EventStorageQueue::EventStorageQueue(
-	StorageFolder^ localStorage,
-	function<void(const vector<shared_ptr<PayloadContainer>>&)> writtenToStorageCallback
+    StorageFolder^ localStorage,
+    function<void(const vector<shared_ptr<PayloadContainer>>&)> writtenToStorageCallback
 ) :
-	m_localStorage(localStorage),
-	m_state(QueueState::None),
-	m_writtenToStorageCallback(writtenToStorageCallback),
-	m_dontWriteToStorageForTestPurposes(false),
+    m_localStorage(localStorage),
+    m_state(QueueState::None),
+    m_writtenToStorageCallback(writtenToStorageCallback),
+    m_dontWriteToStorageForTestPurposes(false),
     m_writeToStorageWorker(
         bind(&EventStorageQueue::WriteItemsToStorage, this, placeholders::_1, placeholders::_2),
         bind(&EventStorageQueue::HandleProcessedItems, this, placeholders::_1),
@@ -129,10 +129,10 @@ PayloadContainers EventStorageQueue::WriteItemsToStorage(const PayloadContainers
             break;
         }
 
-		if (!m_dontWriteToStorageForTestPurposes)
-		{
-			this->WriteItemToStorage(item).wait();
-		}
+        if (!m_dontWriteToStorageForTestPurposes)
+        {
+            this->WriteItemToStorage(item).wait();
+        }
 
         successfullyProcessedItems.emplace_back(item);
     }
@@ -186,15 +186,15 @@ task<void> EventStorageQueue::ClearStorage()
 
 task<void> EventStorageQueue::RemoveEventFromStorage(PayloadContainer& itemToRemove)
 {
-	TRACE_OUT("Removing File: " + GetFileNameForId(itemToRemove.Id));
+    TRACE_OUT("Removing File: " + GetFileNameForId(itemToRemove.Id));
 
-	auto fileToDelete = co_await m_localStorage->TryGetItemAsync(GetFileNameForId(itemToRemove.Id));
-	if (fileToDelete == nullptr)
-	{
-		return;
-	}
+    auto fileToDelete = co_await m_localStorage->TryGetItemAsync(GetFileNameForId(itemToRemove.Id));
+    if (fileToDelete == nullptr)
+    {
+        return;
+    }
 
-	co_await fileToDelete->DeleteAsync();
+    co_await fileToDelete->DeleteAsync();
 }
 
 void EventStorageQueue::SetWriteToStorageIdleLimits(const std::chrono::milliseconds& idleTimeout, const size_t& idleItemThreshold)
@@ -205,10 +205,10 @@ void EventStorageQueue::SetWriteToStorageIdleLimits(const std::chrono::milliseco
 
 void EventStorageQueue::DontWriteToStorageForTestPurposeses()
 {
-	m_dontWriteToStorageForTestPurposes = true;
+    m_dontWriteToStorageForTestPurposes = true;
 }
 
 void EventStorageQueue::NoReallyWriteToStorageDuringTesting()
 {
-	m_dontWriteToStorageForTestPurposes = false;
+    m_dontWriteToStorageForTestPurposes = false;
 }

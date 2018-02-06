@@ -8,7 +8,7 @@ using namespace std;
 #ifdef _DEBUG
 void CodevoidN::Utilities::Trace(String^ data)
 {
-	OutputDebugString(data->Data());
+    OutputDebugString(data->Data());
     OutputDebugString(L"\r\n");
 }
 
