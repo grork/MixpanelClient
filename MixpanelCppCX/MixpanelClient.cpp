@@ -253,6 +253,13 @@ task<bool> MixpanelClient::SendRequestToService(Uri^ uri, IMap<String^, IJsonVal
 	{
 		auto content = ref new HttpFormUrlEncodedContent(encodedPayload);
 		auto requestResult = co_await client->PostAsync(uri, content);
+        auto requestBody = co_await requestResult->Content->ReadAsStringAsync();
+        if (requestBody == L"0")
+        {
+            return false;
+        }
+
+        // IsSuccessStatusCode defines failure as 200-299 inclusive
 		return requestResult->IsSuccessStatusCode;
 	}
 	catch (...)
