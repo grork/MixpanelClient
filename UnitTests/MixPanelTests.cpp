@@ -667,6 +667,58 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
 			m_client->Shutdown().wait();
         }
+
+        TEST_METHOD(ItemsThatFailAreRetriedMoreThanOnce)
+        {
+            int event1Count = 0;
+            int event2Count = 0;
+            int event3Count = 0;
+            int itemCount = 0;
+
+            m_client->SetUploadToServiceMock([&event1Count, &event2Count, &event3Count, &itemCount](auto, auto payloads, auto)
+            {
+
+                for (auto item : MixpanelTests::CaptureRequestPayloads(payloads))
+                {
+                    itemCount++;
+                    auto asObject = static_cast<JsonObject^>(item);
+                    auto eventName = asObject->GetNamedString(L"event");
+                    if (eventName == L"TrackEvent1")
+                    {
+                        event1Count++;
+                    }
+                    else if (eventName == L"TrackEvent2")
+                    {
+                        event2Count++;
+                        // Fail the batch the first two times
+                        if (event2Count < 3)
+                        {
+                            return task_from_result(false);
+                        }
+                    }
+                    else if (eventName == L"TrackEvent3")
+                    {
+                        event3Count++;
+                    }
+                }
+
+                return task_from_result(true);
+            });
+
+            m_client->Track(L"TrackEvent1", nullptr);
+            m_client->Track(L"TrackEvent2", nullptr);
+            m_client->Track(L"TrackEvent3", nullptr);
+
+            m_client->Start();
+
+            SpinWaitForItemCount(itemCount, 5);
+
+            Assert::AreEqual(2, event1Count, L"Should only see event 1 twice - once in first payload, second in individual payload");
+            Assert::AreEqual(1, event3Count, L"Should only see event 3 once");
+            Assert::AreEqual(3, event2Count, L"Event 3 should have been retried twice, and once successfully");
+
+            m_client->Shutdown().wait();
+        }
 #pragma endregion
     };
 } } }
