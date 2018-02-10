@@ -634,8 +634,8 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
                     }
                 }
 
-                itemsSuccessfullyUploaded += itemsInThisBatch;
                 capturedPayloadCounts->push_back(itemsInThisBatch);
+                itemsSuccessfullyUploaded += itemsInThisBatch;
 
                 return task_from_result(true);
             });
@@ -677,10 +677,10 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
             m_client->SetUploadToServiceMock([&event1Count, &event2Count, &event3Count, &itemCount](auto, auto payloads, auto)
             {
+                bool successful = true;
 
                 for (auto item : MixpanelTests::CaptureRequestPayloads(payloads))
                 {
-                    itemCount++;
                     auto asObject = static_cast<JsonObject^>(item);
                     auto eventName = asObject->GetNamedString(L"event");
                     if (eventName == L"TrackEvent1")
@@ -693,16 +693,18 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
                         // Fail the batch the first two times
                         if (event2Count < 3)
                         {
-                            return task_from_result(false);
+                            successful = false;
                         }
                     }
                     else if (eventName == L"TrackEvent3")
                     {
                         event3Count++;
                     }
+
+                    itemCount++;
                 }
 
-                return task_from_result(true);
+                return task_from_result(successful);
             });
 
             m_client->Track(L"TrackEvent1", nullptr);
@@ -711,11 +713,11 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
 
             m_client->Start();
 
-            SpinWaitForItemCount(itemCount, 5);
+            SpinWaitForItemCount(itemCount, 7);
 
             Assert::AreEqual(2, event1Count, L"Should only see event 1 twice - once in first payload, second in individual payload");
-            Assert::AreEqual(1, event3Count, L"Should only see event 3 once");
-            Assert::AreEqual(3, event2Count, L"Event 3 should have been retried twice, and once successfully");
+            Assert::AreEqual(2, event3Count, L"Should only see event 3 once - once in first payload, second in individual payload");
+            Assert::AreEqual(3, event2Count, L"Event 2 should have been retried twice, and once successfully");
 
             m_client->Shutdown().wait();
         }
