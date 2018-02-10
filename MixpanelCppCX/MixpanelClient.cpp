@@ -19,8 +19,8 @@ using namespace Windows::Web::Http::Headers;
 
 constexpr wchar_t MIXPANEL_TRACK_BASE_URL[] = L"https://api.mixpanel.com/track";
 
-#define WINDOWS_TICK 10000000
-#define SEC_TO_UNIX_EPOCH 11644473600LL
+constexpr int WINDOWS_TICK = 10000000;
+constexpr long long SEC_TO_UNIX_EPOCH = 11644473600LL;
 #define DEFAULT_TOKEN L"DEFAULT_TOKEN"
 #define SUPER_PROPERTIES_CONTAINER_NAME L"Codevoid_Utilities_Mixpanel"
 
