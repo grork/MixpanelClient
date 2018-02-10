@@ -63,6 +63,9 @@ namespace CodevoidN { namespace Utilities {
             m_itemThreshold(itemThreshold)
         { }
 
+        BackgroundWorker<ItemType>(const BackgroundWorker<ItemType>&) = delete;
+        BackgroundWorker<ItemType>(BackgroundWorker<ItemType>&&) = delete;
+
         ~BackgroundWorker()
         {
             TRACE_OUT(m_tracePrefix + L": Queue being destroyed");
