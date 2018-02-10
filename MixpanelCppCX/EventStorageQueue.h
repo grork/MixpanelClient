@@ -22,6 +22,8 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         {
         }
 
+        PayloadContainer(const PayloadContainer&) = delete;
+
         long long Id;
         Windows::Data::Json::IJsonValue^ Payload;
         EventPriority Priority;
@@ -39,6 +41,10 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             Windows::Storage::StorageFolder^ localStorage,
             std::function<void(const std::vector<std::shared_ptr<PayloadContainer>>&)> writtenToStorageCallback
         );
+
+        EventStorageQueue(const EventStorageQueue&) = delete;
+        EventStorageQueue(EventStorageQueue&&) = delete;
+
         ~EventStorageQueue();
 
         /// <summary>	
