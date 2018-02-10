@@ -16,9 +16,6 @@ using namespace Windows::Foundation::Collections;
 using namespace Windows::Storage;
 using namespace Windows::Web::Http::Headers;
 
-// Set to 1, and an actual token to test sending
-// request to the service.
-#define DEFAULT_TOKEN_SET 0
 #define DEFAULT_TOKEN L"DEFAULT_TOKEN"
 
 #define OVERRIDE_STORAGE_FOLDER L"MixpanelClientTests"
