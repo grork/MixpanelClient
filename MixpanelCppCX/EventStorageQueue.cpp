@@ -38,7 +38,7 @@ EventStorageQueue::EventStorageQueue(
         throw invalid_argument("Must provide local storage folder");
     }
 
-    TRACE_OUT("Event Queue Constructed");
+    TRACE_OUT(L"Event Queue Constructed");
 
     // Initialize our base ID for saving events to disk to ensure we avoid clashes with
     // multiple concurrent callers generating items at the same moment.
@@ -47,7 +47,7 @@ EventStorageQueue::EventStorageQueue(
 
 EventStorageQueue::~EventStorageQueue()
 {
-    TRACE_OUT("Event Queue being destroyed");
+    TRACE_OUT(L"Event Queue being destroyed");
 
     this->PersistAllQueuedItemsToStorageAndShutdown().wait();
 }
@@ -69,14 +69,14 @@ long long EventStorageQueue::QueueEventToStorage(IJsonValue^ payload, const Even
 {
     if (m_state > QueueState::Running)
     {
-        TRACE_OUT("Event dropped due to shutting down");
+        TRACE_OUT(L"Event dropped due to shutting down");
         return 0;
     }
 
     auto id = this->GetNextId();
     auto item = make_shared<PayloadContainer>(id, payload, priority);
 
-    TRACE_OUT("Event Queued: " + id);
+    TRACE_OUT(L"Event Queued: " + id);
     m_writeToStorageWorker.AddWork(item, (item->Priority == EventPriority::Low ? WorkPriority::Low : WorkPriority::Normal));
 
     return id;
@@ -84,13 +84,13 @@ long long EventStorageQueue::QueueEventToStorage(IJsonValue^ payload, const Even
 
 task<vector<shared_ptr<PayloadContainer>>> EventStorageQueue::LoadItemsFromStorage(StorageFolder^ sourceFolder)
 {
-    TRACE_OUT("Restoring items from storage");
+    TRACE_OUT(L"Restoring items from storage");
     auto files = co_await sourceFolder->GetFilesAsync();
     PayloadContainers loadedPayload;
 
     for (auto&& file : files)
     {
-        TRACE_OUT("Reading from storage:" + file->Path);
+        TRACE_OUT(L"Reading from storage:" + file->Path);
         auto contents = co_await FileIO::ReadTextAsync(file);
         auto payload = JsonObject::Parse(contents);
 
@@ -108,7 +108,7 @@ task<vector<shared_ptr<PayloadContainer>>> EventStorageQueue::LoadItemsFromStora
     // Load the items loaded from storage into the upload queue.
     // Theres no need to put them in the waiting for storage queue (where new items
     // normally show up), because they're already on storage.
-    TRACE_OUT("Calling Processed Items Handler");
+    TRACE_OUT(L"Calling Processed Items Handler");
     
     return loadedPayload;
 }
@@ -142,7 +142,7 @@ PayloadContainers EventStorageQueue::WriteItemsToStorage(const PayloadContainers
 
 void EventStorageQueue::HandleProcessedItems(const PayloadContainers& itemsWrittenToStorage)
 {
-    TRACE_OUT("Calling Written To Storage Callback");
+    TRACE_OUT(L"Calling Written To Storage Callback");
     if (m_writtenToStorageCallback != nullptr)
     {
         this->m_writtenToStorageCallback(itemsWrittenToStorage);
@@ -168,7 +168,7 @@ task<void> EventStorageQueue::Clear()
 
 task<void> EventStorageQueue::WriteItemToStorage(const PayloadContainer_ptr item)
 {
-    TRACE_OUT("Writing File: " + GetFileNameForId(item->Id));
+    TRACE_OUT(L"Writing File: " + GetFileNameForId(item->Id));
     IJsonValue^ payload = item->Payload;
 
     auto file = co_await m_localStorage->CreateFileAsync(GetFileNameForId(item->Id));
@@ -186,7 +186,7 @@ task<void> EventStorageQueue::ClearStorage()
 
 task<void> EventStorageQueue::RemoveEventFromStorage(PayloadContainer& itemToRemove)
 {
-    TRACE_OUT("Removing File: " + GetFileNameForId(itemToRemove.Id));
+    TRACE_OUT(L"Removing File: " + GetFileNameForId(itemToRemove.Id));
 
     auto fileToDelete = co_await m_localStorage->TryGetItemAsync(GetFileNameForId(itemToRemove.Id));
     if (fileToDelete == nullptr)
