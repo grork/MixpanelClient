@@ -99,7 +99,7 @@ task<void> MixpanelClient::PauseWorker()
     return m_eventStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
 }
 
-IAsyncAction^ MixpanelClient::Pause()
+IAsyncAction^ MixpanelClient::PauseAsync()
 {
     return create_async([this]() {
         this->PauseWorker().wait();

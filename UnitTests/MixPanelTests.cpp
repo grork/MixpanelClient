@@ -552,7 +552,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             m_client->Start();
 
             m_client->Track(L"TestEvent", nullptr);
-            AsyncHelper::RunSynced(m_client->Pause());
+            AsyncHelper::RunSynced(m_client->PauseAsync());
         }
 
         TEST_METHOD(QueueCanBeCleared)
@@ -560,7 +560,7 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             m_client->ForceWritingToStorage();
             m_client->Start();
             m_client->Track(L"TestEvent", nullptr);
-            AsyncHelper::RunSynced(m_client->Pause());
+            AsyncHelper::RunSynced(m_client->PauseAsync());
 
             auto fileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
                 auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(OVERRIDE_STORAGE_FOLDER);
