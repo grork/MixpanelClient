@@ -10,6 +10,8 @@ using namespace Platform;
 using namespace Platform::Collections;
 using namespace std;
 using namespace std::chrono;
+using namespace Windows::ApplicationModel;
+using namespace Windows::ApplicationModel::Core;
 using namespace Windows::Data::Json;
 using namespace Windows::Foundation;
 using namespace Windows::Foundation::Collections;
@@ -64,17 +66,43 @@ IAsyncAction^ MixpanelClient::InitializeAsync()
     });
 }
 
-void MixpanelClient::Start()
+void MixpanelClient::StartWorker()
 {
     m_uploadWorker.Start();
     m_eventStorageQueue->EnableQueuingToStorage();
 }
 
+void MixpanelClient::Start()
+{
+    this->StartWorker();
+    m_suspendingEventToken = CoreApplication::Suspending += ref new EventHandler<SuspendingEventArgs^>(this, &MixpanelClient::HandleApplicationSuspend);
+    m_resumingEventToken = CoreApplication::Resuming += ref new EventHandler<Object^>(this, &MixpanelClient::HandleApplicationResuming);
+}
+
+void MixpanelClient::HandleApplicationSuspend(Object^, SuspendingEventArgs^ args)
+{
+    auto deferral = args->SuspendingOperation->GetDeferral();
+    
+    this->PauseWorker().then([deferral]() {
+        deferral->Complete();
+    });
+}
+
+void MixpanelClient::HandleApplicationResuming(Object^, Object^)
+{
+    this->StartWorker();
+}
+
+task<void> MixpanelClient::PauseWorker()
+{
+    m_uploadWorker.Pause();
+    return m_eventStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
+}
+
 IAsyncAction^ MixpanelClient::Pause()
 {
     return create_async([this]() {
-        m_uploadWorker.Pause();
-        return m_eventStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
+        this->PauseWorker().wait();
     });
 }
 
@@ -85,6 +113,17 @@ task<void> MixpanelClient::Shutdown()
     // a 'safe' place. We want it to give up as soon as
     // we're trying to get out of dodge.
     m_uploadWorker.ShutdownAndDrop();
+
+    // Remove the suspending/resuming events, since we're
+    // shutting everythign down. Of note, these can be detatched
+    // more than once for safety.
+    if (m_suspendingEventToken.Value != 0 || m_resumingEventToken.Value != 0)
+    {
+        CoreApplication::Suspending -= m_suspendingEventToken;
+        CoreApplication::Resuming -= m_resumingEventToken;
+        m_suspendingEventToken = { 0 };
+        m_resumingEventToken = { 0 };
+    }
 
     if (m_eventStorageQueue == nullptr)
     {
