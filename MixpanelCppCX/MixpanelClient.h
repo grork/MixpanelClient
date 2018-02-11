@@ -153,6 +153,18 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         concurrency::task<void> Shutdown();
 
         /// <summary>
+        /// Start worker that does the work of starting the queues, but doesn't do some of the
+        /// one-time work related to starting the queue (E.g. attacking handlers)
+        /// </summary>
+        void StartWorker();
+
+        /// <summary>
+        /// Projects the internal task-based interface for pausing, rather than
+        /// asking internal consumers to consume IAsyncAction^ interface.
+        /// </summary>
+        concurrency::task<void> PauseWorker();
+
+        /// <summary>
         /// By default all the super properties are persisted to storage.
         /// For testing, we don't want to do that. Settings this flag
         /// disables that option, and keeps everything in memory for the
@@ -172,6 +184,19 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// have been sent to the service.
         /// </summary>
         concurrency::task<bool> PostTrackEventsToMixpanel(const std::vector<Windows::Data::Json::IJsonValue^>& payload);
+
+        /// <summary>
+        /// Handles suspending event as raised from the platform's CoreApplication object
+        /// Intended to shutdown & clean up any events that are not on disk, and stop the
+        /// upload queue whereever it is.
+        /// </summary>
+        void HandleApplicationSuspend(Platform::Object^ sender, Windows::ApplicationModel::SuspendingEventArgs^ args);
+
+        /// <summary>
+        /// Handles resuming from the platform; just starts up the workers again. Should return
+        /// quickly so the UI doesn't hang.
+        /// </summary>
+        void HandleApplicationResuming(Platform::Object^ sender, Platform::Object^ args);
 
         static concurrency::task<bool> SendRequestToService(Windows::Foundation::Uri^ uri,
                                                      Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^ payload,
@@ -214,6 +239,8 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
             Windows::Foundation::Uri^,
             Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^,
             Windows::Web::Http::Headers::HttpProductInfoHeaderValue^)> m_requestHelper;
+        Windows::Foundation::EventRegistrationToken m_suspendingEventToken;
+        Windows::Foundation::EventRegistrationToken m_resumingEventToken;
     };
 
     unsigned WindowsTickToUnixSeconds(long long windowsTicks);
