@@ -180,7 +180,17 @@ task<void> EventStorageQueue::ClearStorage()
     auto files = co_await m_localStorage->GetFilesAsync();
     for (auto&& file : files)
     {
-        co_await file->DeleteAsync();
+        try
+        {
+            co_await file->DeleteAsync();
+        }
+        catch (COMException^ e)
+        {
+            if (e->HResult != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
+            {
+                throw e;
+            }
+        }
     }
 }
 
@@ -194,7 +204,17 @@ task<void> EventStorageQueue::RemoveEventFromStorage(PayloadContainer& itemToRem
         return;
     }
 
-    co_await fileToDelete->DeleteAsync();
+    try
+    {
+        co_await fileToDelete->DeleteAsync();
+    }
+    catch (COMException^ e)
+    {
+        if (e->HResult != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
+        {
+            throw e;
+        }
+    }
 }
 
 void EventStorageQueue::SetWriteToStorageIdleLimits(const std::chrono::milliseconds& idleTimeout, const size_t& idleItemThreshold)

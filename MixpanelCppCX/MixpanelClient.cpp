@@ -23,6 +23,7 @@ constexpr int WINDOWS_TICK = 10000000;
 constexpr long long SEC_TO_UNIX_EPOCH = 11644473600LL;
 #define DEFAULT_TOKEN L"DEFAULT_TOKEN"
 #define SUPER_PROPERTIES_CONTAINER_NAME L"Codevoid_Utilities_Mixpanel"
+#define MIXPANEL_QUEUE_FOLDER L"MixpanelUploadQueue"
 
 constexpr vector<shared_ptr<PayloadContainer>>::difference_type DEFAULT_UPLOAD_SIZE_STRIDE = 50;
 
@@ -104,10 +105,15 @@ IAsyncAction^ MixpanelClient::ClearStorageAsync()
 
 task<void> MixpanelClient::Initialize()
 {
-    auto folder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync("MixpanelUploadQueue",
+    auto folder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(MIXPANEL_QUEUE_FOLDER,
         CreationCollisionOption::OpenIfExists);
 
     this->Initialize(folder, ref new Uri(StringReference(MIXPANEL_TRACK_BASE_URL)));
+    auto previousItems = co_await EventStorageQueue::LoadItemsFromStorage(folder);
+    if (previousItems.size() > 0)
+    {
+        this->AddItemsToUploadQueue(previousItems);
+    }
 }
 
 void MixpanelClient::Initialize(StorageFolder^ queueFolder,
