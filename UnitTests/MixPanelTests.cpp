@@ -20,13 +20,18 @@ using namespace Windows::Web::Http::Headers;
 
 #define OVERRIDE_STORAGE_FOLDER L"MixpanelClientTests"
 constexpr milliseconds DEFAULT_IDLE_TIMEOUT = 10ms;
+constexpr size_t SPIN_LOOP_LIMIT = 500;
 
 void SpinWaitForItemCount(const int& count, const int target)
 {
-    while (count < target)
+    size_t loopCount = 0;
+    while ((count < target) && (loopCount < SPIN_LOOP_LIMIT))
     {
+        loopCount++;
         this_thread::sleep_for(1ms);
     }
+
+    Assert::IsTrue(count >= target, L"Spin Wait looped too long and never reached target");
 }
 
 namespace CodevoidN { namespace  Tests { namespace Mixpanel
@@ -70,6 +75,27 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             return items;
         }
 
+        static task<int> WriteTestPayload()
+        {
+            auto storageFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(L"MixpanelUploadQueue",
+                CreationCollisionOption::OpenIfExists);
+
+            JsonObject^ payload = ref new JsonObject();
+
+            auto title = JsonValue::CreateStringValue(L"SampleTitle");
+            payload->Insert(L"title", title);
+
+            int itemsWritten = 1;
+            for (; itemsWritten <= 3; itemsWritten++)
+            {
+                auto fileName = ref new String(std::to_wstring(itemsWritten).append(L".json").c_str());
+                auto file = co_await storageFolder->CreateFileAsync(fileName, CreationCollisionOption::ReplaceExisting);
+                co_await FileIO::WriteTextAsync(file, payload->Stringify());
+            }
+
+            return itemsWritten;
+        }
+
     public:
         TEST_METHOD_INITIALIZE(InitializeClass)
         {
@@ -92,6 +118,41 @@ namespace CodevoidN { namespace  Tests { namespace Mixpanel
             {
                 return task_from_result(true);
             });
+        }
+
+        TEST_METHOD(InitializeAsyncRestoresQueuedToStorageItems)
+        {
+            // Since this test doesn't use the one created
+            // in test init, lets shut it down
+            m_client->Shutdown().wait();
+            m_client = nullptr;
+
+            AsyncHelper::RunSynced(WriteTestPayload());
+            m_client = ref new MixpanelClient(DEFAULT_TOKEN);
+            m_client->PersistSuperPropertiesToApplicationData = false;
+            
+            AsyncHelper::RunSynced(m_client->InitializeAsync());
+
+            vector<vector<IJsonValue^>> capturedPayloads;
+            int itemCounts = 0;
+            m_client->SetUploadToServiceMock([&capturedPayloads, &itemCounts](auto, auto payloads, auto)
+            {
+                auto convertedPayloads = MixpanelTests::CaptureRequestPayloads(payloads);
+                capturedPayloads.push_back(convertedPayloads);
+                itemCounts += (int)convertedPayloads.size();
+
+                return task_from_result(true);
+            });
+
+            m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
+            m_client->Start();
+
+            SpinWaitForItemCount(itemCounts, 3);
+
+            Assert::AreEqual(3, itemCounts, L"Persisted Items weren't supplied to upload correctly");
+
+            AsyncHelper::RunSynced(m_client->ClearStorageAsync());
+            m_client->Shutdown();
         }
 
 #pragma region Tracking Events and Super Properties
