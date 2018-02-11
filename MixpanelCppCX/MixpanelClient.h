@@ -114,7 +114,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// Stops processing items for uploading, and persists anything in memory to storage.
         /// It will return when the items have been persisted to disk.
         /// </summary>
-        Windows::Foundation::IAsyncAction^ Pause();
+        Windows::Foundation::IAsyncAction^ PauseAsync();
 
         /// <summary>
         /// Removes any items that have been persisted to storage. e.g. If the user
