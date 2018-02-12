@@ -21,33 +21,33 @@ namespace CodevoidN { namespace Utilities {
         using lock_guard_mutex = std::lock_guard<std::mutex>;
 
     public:
-        /// <summary>
-        /// Creates, but does not start, a worker queue that is processed on
-        /// a background thread.
-        ///
-        /// <param name='processItemsCallback'>
-        /// Handler to process the actual item when required. This should do
-        /// the work of actually handling the items in the queue.
-        /// </param>
-        /// <param name='postProcessItemsCallback'>
-        /// When an item has been successfully processed, this can be used to perform
-        /// additional processing on those items after they've been removed from the
-        /// main queue. The primary use case is to allow them to be placed into another
-        /// queue for additional processing
-        /// </param>
-        /// <param name='tracePrefix'>
-        /// When built for 'Debugging', this is prefixed to all all trace logging.
-        /// Intended to help with diagnostics.
-        /// </param>
-        /// <param name='idleTimeout'>
-        /// Duration to wait for idle before processing items in the queue.
-        /// </param>
-        /// <param name='itemThreshold'>
-        /// Number of items to wait for before processing the queue, irrespective
-        /// of the idle time out. E.g. If you're adding events rapidly, you'll never
-        /// reach the idle timeout, so you'll want to start processing items.
-        /// </param>
-        /// </summary>
+
+        // <summary>
+        // Creates, but does not start, a worker queue that is processed on
+        // a background thread.
+        // <param name="processItemsCallback">
+        // Handler to process the actual item when required. This should do
+        // the work of actually handling the items in the queue.
+        // </param>
+        // <param name="postProcessItemsCallback">
+        // When an item has been successfully processed, this can be used to perform
+        // additional processing on those items after they've been removed from the
+        // main queue. The primary use case is to allow them to be placed into another
+        // queue for additional processing
+        // </param>
+        // <param name="tracePrefix">
+        // When built for 'Debugging', this is prefixed to all all trace logging.
+        // Intended to help with diagnostics.
+        // </param>
+        // <param name="idleTimeout">
+        // Duration to wait for idle before processing items in the queue.
+        // </param>
+        // <param name="itemThreshold">
+        // Number of items to wait for before processing the queue, irrespective
+        // of the idle time out. E.g. If you're adding events rapidly, you'll never
+        // reach the idle timeout, so you'll want to start processing items.
+        // </param>
+        // </summary>
         BackgroundWorker(
             std::function<ItemTypeVector(ItemTypeVector&, const std::function<bool()>&)> processItemsCallback,
             std::function<void(ItemTypeVector&)> postProcessItemsCallback,
@@ -79,26 +79,26 @@ namespace CodevoidN { namespace Utilities {
             return m_items.size();
         }
 
-        /// <summary>
-        /// Adds the supplied work to the queue for later processing.
-        /// Will reset the idle timer or start processing immediately if
-        /// the queue length has reached the supplied limit.
-        ///
-        /// If the worker isn't started, items are just placed in the queue,
-        /// and will be processed once the worker has been started.
-        ///
-        /// <param name='priority'>
-        /// Priority of the work being queued. This is used to control
-        /// whether the worker is signalled for this item -- e.g. no
-        /// point in waking the worker up to process the item if this one
-        /// isn't very important.
-        ///
-        /// It's important to note that this doesn't stop the items being
-        /// processed at all -- it just doesn't wake up the thread if it's
-        /// not already going to be woken e.g. this doesn't reset the idle
-        /// timeout.
-        /// </param>
-        /// </summary>
+        // <summary>
+        // Adds the supplied work to the queue for later processing.
+        // Will reset the idle timer or start processing immediately if
+        // the queue length has reached the supplied limit.
+        //
+        // If the worker isn't started, items are just placed in the queue,
+        // and will be processed once the worker has been started.
+        //
+        // <param name='priority'>
+        // Priority of the work being queued. This is used to control
+        // whether the worker is signalled for this item -- e.g. no
+        // point in waking the worker up to process the item if this one
+        // isn't very important.
+        //
+        // It's important to note that this doesn't stop the items being
+        // processed at all -- it just doesn't wake up the thread if it's
+        // not already going to be woken e.g. this doesn't reset the idle
+        // timeout.
+        // </param>
+        // </summary>
         void AddWork(const ItemType_ptr item, const WorkPriority priority = WorkPriority::Normal)
         {
             TRACE_OUT(m_tracePrefix + L": Adding Item. Priority: " + to_wstring((int)priority));
@@ -129,10 +129,10 @@ namespace CodevoidN { namespace Utilities {
             }
         }
 
-        /// <summary>
-        /// Starts the background processing inline with the idle timeout & item
-        /// limits. Will keep running until paused, shutdown, or instance is cleanedup
-        /// </summary>
+        // <summary>
+        // Starts the background processing inline with the idle timeout & item
+        // limits. Will keep running until paused, shutdown, or instance is cleanedup
+        // </summary>
         void Start()
         {
             if (m_processItemsCallback == nullptr)
@@ -164,10 +164,10 @@ namespace CodevoidN { namespace Utilities {
             this->TriggerWorkOrWaitForIdle();
         }
 
-        /// <summary>
-        /// Removes any items that are currently in the queue, even if they're
-        /// currently being processed.
-        /// </summary>
+        // <summary>
+        // Removes any items that are currently in the queue, even if they're
+        // currently being processed.
+        // </summary>
         void Clear()
         {
             TRACE_OUT(m_tracePrefix + L": Clearing");
@@ -176,39 +176,39 @@ namespace CodevoidN { namespace Utilities {
             TRACE_OUT(m_tracePrefix + L": Cleared");
         }
 
-        /// <summary>
-        /// Stops the worker from processing any more items after it's finished it's current batch.
-        /// This is intended to keep items in memory, assuming they'll be processed later.
-        /// 
-        /// Blocks the current thread until the queue has successfully paused.
-        ///
-        /// Note, if you pause and then destroy the queue without resuming the worker, the will
-        /// be started to process all the items as quickly as possible, but don't post-process
-        /// any of the items.
-        /// </summary>
+        // <summary>
+        // Stops the worker from processing any more items after it's finished it's current batch.
+        // This is intended to keep items in memory, assuming they'll be processed later.
+        // 
+        // Blocks the current thread until the queue has successfully paused.
+        //
+        // Note, if you pause and then destroy the queue without resuming the worker, the will
+        // be started to process all the items as quickly as possible, but don't post-process
+        // any of the items.
+        // </summary>
         void Pause()
         {
             TRACE_OUT(m_tracePrefix + L": Trying To pause Worker");
             this->Shutdown(WorkerState::Paused);
         }
 
-        /// <summary>
-        /// Waits for worker to process (but not post process) all items currently in the queue.
-        ///
-        /// Blocks the current thread until the queue has successfully processed all items
-        /// </summary>
+        // <summary>
+        // Waits for worker to process (but not post process) all items currently in the queue.
+        //
+        // Blocks the current thread until the queue has successfully processed all items
+        // </summary>
         void Shutdown()
         {
             this->Shutdown(WorkerState::Drain);
         }
 
-        /// <summary>
-        /// Stops processing all items, including the next single item in the queue.
-        ///
-        /// Blocks the current thread until the queue has successfully processed the current item.
-        ///
-        /// Leaves items in memory, and won't drain the queue on shutdown, causing items to be lost.
-        /// </summary>
+        // <summary>
+        // Stops processing all items, including the next single item in the queue.
+        //
+        // Blocks the current thread until the queue has successfully processed the current item.
+        //
+        // Leaves items in memory, and won't drain the queue on shutdown, causing items to be lost.
+        // </summary>
         void ShutdownAndDrop()
         {
             this->Shutdown(WorkerState::Drop);
@@ -237,55 +237,55 @@ namespace CodevoidN { namespace Utilities {
     private:
         enum class WorkerState
         {
-            /// <summary>
-            /// Queue has never started
-            /// </summary>
+            // <summary>
+            // Queue has never started
+            // </summary>
             None,
 
-            /// <summary>
-            /// Queue is currently processing items, and will keep
-            /// running until otherwise signaled. This will process
-            /// and post process items.
-            /// </summary>
+            // <summary>
+            // Queue is currently processing items, and will keep
+            // running until otherwise signaled. This will process
+            // and post process items.
+            // </summary>
             Running,
 
-            /// <summary>
-            /// When signaled, it will process the current batch of
-            /// work, but won't post process it. From this state, it
-            /// can be started again, and will pick up where it left
-            /// off.
-            ///
-            /// Intended to be used when we just want to leave
-            /// items in memory, and don't mind if we loose them.
-            /// </summary>
+            // <summary>
+            // When signaled, it will process the current batch of
+            // work, but won't post process it. From this state, it
+            // can be started again, and will pick up where it left
+            // off.
+            //
+            // Intended to be used when we just want to leave
+            // items in memory, and don't mind if we loose them.
+            // </summary>
             Paused,
 
-            /// <summary>
-            /// Process all current items in the queue, even if they we're
-            /// added after the current batch had started processing. This
-            /// is intended to be used for a clean shutdown once all the
-            /// in memory items have been successfully processed.
-            /// </summary>
+            // <summary>
+            // Process all current items in the queue, even if they we're
+            // added after the current batch had started processing. This
+            // is intended to be used for a clean shutdown once all the
+            // in memory items have been successfully processed.
+            // </summary>
             Drain,
 
-            /// <summary>
-            /// Stop processing any items or batches, including any batch you
-            /// are in the middle of handling, and leave everything in memory
-            /// </summary>
+            // <summary>
+            // Stop processing any items or batches, including any batch you
+            // are in the middle of handling, and leave everything in memory
+            // </summary>
             Drop,
 
-            /// <summary>
-            /// Queue had started, and has subsequently shutdown.
-            /// </summary>
+            // <summary>
+            // Queue had started, and has subsequently shutdown.
+            // </summary>
             Shutdown
         };
 
-        /// <summary>
-        /// Should we keep processing _individual_ items in the batch
-        /// The idea being that if we're running, and not shutdown or
-        /// dropping (E.g draining, paused, running), we should keep
-        /// doing potentially long running work on individual items.
-        /// </summary>
+        // <summary>
+        // Should we keep processing _individual_ items in the batch
+        // The idea being that if we're running, and not shutdown or
+        // dropping (E.g draining, paused, running), we should keep
+        // doing potentially long running work on individual items.
+        // </summary>
         bool ShouldKeepProcessingItems() const
         {
             WorkerState currentState = m_state;
