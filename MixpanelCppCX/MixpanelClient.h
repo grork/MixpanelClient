@@ -137,7 +137,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         /// <summary>
         ///	Configures the class for simpler / faster testing by:
         /// * Turning off writing to disk
-        /// * Allows explicitly setting the variout timeouts & thresholds for the workers
+        /// * Allows explicitly setting the variout timeouts &amp; thresholds for the workers
         /// </summary>
         void ConfigureForTesting(const std::chrono::milliseconds& idleTimeout, const size_t& itemThreshold);
 
@@ -187,7 +187,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         /// <summary>
         /// Handles suspending event as raised from the platform's CoreApplication object
-        /// Intended to shutdown & clean up any events that are not on disk, and stop the
+        /// Intended to shutdown &amp; clean up any events that are not on disk, and stop the
         /// upload queue whereever it is.
         /// </summary>
         void HandleApplicationSuspend(Platform::Object^ sender, Windows::ApplicationModel::SuspendingEventArgs^ args);
