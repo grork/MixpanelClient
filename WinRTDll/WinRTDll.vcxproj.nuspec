@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<package>
+  <metadata>
+    <id>Codevoid.Mixpanel</id>
+    <version>0.0.9</version>
+    <authors>Dominic Hopton</authors>
+    <owners>Dominic Hopton</owners>
+    <licenseUrl>https://github.com/grork/MixpanelCppCX/license.md</licenseUrl>
+    <projectUrl>https://githug.com/grork/MixpanelCppCX/</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>A client library for uploading events to Mixpanel. Written in C++.</description>
+    <releaseNotes>Initial Release</releaseNotes>
+    <copyright>Copyright 2018</copyright>
+    <tags>Mixpanel UWP analytics telemetry client C++ javascript</tags>
+  </metadata>
+  <files>
+    <file src="readme.txt" target="" />
+    <file src="README.md" target="" />
+    
+    <!-- Implementation files -->
+    <file src="..\Win32\Release\WinRTDll\Codevoid.Utilities.Mixpanel.dll" target="runtimes\win10-x86\native" />
+    <file src="..\x64\Release\WinRTDll\Codevoid.Utilities.Mixpanel.dll" target="runtimes\win10-x64\native" />
+    <file src="..\ARM\Release\WinRTDll\Codevoid.Utilities.Mixpanel.dll" target="runtimes\win10-ARM\native" />
+    
+    <!-- Metadata -->
+    <file src="..\x64\Release\WinRTDll\CodevoidN.Utilities.Mixpanel.winmd" target="lib\uap10.0" />
+    <file src="..\x64\Release\WinRTDll\Codevoid.Utilities.Mixpanel.xml" target="lib\uap10.0" />
+  </files>
+</package>
