@@ -5,14 +5,14 @@
 
 using namespace Platform;
 using namespace std;
-using namespace CodevoidN::Utilities;
+using namespace Codevoid::Utilities;
 using namespace concurrency;
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace Windows::Data::Json;
 using namespace Windows::Foundation::Collections;
 using namespace Windows::Storage;
 
-namespace CodevoidN { namespace  Tests
+namespace Codevoid { namespace Tests
 {
     vector<shared_ptr<int>> processAll(const vector<shared_ptr<int>>& current, const function<bool()>& shouldKeepProcessing)
     {

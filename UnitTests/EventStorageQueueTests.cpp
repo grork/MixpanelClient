@@ -7,15 +7,15 @@
 
 using namespace Platform;
 using namespace std;
-using namespace CodevoidN::Tests::Utilities;
-using namespace CodevoidN::Utilities::Mixpanel;
+using namespace Codevoid::Tests::Utilities;
+using namespace Codevoid::Utilities::Mixpanel;
 using namespace concurrency;
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace Windows::Data::Json;
 using namespace Windows::Foundation::Collections;
 using namespace Windows::Storage;
 
-namespace CodevoidN { namespace  Tests { namespace Mixpanel
+namespace Codevoid { namespace  Tests { namespace Mixpanel
 {
     static task<StorageFolder^> GetAndClearTestFolder()
     {

@@ -7,8 +7,8 @@ using namespace std;
 using namespace std::chrono;
 using namespace Platform;
 using namespace Platform::Collections;
-using namespace CodevoidN::Tests::Utilities;
-using namespace CodevoidN::Utilities::Mixpanel;
+using namespace Codevoid::Tests::Utilities;
+using namespace Codevoid::Utilities::Mixpanel;
 using namespace concurrency;
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace Windows::Data::Json;
@@ -34,7 +34,7 @@ void SpinWaitForItemCount(const int& count, const int target)
     Assert::IsTrue(count >= target, L"Spin Wait looped too long and never reached target");
 }
 
-namespace CodevoidN { namespace  Tests { namespace Mixpanel
+namespace Codevoid { namespace  Tests { namespace Mixpanel
 {
     TEST_CLASS(MixpanelTests)
     {

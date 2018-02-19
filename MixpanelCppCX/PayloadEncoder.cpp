@@ -5,9 +5,9 @@ using namespace Platform;
 using namespace Windows::Security::Cryptography;
 using namespace Windows::Data::Json;
 
-using namespace CodevoidN::Utilities::Mixpanel;
+using namespace Codevoid::Utilities::Mixpanel;
 
-String^ CodevoidN::Utilities::Mixpanel::EncodeJson(IJsonValue^ payload)
+String^ Codevoid::Utilities::Mixpanel::EncodeJson(IJsonValue^ payload)
 {
     auto payloadAsString = payload->Stringify();
     auto payloadAsBuffer = CryptographicBuffer::ConvertStringToBinary(payloadAsString, BinaryStringEncoding::Utf8);

@@ -3,7 +3,7 @@
 #include <agents.h>
 #include "Tracing.h"
 
-namespace CodevoidN { namespace Utilities {
+namespace Codevoid { namespace Utilities {
     /// <summary>
     /// Represents the importance of the work added to the BackgroundWorker
     /// </summary>

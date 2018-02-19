@@ -1,17 +1,17 @@
 #pragma once
 #include "EventStorageQueue.h"
 
-namespace CodevoidN { namespace Tests { namespace Mixpanel {
+namespace Codevoid { namespace Tests { namespace Mixpanel {
     class MixpanelTests;
 } } }
 
-namespace CodevoidN { namespace Utilities { namespace Mixpanel {
+namespace Codevoid { namespace Utilities { namespace Mixpanel {
     /// <summary>
     /// MixpanelClient offers a API for interacting with Mixpanel for UWP apps running on Windows 10+
     /// </summary>
     public ref class MixpanelClient sealed
     {
-        friend class CodevoidN::Tests::Mixpanel::MixpanelTests;
+        friend class Codevoid::Tests::Mixpanel::MixpanelTests;
 
     public:
         /// <summary>
@@ -210,16 +210,16 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         )> mock);
 
         // Helpers for testing the persist to storage behaviour
-        void SetWrittenToStorageMock(const std::function<void(std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>)> mock);
-        std::function<void(const std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>)> m_writtenToStorageMockCallback;
+        void SetWrittenToStorageMock(const std::function<void(std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>)> mock);
+        std::function<void(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>)> m_writtenToStorageMockCallback;
 
-        std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>
+        std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>
             HandleEventBatchUpload(
-                const std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>& items,
+                const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items,
                 const std::function<bool()>& shouldKeepProcessing
             );
-        void HandleCompletedUploads(const std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>& items);
-        void AddItemsToUploadQueue(const std::vector<std::shared_ptr<CodevoidN::Utilities::Mixpanel::PayloadContainer>>& items);
+        void HandleCompletedUploads(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
+        void AddItemsToUploadQueue(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
         Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
         static void AppendPropertySetToJsonPayload(Windows::Foundation::Collections::IPropertySet^ properties, Windows::Data::Json::JsonObject^ toAppendTo);
         void ThrowIfNotInitialized();
@@ -233,8 +233,8 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
 
         Windows::Foundation::Uri^ m_serviceUri;
         Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ m_userAgent;
-        std::unique_ptr<CodevoidN::Utilities::Mixpanel::EventStorageQueue> m_eventStorageQueue;
-        CodevoidN::Utilities::BackgroundWorker<CodevoidN::Utilities::Mixpanel::PayloadContainer> m_uploadWorker;
+        std::unique_ptr<Codevoid::Utilities::Mixpanel::EventStorageQueue> m_eventStorageQueue;
+        Codevoid::Utilities::BackgroundWorker<Codevoid::Utilities::Mixpanel::PayloadContainer> m_uploadWorker;
         std::function<concurrency::task<bool>(
             Windows::Foundation::Uri^,
             Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^,

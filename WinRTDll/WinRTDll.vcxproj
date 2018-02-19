@@ -29,7 +29,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{0fcc17b7-3c1c-4cd9-adec-7860aa5dc560}</ProjectGuid>
     <Keyword>WindowsRuntimeComponent</Keyword>
-    <RootNamespace>CodevoidN.Utilities.Mixpanel</RootNamespace>
+    <RootNamespace>Codevoid.Utilities.Mixpanel</RootNamespace>
     <DefaultLanguage>en-US</DefaultLanguage>
     <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
     <AppContainerApplication>true</AppContainerApplication>

@@ -31,7 +31,7 @@ using namespace concurrency;
 #define BEGIN_ON_DISPATCHER AsyncHelper::RunSynced(Windows::ApplicationModel::Core::CoreApplication::MainView->Dispatcher->RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal, ref new Windows::UI::Core::DispatchedHandler([&]()
 #define END_ON_DISPATCHER )));
 
-namespace CodevoidN { namespace Tests { namespace Utilities {
+namespace Codevoid { namespace Tests { namespace Utilities {
     class AsyncHelper
     {
     public:
