@@ -3,12 +3,12 @@
 #include "PayloadEncoder.h"
 
 using namespace Platform;
-using namespace CodevoidN::Utilities::Mixpanel;
+using namespace Codevoid::Utilities::Mixpanel;
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace Windows::Data::Json;
 using namespace Windows::Foundation::Collections;
 
-namespace CodevoidN { namespace Tests { namespace Mixpanel {
+namespace Codevoid { namespace Tests { namespace Mixpanel {
     TEST_CLASS(EncoderTests)
     {
     public:

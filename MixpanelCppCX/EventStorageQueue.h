@@ -2,11 +2,11 @@
 
 #include "BackgroundWorker.h"
 
-namespace CodevoidN { namespace  Tests { namespace Mixpanel {
+namespace Codevoid { namespace  Tests { namespace Mixpanel {
     class EventStorageQueueTests;
 } } }
 
-namespace CodevoidN { namespace Utilities { namespace Mixpanel {
+namespace Codevoid { namespace Utilities { namespace Mixpanel {
     enum class EventPriority
     {
         Normal,
@@ -34,7 +34,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
     /// </summary>
     class EventStorageQueue
     {
-        friend class CodevoidN::Tests::Mixpanel::EventStorageQueueTests;
+        friend class Codevoid::Tests::Mixpanel::EventStorageQueueTests;
 
     public:
         EventStorageQueue(
@@ -122,7 +122,7 @@ namespace CodevoidN { namespace Utilities { namespace Mixpanel {
         std::atomic<QueueState> m_state;
 
         Windows::Storage::StorageFolder^ m_localStorage;
-        CodevoidN::Utilities::BackgroundWorker<PayloadContainer> m_writeToStorageWorker;
+        Codevoid::Utilities::BackgroundWorker<PayloadContainer> m_writeToStorageWorker;
         bool m_dontWriteToStorageForTestPurposes;
 
         std::function<void(const std::vector<std::shared_ptr<PayloadContainer>>&)> m_writtenToStorageCallback;

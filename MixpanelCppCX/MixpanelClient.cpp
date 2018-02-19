@@ -4,7 +4,7 @@
 #include "PayloadEncoder.h"
 #include <chrono>
 
-using namespace CodevoidN::Utilities::Mixpanel;
+using namespace Codevoid::Utilities::Mixpanel;
 using namespace concurrency;
 using namespace Platform;
 using namespace Platform::Collections;
@@ -31,7 +31,7 @@ constexpr vector<shared_ptr<PayloadContainer>>::difference_type DEFAULT_UPLOAD_S
 
 // Sourced from:
 // http://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
-unsigned CodevoidN::Utilities::Mixpanel::WindowsTickToUnixSeconds(const long long windowsTicks)
+unsigned Codevoid::Utilities::Mixpanel::WindowsTickToUnixSeconds(const long long windowsTicks)
 {
     return (unsigned)(windowsTicks / WINDOWS_TICK - SEC_TO_UNIX_EPOCH);
 }

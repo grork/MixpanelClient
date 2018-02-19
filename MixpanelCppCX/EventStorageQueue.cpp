@@ -3,7 +3,7 @@
 #include "EventStorageQueue.h"
 #include "Tracing.h"
 
-using namespace CodevoidN::Utilities::Mixpanel;
+using namespace Codevoid::Utilities::Mixpanel;
 using namespace concurrency;
 using namespace Platform;
 using namespace std;
