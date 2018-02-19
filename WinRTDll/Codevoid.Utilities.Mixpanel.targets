@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Condition="!Exists('project.json') AND !Exists('$(MSBuildProjectName).project.json') AND '$(TargetPlatformIdentifier)' == 'UAP'">
+    <_CodevoidUtilitiesMixpanelBaseName>Codevoid.Utilities.Mixpanel</_CodevoidUtilitiesMixpanelBaseName>
+    <_CodevoidUtilitiesMixpanelPlatformAdjust Condition="'$(Platform)' == 'Win32'">x86</_CodevoidUtilitiesMixpanelPlatformAdjust>
+    <_CodevoidUtilitiesMixpanelPlatformAdjust Condition="'$(Platform)' != 'Win32'">$(Platform)</_CodevoidUtilitiesMixpanelPlatformAdjust>
+    <_CodevoidUtilitiesMixpanelMinimumSdk>10.0.15063.0</_CodevoidUtilitiesMixpanelMinimumSdk>
+  </PropertyGroup>
+
+  <Target Name="_CodevoidUtilitiesMixpanelValidatePlatform" BeforeTargets="Build">
+    <Error Condition="'$(TargetPlatformIdentifier)' == 'UAP' AND '$(_CodevoidUtilitiesMixpanelPlatformAdjust)' != 'x86' AND '$(_CodevoidUtilitiesMixpanelPlatformAdjust)' != 'x64' AND '$(_CodevoidUtilitiesMixpanelPlatformAdjust)' != 'ARM'"
+           Text="Unsupported platform value '$(Platform)'. The $(MSBuildThisFileName) package requires the Platform to be set to x86, x64, or ARM, and using the UAP platform" />
+
+    <!-- Make sure the minium SDK version being used is one we support -->
+    <Error Condition="$([System.Version]::Parse($(TargetPlatformMinVersion)).CompareTo($([System.Version]::Parse($(_CodevoidUtilitiesMixpanelMinimumSdk))))) &lt; 0"
+           Text="Unsupported SDK Version: $(TargetPlatformMinVersion). Minimum supported version: $(_CodevoidUtilitiesMixpanelMinimumSdk)" />
+  </Target>
+
+  <!-- Reference to the C++ CRT which may not be present in C#/VB/JS applications -->
+  <ItemGroup>
+    <SDKReference Include="Microsoft.VCLibs, Version=14.0" />
+  </ItemGroup>
+
+  <!-- If the project.json file is missing assume a packages.config based project and add the NuGet v3 assets.  -->
+  <ItemGroup Condition="!Exists('project.json') AND !Exists('$(MSBuildProjectName).project.json') AND '$(TargetPlatformIdentifier)' == 'UAP'">
+
+    <Reference Include="$(MSBuildThisFileDirectory)..\..\lib\uap10.0\$(_CodevoidUtilitiesMixpanelBaseName).winmd">
+      <!-- Native WinMDs require implementation metadata that tells the 
+           packaging tasks where to look for the native dll to generate activation
+           metadata, we use just the short name then set up the native dll as a
+           a copy local asset.  In nuget v3 projects this is done automatically by 
+           the msbuild task -->
+      <IsWinMDFile>true</IsWinMDFile>
+      <Implementation>$(_CodevoidUtilitiesMixpanelBaseName).dll</Implementation>
+    </Reference>
+    <ReferenceCopyLocalPaths Include="$(MSBuildThisFileDirectory)..\..\runtimes\win10-$(_CodevoidUtilitiesMixpanelPlatformAdjust)\native\$(_CodevoidUtilitiesMixpanelBaseName).dll" />
+  </ItemGroup>
+
+</Project>
