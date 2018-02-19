@@ -264,6 +264,7 @@
     <ResourceCompile Include="WinRTDll.rc" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Codevoid.Utilities.Mixpanel.targets" />
     <None Include="README.md" />
     <None Include="WinRTDll.vcxproj.nuspec" />
   </ItemGroup>

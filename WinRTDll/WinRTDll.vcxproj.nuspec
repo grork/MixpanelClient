@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
   <metadata>
-    <id>Codevoid.Mixpanel</id>
-    <version>0.0.9</version>
+    <id>Codevoid.Utilities.Mixpanel</id>
+    <version>0.9.0</version>
     <authors>Dominic Hopton</authors>
     <owners>Dominic Hopton</owners>
     <licenseUrl>https://github.com/grork/MixpanelCppCX/license.md</licenseUrl>
@@ -11,7 +11,7 @@
     <description>A client library for uploading events to Mixpanel. Written in C++.</description>
     <releaseNotes>Initial Release</releaseNotes>
     <copyright>Copyright 2018</copyright>
-    <tags>Mixpanel UWP analytics telemetry client C++ javascript</tags>
+    <tags>Mixpanel UWP analytics telemetry client C++ javascript typescript</tags>
   </metadata>
   <files>
     <file src="readme.txt" target="" />
@@ -23,7 +23,15 @@
     <file src="..\ARM\Release\WinRTDll\Codevoid.Utilities.Mixpanel.dll" target="runtimes\win10-ARM\native" />
     
     <!-- Metadata -->
-    <file src="..\x64\Release\WinRTDll\CodevoidN.Utilities.Mixpanel.winmd" target="lib\uap10.0" />
+    <file src="..\x64\Release\WinRTDll\Codevoid.Utilities.Mixpanel.winmd" target="lib\uap10.0" />
     <file src="..\x64\Release\WinRTDll\Codevoid.Utilities.Mixpanel.xml" target="lib\uap10.0" />
+
+    <!--
+      Targets file that actually adds project references for non-.net platforms
+      Note, C++ uses the \native sub-folder, and WWA uses uap10.0. DotNet derives
+      the information from the package contents, not from the targets file.
+    -->
+    <file src="Codevoid.Utilities.Mixpanel.targets" target="build\uap10.0" />
+    <file src="Codevoid.Utilities.Mixpanel.targets" target="build\native" />
   </files>
 </package>
