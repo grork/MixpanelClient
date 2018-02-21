@@ -16,6 +16,7 @@
   <files>
     <file src="readme.txt" target="" />
     <file src="README.md" target="" />
+    <file src="..\LICENSE.txt" target="" />
     
     <!-- Implementation files -->
     <file src="..\Win32\Release\WinRTDll\Codevoid.Utilities.Mixpanel.dll" target="runtimes\win10-x86\native" />
