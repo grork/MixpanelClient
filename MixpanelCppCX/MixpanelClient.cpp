@@ -357,12 +357,14 @@ bool MixpanelClient::GetSuperPropertyAsBool(String^ name)
 bool MixpanelClient::HasSuperProperty(String^ name)
 {
     this->InitializeSuperPropertyCollection();
-    if (!m_superProperties)
-    {
-        return false;
-    }
 
     return m_superProperties->HasKey(name);
+}
+
+void MixpanelClient::RemoveSuperProperty(String^ name)
+{
+    this->InitializeSuperPropertyCollection();
+    m_superProperties->Remove(name);
 }
 
 void MixpanelClient::InitializeSuperPropertyCollection()
@@ -387,7 +389,6 @@ void MixpanelClient::InitializeSuperPropertyCollection()
 void MixpanelClient::ClearSuperProperties()
 {
     m_superProperties->Clear();
-    m_superProperties = nullptr;
 }
 
 JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(String^ name, IPropertySet^ properties)
