@@ -15,7 +15,10 @@ using namespace Windows::ApplicationModel::Core;
 using namespace Windows::Data::Json;
 using namespace Windows::Foundation;
 using namespace Windows::Foundation::Collections;
+using namespace Windows::Security::Cryptography;
+using namespace Windows::Security::Cryptography::Core;
 using namespace Windows::Storage;
+using namespace Windows::Storage::Streams;
 using namespace Windows::Web::Http;
 using namespace Windows::Web::Http::Headers;
 
@@ -25,6 +28,7 @@ constexpr int WINDOWS_TICK = 10000000;
 constexpr long long SEC_TO_UNIX_EPOCH = 11644473600LL;
 constexpr auto SUPER_PROPERTIES_CONTAINER_NAME = L"Codevoid_Utilities_Mixpanel";
 constexpr auto MIXPANEL_QUEUE_FOLDER = L"MixpanelUploadQueue";
+constexpr auto CRYPTO_TOKEN_HMAC_NAME = L"SHA256";
 
 constexpr vector<shared_ptr<PayloadContainer>>::difference_type DEFAULT_UPLOAD_SIZE_STRIDE = 50;
 
@@ -33,6 +37,21 @@ constexpr vector<shared_ptr<PayloadContainer>>::difference_type DEFAULT_UPLOAD_S
 unsigned Codevoid::Utilities::Mixpanel::WindowsTickToUnixSeconds(const long long windowsTicks)
 {
     return (unsigned)(windowsTicks / WINDOWS_TICK - SEC_TO_UNIX_EPOCH);
+}
+
+String^ HashTokenForSettingContainerName(String^ token)
+{
+    // Convert the message string to binary data.
+    auto inputBuffer = CryptographicBuffer::ConvertStringToBinary(token, BinaryStringEncoding::Utf8);
+
+    // Create a HashAlgorithmProvider object.
+    auto hashAlgorithm = HashAlgorithmProvider::OpenAlgorithm(StringReference(CRYPTO_TOKEN_HMAC_NAME));
+
+    // Hash the message.
+    auto hashedBuffer = hashAlgorithm->HashData(inputBuffer);
+
+    // Convert the hash to a string (for display).
+    return CryptographicBuffer::EncodeToBase64String(hashedBuffer);
 }
 
 MixpanelClient::MixpanelClient(String^ token) :
@@ -382,9 +401,22 @@ void MixpanelClient::InitializeSuperPropertyCollection()
     if (this->PersistSuperPropertiesToApplicationData)
     {
         auto localSettings = ApplicationData::Current->LocalSettings;
-        auto superProperties = localSettings->CreateContainer(
+
+        // Obtain the container that houses all the super properties
+        // split by Token. E.g. if two instances are using different
+        // tokens, they'll share different super properties.
+        auto superPropertiesContainer = localSettings->CreateContainer(
             StringReference(SUPER_PROPERTIES_CONTAINER_NAME),
-            ApplicationDataCreateDisposition::Always);
+            ApplicationDataCreateDisposition::Always
+        );
+
+        // Create the token-specific container where we'll actually
+        // store the properties.
+        auto superProperties = superPropertiesContainer->CreateContainer(
+            HashTokenForSettingContainerName(m_token),
+            ApplicationDataCreateDisposition::Always
+        );
+
         m_superProperties = superProperties->Values;
     }
     else
