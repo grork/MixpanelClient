@@ -57,6 +57,12 @@ namespace Codevoid { namespace Utilities { namespace Mixpanel {
         void SetSuperProperty(Platform::String^ name, bool value);
 
         /// <summary>
+        /// Removes a property &amp; it's value from the super properties associated with
+        /// this instance of the client.
+        /// </summary>
+        void RemoveSuperProperty(Platform::String^ name);
+
+        /// <summary>
         /// Reads a currently set super property from any set super properties, and returns it as a String.
         ///
         /// If there is no super property with the requested name, an exception will be thrown. If the
