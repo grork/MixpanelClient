@@ -453,6 +453,19 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
             Assert::AreEqual(7.0, m_client->GetSuperPropertyAsDouble(L"SuperPropertyC"), L"SuperPropertyC didn't match");
         }
 
+        TEST_METHOD(CanRemoveSuperProperty)
+        {
+            constexpr auto PROPERTY_NAME = L"SuperProperty";
+
+            // Add Property, and validate it actualy makes it before we
+            // try to remove it
+            m_client->SetSuperProperty(StringReference(PROPERTY_NAME), L"SuperValueA");
+            Assert::IsTrue(m_client->HasSuperProperty(StringReference(PROPERTY_NAME)), L"Property wasn't found; expected it");
+            
+            m_client->RemoveSuperProperty(StringReference(PROPERTY_NAME));
+            Assert::IsFalse(m_client->HasSuperProperty(StringReference(PROPERTY_NAME)), L"Proprety found; shouldn't have been present");
+        }
+        
         TEST_METHOD(SuperPropertiesArePersistedAcrossClientInstances)
         {
             auto client = ref new MixpanelClient(DEFAULT_TOKEN);
