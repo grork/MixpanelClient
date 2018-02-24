@@ -176,6 +176,11 @@ void MixpanelClient::Track(String^ name, IPropertySet^ properties)
 {
     this->ThrowIfNotInitialized();
 
+    if (this->DropEventsForPrivacy)
+    {
+        return;
+    }
+
     if (name->IsEmpty())
     {
         throw ref new InvalidArgumentException(L"Name cannot be empty or null");
