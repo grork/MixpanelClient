@@ -16,9 +16,8 @@ using namespace Windows::Foundation::Collections;
 using namespace Windows::Storage;
 using namespace Windows::Web::Http::Headers;
 
-#define DEFAULT_TOKEN L"DEFAULT_TOKEN"
-
-#define OVERRIDE_STORAGE_FOLDER L"MixpanelClientTests"
+constexpr auto DEFAULT_TOKEN = L"DEFAULT_TOKEN";
+constexpr auto OVERRIDE_STORAGE_FOLDER = L"MixpanelClientTests";
 constexpr milliseconds DEFAULT_IDLE_TIMEOUT = 10ms;
 constexpr size_t SPIN_LOOP_LIMIT = 500;
 
@@ -43,7 +42,8 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
 
         static task<StorageFolder^> GetAndClearTestFolder()
         {
-            auto storageFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(OVERRIDE_STORAGE_FOLDER,
+            auto storageFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(
+                StringReference(StringReference(OVERRIDE_STORAGE_FOLDER)),
                 CreationCollisionOption::OpenIfExists);
 
             auto files = co_await storageFolder->GetFilesAsync();
@@ -99,7 +99,7 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
     public:
         TEST_METHOD_INITIALIZE(InitializeClass)
         {
-            m_client = ref new MixpanelClient(DEFAULT_TOKEN);
+            m_client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
 
             // Disable Persistence of Super properties
             // to help maintain these tests as stateless
@@ -128,7 +128,7 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
             m_client = nullptr;
 
             AsyncHelper::RunSynced(WriteTestPayload());
-            m_client = ref new MixpanelClient(DEFAULT_TOKEN);
+            m_client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
             m_client->PersistSuperPropertiesToApplicationData = false;
             
             AsyncHelper::RunSynced(m_client->InitializeAsync());
@@ -185,7 +185,7 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
         TEST_METHOD(TrackThrowsIfNotInitialized)
         {
             bool exceptionThrown = false;
-            auto client = ref new MixpanelClient(DEFAULT_TOKEN);
+            auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
 
             try
             {
@@ -335,7 +335,7 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
 
             // Validate that the API Token is present
             Assert::IsTrue(propertiesPayload->HasKey(L"token"), L"No token in properties payload");
-            Assert::AreEqual(DEFAULT_TOKEN, propertiesPayload->GetNamedString(L"token"), L"Token had incorrect value");
+            Assert::AreEqual(StringReference(DEFAULT_TOKEN), propertiesPayload->GetNamedString(L"token"), L"Token had incorrect value");
         }
 
         TEST_METHOD(TrackingPayloadIncludesTokenAndSuperPropertiesPayload)
@@ -363,7 +363,7 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
 
             // Validate that the API Token is present
             Assert::IsTrue(propertiesPayload->HasKey(L"token"), L"No token in properties payload");
-            Assert::AreEqual(DEFAULT_TOKEN, propertiesPayload->GetNamedString(L"token"), L"Token had incorrect value");
+            Assert::AreEqual(StringReference(DEFAULT_TOKEN), propertiesPayload->GetNamedString(L"token"), L"Token had incorrect value");
 
             // Validate that Super Property A is present
             Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyA"), L"No SuperPropertyA in properties payload");
@@ -468,10 +468,10 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
         
         TEST_METHOD(SuperPropertiesArePersistedAcrossClientInstances)
         {
-            auto client = ref new MixpanelClient(DEFAULT_TOKEN);
+            auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
             client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
 
-            client = ref new MixpanelClient(DEFAULT_TOKEN);
+            client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
             auto superPropertyValue = client->GetSuperPropertyAsString(L"SuperPropertyA");
             Assert::AreEqual(L"SuperValueA", superPropertyValue, "Super Property wasn't persisted");
 
@@ -484,16 +484,16 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
 
         TEST_METHOD(ClearingSuperPropertiesClearsAcrossInstances)
         {
-            auto client = ref new MixpanelClient(DEFAULT_TOKEN);
+            auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
             client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
 
-            client = ref new MixpanelClient(DEFAULT_TOKEN);
+            client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
             auto superPropertyValue = client->GetSuperPropertyAsString(L"SuperPropertyA");
             Assert::AreEqual(L"SuperValueA", superPropertyValue, "Super Property wasn't persisted");
 
             client->ClearSuperProperties();
 
-            client = ref new MixpanelClient(DEFAULT_TOKEN);
+            client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
             Assert::IsFalse(client->HasSuperProperty(L"SuperPropertyA"), L"Didn't expect super property to be found");
         }
 
@@ -597,7 +597,7 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
             AsyncHelper::RunSynced(m_client->PauseAsync());
 
             auto fileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
-                auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(OVERRIDE_STORAGE_FOLDER);
+                auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(StringReference(OVERRIDE_STORAGE_FOLDER));
                 auto files = co_await folder->GetFilesAsync();
 
                 return files->Size;
@@ -608,7 +608,7 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
             AsyncHelper::RunSynced(m_client->ClearStorageAsync());
 
             fileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
-                auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(OVERRIDE_STORAGE_FOLDER);
+                auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(StringReference(OVERRIDE_STORAGE_FOLDER));
                 auto files = co_await folder->GetFilesAsync();
 
                 return files->Size;
