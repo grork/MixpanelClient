@@ -560,6 +560,27 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
             Assert::AreEqual(1, (int)written.size(), L"Event wasn't written to disk");
         }
 
+        TEST_METHOD(EventsAreNotTrackedWhenDropEventsForPrivacyIsEnabled)
+        {
+            m_client->DropEventsForPrivacy = true;
+
+            vector<shared_ptr<PayloadContainer>> written;
+
+            m_client->SetWrittenToStorageMock([&written](auto wasWritten) {
+                written.insert(begin(written), begin(wasWritten), end(wasWritten));
+            });
+
+            m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
+
+            m_client->Start();
+            m_client->Track(L"TestEvent", nullptr);
+
+            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
+            AsyncHelper::RunSynced(m_client->Shutdown());
+
+            Assert::AreEqual(0, (int)written.size(), L"Event event shouldn't have been written to disk");
+        }
+
         TEST_METHOD(QueueCanBePaused)
         {
             m_client->Start();

@@ -112,6 +112,13 @@ namespace Codevoid { namespace Utilities { namespace Mixpanel {
         property bool AutomaticallyAttachTimeToEvents;
 
         /// <summary>
+        /// When enabled, and even is tracked, it is immediately dropped, and never
+        /// sent anywhere. Intent is to allow clients to provide privacy options
+        /// to their user, but maintain all the rest of their tracking logic.
+        /// </summary>
+        property bool DropEventsForPrivacy;
+
+        /// <summary>
         /// Begins processing any events that get queued -- either currently, or in the future.s
         /// </summary>
         void Start();
