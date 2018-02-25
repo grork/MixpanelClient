@@ -17,8 +17,6 @@ MixpanelCppCX is published as a NuGET package
 to the NuGET.org feed — just add it to your UWP Project in Visual Studio, and
 it'll be available for use in your code.
 
-If you 
-
 Things to note
 --------------
 - Items awaiting to upload are stored in a folder in your applications private
