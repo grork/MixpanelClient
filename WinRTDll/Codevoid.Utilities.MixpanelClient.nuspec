@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>Codevoid.Utilities.Mixpanel</id>
-    <version>0.9.0</version>
+    <version>1.0.0</version>
     <authors>Dominic Hopton</authors>
     <owners>Dominic Hopton</owners>
     <licenseUrl>https://github.com/grork/MixpanelCppCX/LICENSE.txt</licenseUrl>
