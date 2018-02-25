@@ -115,6 +115,7 @@ task<vector<shared_ptr<PayloadContainer>>> EventStorageQueue::LoadItemsFromStora
 
 void EventStorageQueue::EnableQueuingToStorage()
 {
+    m_state = QueueState::Running;
     m_writeToStorageWorker.Start();
 }
 
