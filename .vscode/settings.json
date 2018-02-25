@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
         "mixpanel"
-    ]
+    ],
+    "editor.rulers": [ 80 ]
 }
