@@ -265,8 +265,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Codevoid.Utilities.Mixpanel.targets" />
-    <None Include="README.md" />
-    <None Include="WinRTDll.vcxproj.nuspec" />
+    <None Include="Codevoid.Utilities.MixpanelClient.nuspec">
+      <SubType>Designer</SubType>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.txt" />

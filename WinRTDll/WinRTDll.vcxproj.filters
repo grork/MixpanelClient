@@ -19,9 +19,8 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="README.md" />
-    <None Include="WinRTDll.vcxproj.nuspec" />
     <None Include="Codevoid.Utilities.Mixpanel.targets" />
+    <None Include="Codevoid.Utilities.MixpanelClient.nuspec" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.txt" />

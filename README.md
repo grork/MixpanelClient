@@ -13,7 +13,7 @@ support JavaScript applications.
 How to get it
 -------------
 MixpanelCppCX is published as a NuGET package
-([`Codevoid.Utilities.Mixpanel`](https://nuget.org/packages/Codevoid.Utilities.Mixpanel))
+([`Codevoid.Utilities.Mixpanel`](https://nuget.org/packages/Codevoid.Utilities.Mixpanel/))
 to the NuGET.org feed — just add it to your UWP Project in Visual Studio, and
 it'll be available for use in your code.
 
