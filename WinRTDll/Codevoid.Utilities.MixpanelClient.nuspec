@@ -5,8 +5,8 @@
     <version>0.9.0</version>
     <authors>Dominic Hopton</authors>
     <owners>Dominic Hopton</owners>
-    <licenseUrl>https://github.com/grork/MixpanelCppCX/license.md</licenseUrl>
-    <projectUrl>https://githug.com/grork/MixpanelCppCX/</projectUrl>
+    <licenseUrl>https://github.com/grork/MixpanelCppCX/LICENSE.txt</licenseUrl>
+    <projectUrl>https://github.com/grork/MixpanelCppCX/</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>A client library for uploading events to Mixpanel. Written in C++.</description>
     <releaseNotes>Initial Release</releaseNotes>
@@ -15,7 +15,7 @@
   </metadata>
   <files>
     <file src="readme.txt" target="" />
-    <file src="README.md" target="" />
+    <file src="..\README.md" target="" />
     <file src="..\LICENSE.txt" target="" />
     
     <!-- Implementation files -->
