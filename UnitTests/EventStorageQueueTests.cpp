@@ -124,6 +124,53 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
             Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
         }
 
+        TEST_METHOD(QueuingItemsAfterShuttingDownDontGetQueued)
+        {
+            m_queue->EnableQueuingToStorage();
+            auto result = m_queue->QueueEventToStorage(GenerateSamplePayload());
+            Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");
+            Assert::AreEqual(1, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
+
+            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorageAndShutdown());
+
+            Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
+            Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
+
+            result = m_queue->QueueEventToStorage(GenerateSamplePayload());
+            Assert::AreEqual(0, (int)result, L"Got a result from queuing, when it was shutdown and shouldn't have");
+            Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
+        }
+
+        TEST_METHOD(QueueCanBeRestartedAfterShuttingDown)
+        {
+            // Queue an event, then shutdown the queue.
+            m_queue->EnableQueuingToStorage();
+            auto result = m_queue->QueueEventToStorage(GenerateSamplePayload());
+            Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");
+            Assert::AreEqual(1, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
+
+            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorageAndShutdown());
+
+            // Check the queue drained properly
+            Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
+            Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
+
+            // Restart the queue, and queue an event
+            m_queue->EnableQueuingToStorage();
+
+            result = m_queue->QueueEventToStorage(GenerateSamplePayload());
+
+            Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");
+            Assert::AreEqual(1, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
+
+            // Drain the queue and make sure it gets to disk.
+            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorageAndShutdown());
+
+            Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
+            // 2 'cause second write in this test
+            Assert::AreEqual(2, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
+        }
+
         TEST_METHOD(ItemsAreNotWrittenToDiskWhenAskedToSkipForTesting)
         {
             m_queue->DontWriteToStorageForTestPurposeses();
