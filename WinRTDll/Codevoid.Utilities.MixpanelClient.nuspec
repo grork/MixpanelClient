@@ -5,9 +5,10 @@
     <version>1.0.0</version>
     <authors>Dominic Hopton</authors>
     <owners>Dominic Hopton</owners>
-    <licenseUrl>https://github.com/grork/MixpanelClient/LICENSE.txt</licenseUrl>
+    <licenseUrl>https://github.com/grork/MixpanelClient/blob/master/LICENSE.txt</licenseUrl>
     <projectUrl>https://github.com/grork/MixpanelClient/</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <title>Mixpanel Client for UWP in C++</title>
     <description>A client library for uploading events to Mixpanel. Written in C++.</description>
     <releaseNotes>Initial Release</releaseNotes>
     <copyright>Copyright 2018</copyright>
