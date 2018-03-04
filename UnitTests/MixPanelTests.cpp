@@ -33,7 +33,7 @@ void SpinWaitForItemCount(const int& count, const int target)
     Assert::IsTrue(count >= target, L"Spin Wait looped too long and never reached target");
 }
 
-namespace Codevoid { namespace  Tests { namespace Mixpanel
+namespace Codevoid::Tests::Mixpanel
 {
     TEST_CLASS(MixpanelTests)
     {
@@ -815,4 +815,4 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
         }
 #pragma endregion
     };
-} } }
+}

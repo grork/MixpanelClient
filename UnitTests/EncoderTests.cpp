@@ -8,7 +8,7 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace Windows::Data::Json;
 using namespace Windows::Foundation::Collections;
 
-namespace Codevoid { namespace Tests { namespace Mixpanel {
+namespace Codevoid::Tests::Mixpanel {
     TEST_CLASS(EncoderTests)
     {
     public:
@@ -19,4 +19,4 @@ namespace Codevoid { namespace Tests { namespace Mixpanel {
             Assert::AreEqual(L"eyJldmVudCI6IlNpZ25lZCBVcCIsInByb3BlcnRpZXMiOnsiZGlzdGluY3RfaWQiOiIxMzc5MyIsInRva2VuIjoiZTNiYzQxMDAzMzBjMzU3MjI3NDBmYjhjNmY1YWJkZGMiLCJSZWZlcnJlZCBCeSI6IkZyaWVuZCJ9fQ==", encodedPayload, "Not equal");
         }
     };
-} } }
+}

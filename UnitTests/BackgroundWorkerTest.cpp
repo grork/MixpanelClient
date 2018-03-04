@@ -12,7 +12,7 @@ using namespace Windows::Data::Json;
 using namespace Windows::Foundation::Collections;
 using namespace Windows::Storage;
 
-namespace Codevoid { namespace Tests
+namespace Codevoid::Tests
 {
     vector<shared_ptr<int>> processAll(const vector<shared_ptr<int>>& current, const function<bool()>& shouldKeepProcessing)
     {
@@ -613,4 +613,4 @@ namespace Codevoid { namespace Tests
             Assert::IsFalse(status, L"Queue didn't reach 0 before timeout");
         }
     };
-} }
+}

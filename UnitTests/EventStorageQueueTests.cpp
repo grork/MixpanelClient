@@ -15,7 +15,7 @@ using namespace Windows::Data::Json;
 using namespace Windows::Foundation::Collections;
 using namespace Windows::Storage;
 
-namespace Codevoid { namespace  Tests { namespace Mixpanel
+namespace Codevoid::Tests::Mixpanel
 {
     static task<StorageFolder^> GetAndClearTestFolder()
     {
@@ -377,4 +377,4 @@ namespace Codevoid { namespace  Tests { namespace Mixpanel
             return result;
         }
     };
-} } }
+}
