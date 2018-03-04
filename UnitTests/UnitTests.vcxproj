@@ -217,6 +217,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BackgroundWorkerTest.cpp" />
+    <ClCompile Include="DurationTrackerTests.cpp" />
     <ClCompile Include="EncoderTests.cpp" />
     <ClCompile Include="EventStorageQueueTests.cpp" />
     <ClCompile Include="UnitTestApp.xaml.cpp">

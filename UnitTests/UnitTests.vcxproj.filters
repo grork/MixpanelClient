@@ -19,6 +19,7 @@
     <ClCompile Include="EncoderTests.cpp" />
     <ClCompile Include="BackgroundWorkerTest.cpp" />
     <ClCompile Include="EventStorageQueueTests.cpp" />
+    <ClCompile Include="DurationTrackerTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
