@@ -16,6 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)BackgroundWorker.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)DurationTracker.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)EventStorageQueue.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)MixpanelClient.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)PayloadEncoder.h" />
@@ -23,6 +24,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)Tracing.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)DurationTracker.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)EventStorageQueue.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)MixpanelClient.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)PayloadEncoder.cpp" />
