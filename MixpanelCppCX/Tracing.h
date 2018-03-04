@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Codevoid { namespace Utilities {
+namespace Codevoid::Utilities {
 
 #ifdef _DEBUG
     void Trace(::Platform::String^ data);
@@ -11,4 +11,4 @@ namespace Codevoid { namespace Utilities {
 #define TRACE_OUT(data)
 #endif
 
-} }
+}

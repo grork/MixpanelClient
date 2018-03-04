@@ -1,11 +1,11 @@
 #pragma once
 #include "EventStorageQueue.h"
 
-namespace Codevoid { namespace Tests { namespace Mixpanel {
+namespace Codevoid::Tests::Mixpanel {
     class MixpanelTests;
-} } }
+}
 
-namespace Codevoid { namespace Utilities { namespace Mixpanel {
+namespace Codevoid::Utilities::Mixpanel {
     /// <summary>
     /// MixpanelClient offers a API for interacting with Mixpanel for UWP apps running on Windows 10+
     /// </summary>
@@ -257,4 +257,4 @@ namespace Codevoid { namespace Utilities { namespace Mixpanel {
     };
 
     unsigned WindowsTickToUnixSeconds(long long windowsTicks);
-} } }
+}

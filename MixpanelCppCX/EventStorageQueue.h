@@ -2,11 +2,11 @@
 
 #include "BackgroundWorker.h"
 
-namespace Codevoid { namespace  Tests { namespace Mixpanel {
+namespace Codevoid::Tests::Mixpanel {
     class EventStorageQueueTests;
-} } }
+}
 
-namespace Codevoid { namespace Utilities { namespace Mixpanel {
+namespace Codevoid::Utilities::Mixpanel {
     enum class EventPriority
     {
         Normal,
@@ -140,4 +140,4 @@ namespace Codevoid { namespace Utilities { namespace Mixpanel {
         void HandleProcessedItems(const std::vector<std::shared_ptr<PayloadContainer>>& itemsToUpload);
         concurrency::task<void> ClearStorage();
     };
-} } }
+}

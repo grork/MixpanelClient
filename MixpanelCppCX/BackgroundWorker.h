@@ -3,7 +3,7 @@
 #include <agents.h>
 #include "Tracing.h"
 
-namespace Codevoid { namespace Utilities {
+namespace Codevoid::Utilities {
     /// <summary>
     /// Represents the importance of the work added to the BackgroundWorker
     /// </summary>
@@ -395,7 +395,7 @@ namespace Codevoid { namespace Utilities {
                             // and allow the thread to continue and eventually
                             // shutdown.
                             if (m_state > WorkerState::Running)
-                            {   
+                            {
                                 return true;
                             }
 
@@ -537,4 +537,4 @@ namespace Codevoid { namespace Utilities {
 
         std::wstring m_tracePrefix;
     };
-} }
+}
