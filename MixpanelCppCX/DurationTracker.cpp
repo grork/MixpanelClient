@@ -12,7 +12,7 @@ DurationTracker::DurationTracker(const steady_clock::time_point& initialTime) : 
 
 void DurationTracker::StartTimerFor(const wstring& name)
 {
-    m_timersForEvents.insert_or_assign(name, this->GetTimePointForNow());
+    m_timersForEvents.try_emplace(name, TrackingTimer { this->GetTimePointForNow(), milliseconds(0) });
 }
 
 std::optional<milliseconds> DurationTracker::EndTimerFor(const wstring& name)
@@ -26,9 +26,14 @@ std::optional<milliseconds> DurationTracker::EndTimerFor(const wstring& name)
     }
 
     auto now = GetTimePointForNow();
-    // Calculate of the event we looked up
-    auto durationOfEvent = now - (*then).second;
 
+    // Calculate total duration of the event we looked up
+    auto durationOfEvent = now - (*then).second.start;
+
+    // Remove any adjustment (E.g. while app was suspended)
+    // from the duration
+    durationOfEvent -= (*then).second.accumulatedAdjustment;
+    
     // When an event timer is asked for, we also
     // stop tracking it's time. Make sure we delete this
     // after we've used the iterator, otherwise it'll
