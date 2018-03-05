@@ -27,8 +27,11 @@ namespace Codevoid::Utilities::Mixpanel {
         /// any "suspended" times during that wall clock time. The timer
         /// is stopped when this is called, so you can't call again to ask
         /// for an updated duration.
+        ///
+        /// If the timer was never started, the optional will have not have
+        /// a value.
         /// </summary>
-        std::chrono::milliseconds EndTimerFor(const std::wstring& name);
+        std::optional<std::chrono::milliseconds> EndTimerFor(const std::wstring& name);
 
     private:
         std::unordered_map<std::wstring, std::chrono::steady_clock::time_point> m_timersForEvents;

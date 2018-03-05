@@ -15,17 +15,26 @@ void DurationTracker::StartTimerFor(const wstring& name)
     m_timersForEvents.insert_or_assign(name, this->GetTimePointForNow());
 }
 
-milliseconds DurationTracker::EndTimerFor(const wstring& name)
-{  
+std::optional<milliseconds> DurationTracker::EndTimerFor(const wstring& name)
+{
+    // If the event wasn't tracked, we're going to
+    // return an empty optional.
+    auto then = m_timersForEvents.find(name);
+    if (then == m_timersForEvents.end())
+    {
+        return nullopt;
+    }
+
     auto now = GetTimePointForNow();
-    auto then = m_timersForEvents.at(name);
+    // Calculate of the event we looked up
+    auto durationOfEvent = now - (*then).second;
 
     // When an event timer is asked for, we also
-    // stop tracking it's time.
+    // stop tracking it's time. Make sure we delete this
+    // after we've used the iterator, otherwise it'll
+    // get deallocated
     m_timersForEvents.erase(name);
 
-    // Calculate of the event we looked up
-    auto durationOfEvent = now - then;
     return duration_cast<milliseconds>(durationOfEvent);
 }
 
