@@ -7,12 +7,25 @@ using namespace Codevoid::Utilities::Mixpanel;
 using namespace std;
 using namespace std::chrono;
 
-DurationTracker::DurationTracker(const steady_clock::time_point& initialTime) : m_overrideNexTimeAccess(initialTime)
-{ }
+optional<steady_clock::time_point> g_overrideNextTimeAccess;
+
+steady_clock::time_point GetTimePointForNow()
+{
+    // If we have an override value, we'll return that
+    // rather than the real clock.
+    if (g_overrideNextTimeAccess.has_value())
+    {
+        auto value = *g_overrideNextTimeAccess;
+        g_overrideNextTimeAccess.reset();
+        return value;
+    }
+
+    return steady_clock::now();
+}
 
 void DurationTracker::StartTimerFor(const wstring& name)
 {
-    m_timersForEvents.try_emplace(name, TrackingTimer { this->GetTimePointForNow(), milliseconds(0) });
+    m_timersForEvents.try_emplace(name, TrackingTimer { GetTimePointForNow(), milliseconds(0) });
 }
 
 std::optional<milliseconds> DurationTracker::EndTimerFor(const wstring& name)
@@ -25,7 +38,7 @@ std::optional<milliseconds> DurationTracker::EndTimerFor(const wstring& name)
         return nullopt;
     }
 
-    auto now = this->GetTimePointForNow();
+    auto now = GetTimePointForNow();
 
     // Calculate total duration of the event we looked up
     auto durationOfEvent = now - (*then).second.start;
@@ -53,7 +66,7 @@ void DurationTracker::PauseTimers()
         return;
     }
 
-    m_pausedTime = this->GetTimePointForNow();
+    m_pausedTime = GetTimePointForNow();
 }
 
 void DurationTracker::ResumeTimers()
@@ -65,7 +78,7 @@ void DurationTracker::ResumeTimers()
     }
 
     // Calculate the duration to apply
-    auto now = this->GetTimePointForNow();
+    auto now = GetTimePointForNow();
     auto pausedDuration = duration_cast<milliseconds>(now - *m_pausedTime);
     
     // Update all accumulated adjustments in the timers for the time
@@ -85,23 +98,3 @@ void DurationTracker::ResumeTimers()
 
     m_pausedTime.reset();
 }
-
-steady_clock::time_point DurationTracker::GetTimePointForNow()
-{
-    // If we have an override value, we'll return that
-    // rather than the real clock.
-    if (m_overrideNexTimeAccess.has_value())
-    {
-        auto value = *m_overrideNexTimeAccess;
-        m_overrideNexTimeAccess.reset();
-        return value;
-    }
-
-    return steady_clock::now();
-}
-
-void DurationTracker::__SetClock(const steady_clock::time_point& advanceTo)
-{
-    m_overrideNexTimeAccess = advanceTo;
-}
-
