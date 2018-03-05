@@ -54,20 +54,6 @@ namespace Codevoid::Utilities::Mixpanel {
 
         std::unordered_map<std::wstring, TrackingTimer> m_timersForEvents;
         std::optional<std::chrono::steady_clock::time_point> m_pausedTime;
-
-        /// <summary>
-        /// Helper that "hides" the details of the exact clock
-        /// that is being used to facilitate testing (so we don't have
-        /// to wait for the wall clock time to pass to validate
-        /// behaviour
-        /// </summary>
-        std::chrono::steady_clock::time_point GetTimePointForNow();
-       
-        // Test helpers to facilitate manipulation of the clock
-        // by external parties.
-        DurationTracker(const std::chrono::steady_clock::time_point& intialTime);
-        void __SetClock(const std::chrono::steady_clock::time_point& nextTime);
-        std::optional<std::chrono::steady_clock::time_point> m_overrideNexTimeAccess;
     };
 }
 
