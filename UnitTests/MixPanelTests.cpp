@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "CppUnitTest.h"
+#include "DurationTracker.h"
 #include "MixpanelClient.h"
 #include "AsyncHelper.h"
 
@@ -20,6 +21,13 @@ constexpr auto DEFAULT_TOKEN = L"DEFAULT_TOKEN";
 constexpr auto OVERRIDE_STORAGE_FOLDER = L"MixpanelClientTests";
 constexpr milliseconds DEFAULT_IDLE_TIMEOUT = 10ms;
 constexpr size_t SPIN_LOOP_LIMIT = 500;
+
+extern std::optional<steady_clock::time_point> g_overrideNextTimeAccess;
+
+void SetNextClockAccessTime_MixpanelClient(const steady_clock::time_point& advanceTo)
+{
+    g_overrideNextTimeAccess = advanceTo;
+}
 
 void SpinWaitForItemCount(const int& count, const int target)
 {
@@ -812,6 +820,37 @@ namespace Codevoid::Tests::Mixpanel
             Assert::AreEqual(3, event2Count, L"Event 2 should have been retried twice, and once successfully");
 
             m_client->Shutdown().wait();
+        }
+
+        TEST_METHOD(DurationIsAutomaticallyAttached)
+        {
+            vector<vector<IJsonValue^>> capturedPayloads;
+            m_client->SetUploadToServiceMock([&capturedPayloads](auto, auto payloads, auto)
+            {
+                capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
+                return task_from_result(true);
+            });
+
+            m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
+
+            m_client->Start();
+            auto now = chrono::steady_clock::now();
+            SetNextClockAccessTime_MixpanelClient(now);
+            m_client->StartTimedEvent(L"TestEvent");
+
+            SetNextClockAccessTime_MixpanelClient(now + 1000ms);
+            m_client->Track(L"TestEvent", nullptr);
+
+            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
+
+            Assert::AreEqual(1, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
+            Assert::AreEqual(1, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
+            
+            auto jsonObjectPayload = dynamic_cast<JsonObject^>(capturedPayloads[0][0]);
+            Assert::IsTrue(jsonObjectPayload->HasKey(L"duration"), L"Duration wasn't attached");
+
+            auto attachedDuration = jsonObjectPayload->GetNamedNumber(L"duration");
+            Assert::AreEqual(1000.0, attachedDuration, L"Incorrect duration attached");
         }
 #pragma endregion
     };

@@ -1,5 +1,4 @@
 #include "pch.h"
-#include <chrono>
 #include <optional>
 #include "CppUnitTest.h"
 #include "DurationTracker.h"
@@ -12,7 +11,7 @@ using namespace std::chrono;
 
 extern std::optional<steady_clock::time_point> g_overrideNextTimeAccess;
 
-void SetNextClockAccessTime(const steady_clock::time_point& advanceTo)
+void SetNextClockAccessTime_DurationTracker(const steady_clock::time_point& advanceTo)
 {
     g_overrideNextTimeAccess = advanceTo;
 }
@@ -27,14 +26,14 @@ namespace Codevoid { namespace Tests { namespace Mixpanel {
         TEST_METHOD_INITIALIZE(Initialize)
         {
             now = steady_clock::now();
-            SetNextClockAccessTime(now);
+            SetNextClockAccessTime_DurationTracker(now);
         }
 
         TEST_METHOD(CanTrackTimeForOneEvent)
         {
             tracker.StartTimerFor(L"Test");
 
-            SetNextClockAccessTime(now + 500ms);
+            SetNextClockAccessTime_DurationTracker(now + 500ms);
             auto measuredDuration = tracker.EndTimerFor(L"Test");
 
             Assert::AreEqual(500, (int)(*measuredDuration).count(), L"Duration between start & end was inaccurate");
@@ -51,14 +50,14 @@ namespace Codevoid { namespace Tests { namespace Mixpanel {
         {
             tracker.StartTimerFor(L"Test");
             
-            SetNextClockAccessTime(now);
+            SetNextClockAccessTime_DurationTracker(now);
             tracker.StartTimerFor(L"Test2");
 
-            SetNextClockAccessTime(now + 500ms);
+            SetNextClockAccessTime_DurationTracker(now + 500ms);
             auto measuredDuration = tracker.EndTimerFor(L"Test");
             Assert::AreEqual(500, (int)(*measuredDuration).count(), L"Duration between start & end was inaccurate");
 
-            SetNextClockAccessTime(now + 750ms);
+            SetNextClockAccessTime_DurationTracker(now + 750ms);
             measuredDuration = tracker.EndTimerFor(L"Test2");
             Assert::AreEqual(750, (int)(*measuredDuration).count(), L"Duration between start & end on second event was inaccurate");
         }
@@ -67,13 +66,13 @@ namespace Codevoid { namespace Tests { namespace Mixpanel {
         {
             tracker.StartTimerFor(L"Test");
 
-            SetNextClockAccessTime(now + 500ms);
+            SetNextClockAccessTime_DurationTracker(now + 500ms);
             tracker.PauseTimers();
 
-            SetNextClockAccessTime(now + 10'000ms);
+            SetNextClockAccessTime_DurationTracker(now + 10'000ms);
             tracker.ResumeTimers();
 
-            SetNextClockAccessTime(now + 10'000ms);
+            SetNextClockAccessTime_DurationTracker(now + 10'000ms);
             auto measuredDuration = tracker.EndTimerFor(L"Test");
 
             Assert::AreEqual(500, (int)(*measuredDuration).count(), L"Duration between start & end was inaccurate");
@@ -81,16 +80,16 @@ namespace Codevoid { namespace Tests { namespace Mixpanel {
 
         TEST_METHOD(TimeIsntAdjustedWhenTrackingStartsWhilePaused)
         {
-            SetNextClockAccessTime(now + 500ms);
+            SetNextClockAccessTime_DurationTracker(now + 500ms);
             tracker.PauseTimers();
 
-            SetNextClockAccessTime(now + 1'000ms);
+            SetNextClockAccessTime_DurationTracker(now + 1'000ms);
             tracker.StartTimerFor(L"Test");
 
-            SetNextClockAccessTime(now + 10'000ms);
+            SetNextClockAccessTime_DurationTracker(now + 10'000ms);
             tracker.ResumeTimers();
 
-            SetNextClockAccessTime(now + 10'000ms);
+            SetNextClockAccessTime_DurationTracker(now + 10'000ms);
             auto measuredDuration = tracker.EndTimerFor(L"Test");
 
             Assert::AreEqual(9'000, (int)(*measuredDuration).count(), L"Duration between start & end was inaccurate");
@@ -100,16 +99,16 @@ namespace Codevoid { namespace Tests { namespace Mixpanel {
         {
             tracker.StartTimerFor(L"Test");
 
-            SetNextClockAccessTime(now + 500ms);
+            SetNextClockAccessTime_DurationTracker(now + 500ms);
             tracker.PauseTimers();
 
-            SetNextClockAccessTime(now + 9'000ms);
+            SetNextClockAccessTime_DurationTracker(now + 9'000ms);
             tracker.PauseTimers();
 
-            SetNextClockAccessTime(now + 10'000ms);
+            SetNextClockAccessTime_DurationTracker(now + 10'000ms);
             tracker.ResumeTimers();
 
-            SetNextClockAccessTime(now + 10'000ms);
+            SetNextClockAccessTime_DurationTracker(now + 10'000ms);
             auto measuredDuration = tracker.EndTimerFor(L"Test");
 
             Assert::AreEqual(500, (int)(*measuredDuration).count(), L"Duration between start & end was inaccurate");
@@ -119,16 +118,16 @@ namespace Codevoid { namespace Tests { namespace Mixpanel {
         {
             tracker.StartTimerFor(L"Test");
 
-            SetNextClockAccessTime(now + 500ms);
+            SetNextClockAccessTime_DurationTracker(now + 500ms);
             tracker.PauseTimers();
 
-            SetNextClockAccessTime(now + 10'000ms);
+            SetNextClockAccessTime_DurationTracker(now + 10'000ms);
             tracker.ResumeTimers();
 
-            SetNextClockAccessTime(now + 11'000ms);
+            SetNextClockAccessTime_DurationTracker(now + 11'000ms);
             tracker.ResumeTimers();
 
-            SetNextClockAccessTime(now + 10'000ms);
+            SetNextClockAccessTime_DurationTracker(now + 10'000ms);
             auto measuredDuration = tracker.EndTimerFor(L"Test");
 
             Assert::AreEqual(500, (int)(*measuredDuration).count(), L"Duration between start & end was inaccurate");
@@ -138,10 +137,10 @@ namespace Codevoid { namespace Tests { namespace Mixpanel {
         {
             tracker.StartTimerFor(L"Test");
 
-            SetNextClockAccessTime(now + 10'000ms);
+            SetNextClockAccessTime_DurationTracker(now + 10'000ms);
             tracker.ResumeTimers();
 
-            SetNextClockAccessTime(now + 10'000ms);
+            SetNextClockAccessTime_DurationTracker(now + 10'000ms);
             auto measuredDuration = tracker.EndTimerFor(L"Test");
 
             Assert::AreEqual(10'000, (int)(*measuredDuration).count(), L"Duration between start & end was inaccurate");

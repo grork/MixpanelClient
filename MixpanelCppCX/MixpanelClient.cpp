@@ -2,7 +2,6 @@
 #include "EventStorageQueue.h"
 #include "MixpanelClient.h"
 #include "PayloadEncoder.h"
-#include <chrono>
 
 using namespace Codevoid::Utilities::Mixpanel;
 using namespace concurrency;
@@ -29,6 +28,7 @@ constexpr long long SEC_TO_UNIX_EPOCH = 11644473600LL;
 constexpr auto SUPER_PROPERTIES_CONTAINER_NAME = L"Codevoid_Utilities_Mixpanel";
 constexpr auto MIXPANEL_QUEUE_FOLDER = L"MixpanelUploadQueue";
 constexpr auto CRYPTO_TOKEN_HMAC_NAME = L"SHA256";
+constexpr auto DURATION_PROPERTY_NAME = L"duration";
 
 constexpr vector<shared_ptr<PayloadContainer>>::difference_type DEFAULT_UPLOAD_SIZE_STRIDE = 50;
 
@@ -210,8 +210,40 @@ void MixpanelClient::Track(String^ name, IPropertySet^ properties)
         properties = ref new PropertySet();
     }
 
+    // Auto attach the duration event if there isn't already
+    // an attached "duration" event.
+    if (!properties->HasKey(StringReference(DURATION_PROPERTY_NAME)))
+    {
+        auto durationForEvent = m_durationTracker.EndTimerFor(name->Data());
+
+        // If the event wasn't timed, then don't attach it.
+        if (durationForEvent.has_value())
+        {
+            properties->Insert(
+                StringReference(DURATION_PROPERTY_NAME),
+                JsonValue::CreateNumberValue(static_cast<double>((*durationForEvent).count()))
+            );
+        }
+    }
+
     IJsonValue^ payload = this->GenerateTrackingJsonPayload(name, properties);
     m_eventStorageQueue->QueueEventToStorage(payload);
+}
+
+void MixpanelClient::StartTimedEvent(String^ name)
+{
+    this->ThrowIfNotInitialized();
+    if (this->DropEventsForPrivacy)
+    {
+        return;
+    }
+
+    if (name->IsEmpty())
+    {
+        throw ref new InvalidArgumentException(L"Name cannot be empty or null");
+    }
+
+    m_durationTracker.StartTimerFor(name->Data());
 }
 
 void MixpanelClient::AddItemsToUploadQueue(const vector<shared_ptr<PayloadContainer>>& itemsToUpload)

@@ -138,6 +138,19 @@ mixpanelClient.Track("LoggedIn", null);
 `name` — Name of the event that is being logged (required)
 `properties` — Any additional properties you would like to log with this event (optional)
 
+void StartTimedEvent(string name)
+---------------------------------
+Starts a timing the duration of an event. After this, if an event is tracked
+through `Track` with the same name, a `duration` property will be attached to
+the event when tracked.
+
+```
+mixpanelClient.StartTimedEvent("LoggedIn");
+```
+
+### Parameters
+`name` — Name of the event that the duration is to be tracked (required)
+
 void SetSuperProperty(String name, [String/Double/Boolean] value)
 -----------------------------------------------------------------
 Sets a super property on the class, that is persisted across instances. You can

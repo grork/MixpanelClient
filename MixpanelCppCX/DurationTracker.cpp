@@ -1,6 +1,4 @@
 #include "pch.h"
-#include <chrono>
-#include <string>
 #include "DurationTracker.h"
 
 using namespace Codevoid::Utilities::Mixpanel;

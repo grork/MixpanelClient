@@ -1,4 +1,5 @@
 #pragma once
+#include "DurationTracker.h"
 #include "EventStorageQueue.h"
 
 namespace Codevoid::Tests::Mixpanel {
@@ -39,6 +40,13 @@ namespace Codevoid::Utilities::Mixpanel {
         /// </param>
         /// </summary>
         void Track(Platform::String^ name, Windows::Foundation::Collections::IPropertySet^ properties);
+
+        /// <summary>
+        /// Begins tracking the duration of the named event. When an event is tracked
+        /// with the same name by calling Track, a "duration" property will be added
+        /// to the event payload with the since starting the timer.
+        /// </summary>
+        void StartTimedEvent(Platform::String^ name);
 
         /// <summary>
         /// Sets a property &amp; it's value that will be attached to all datapoints logged with
@@ -244,6 +252,7 @@ namespace Codevoid::Utilities::Mixpanel {
         Platform::String^ m_token;
         Windows::Foundation::Collections::IPropertySet^ m_superProperties;
 
+        Codevoid::Utilities::Mixpanel::DurationTracker m_durationTracker;
         Windows::Foundation::Uri^ m_serviceUri;
         Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ m_userAgent;
         std::unique_ptr<Codevoid::Utilities::Mixpanel::EventStorageQueue> m_eventStorageQueue;
