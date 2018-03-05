@@ -20,9 +20,18 @@ namespace Codevoid { namespace Tests { namespace Mixpanel {
             tracker.StartTimerFor(L"Test");
 
             tracker.__SetClock(now + 500ms);
-            auto duration = tracker.EndTimerFor(L"Test");
-            
-            Assert::AreEqual(500, (int)duration.count(), L"Duration between start & end was in accurate");
+            auto measuredDuration = tracker.EndTimerFor(L"Test");
+
+            Assert::AreEqual(500, (int)(*measuredDuration).count(), L"Duration between start & end was inaccurate");
+        }
+
+        TEST_METHOD(EndingTimerForEventThatWasntStartedReturnsEmptyValue)
+        {
+            auto now = steady_clock::now();
+            DurationTracker tracker(now);
+            auto measuredDuration = tracker.EndTimerFor(L"Test");
+
+            Assert::IsFalse(measuredDuration.has_value(), L"An event that didn't start, shouldn't have a value when ending");
         }
 
         TEST_METHOD(CanTrackTimeForTwoEvent)
@@ -35,12 +44,12 @@ namespace Codevoid { namespace Tests { namespace Mixpanel {
             tracker.StartTimerFor(L"Test2");
 
             tracker.__SetClock(now + 500ms);
-            auto duration = tracker.EndTimerFor(L"Test");
-            Assert::AreEqual(500, (int)duration.count(), L"Duration between start & end was in accurate");
+            auto measuredDuration = tracker.EndTimerFor(L"Test");
+            Assert::AreEqual(500, (int)(*measuredDuration).count(), L"Duration between start & end was inaccurate");
 
             tracker.__SetClock(now + 750ms);
-            duration = tracker.EndTimerFor(L"Test2");
-            Assert::AreEqual(750, (int)duration.count(), L"Duration between start & end was in accurate");
+            measuredDuration = tracker.EndTimerFor(L"Test2");
+            Assert::AreEqual(750, (int)(*measuredDuration).count(), L"Duration between start & end on second event was inaccurate");
         }
     };
 } } }
