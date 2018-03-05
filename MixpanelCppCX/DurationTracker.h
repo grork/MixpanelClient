@@ -34,7 +34,13 @@ namespace Codevoid::Utilities::Mixpanel {
         std::optional<std::chrono::milliseconds> EndTimerFor(const std::wstring& name);
 
     private:
-        std::unordered_map<std::wstring, std::chrono::steady_clock::time_point> m_timersForEvents;
+        struct TrackingTimer
+        {
+            std::chrono::steady_clock::time_point start;
+            std::chrono::milliseconds accumulatedAdjustment;
+        };
+
+        std::unordered_map<std::wstring, TrackingTimer> m_timersForEvents;
 
         /// <summary>
         /// Helper that "hides" the details of the exact clock
