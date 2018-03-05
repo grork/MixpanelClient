@@ -25,13 +25,15 @@ std::optional<milliseconds> DurationTracker::EndTimerFor(const wstring& name)
         return nullopt;
     }
 
-    auto now = GetTimePointForNow();
+    auto now = this->GetTimePointForNow();
 
     // Calculate total duration of the event we looked up
     auto durationOfEvent = now - (*then).second.start;
 
     // Remove any adjustment (E.g. while app was suspended)
-    // from the duration
+    // from the duration. Note, if the tracker is currently
+    // paused, any time in that paused state is not added
+    // onto the event here.
     durationOfEvent -= (*then).second.accumulatedAdjustment;
     
     // When an event timer is asked for, we also
@@ -41,6 +43,47 @@ std::optional<milliseconds> DurationTracker::EndTimerFor(const wstring& name)
     m_timersForEvents.erase(name);
 
     return duration_cast<milliseconds>(durationOfEvent);
+}
+
+void DurationTracker::PauseTimers()
+{
+    if (m_pausedTime.has_value())
+    {
+        // We're already paused
+        return;
+    }
+
+    m_pausedTime = this->GetTimePointForNow();
+}
+
+void DurationTracker::ResumeTimers()
+{
+    // If we weren't paused, don't do any processing
+    if (!m_pausedTime.has_value())
+    {
+        return;
+    }
+
+    // Calculate the duration to apply
+    auto now = this->GetTimePointForNow();
+    auto pausedDuration = duration_cast<milliseconds>(now - *m_pausedTime);
+    
+    // Update all accumulated adjustments in the timers for the time
+    // we were paused to ensure their durations are accurate.
+    for (auto&& item : m_timersForEvents)
+    {
+        if (item.second.start > *m_pausedTime)
+        {
+            // We started to track an event while paused
+            // It's implied that if you did this you probably
+            // don't want to track the paused time for that event
+            continue;
+        }
+
+        item.second.accumulatedAdjustment += pausedDuration;
+    }
+
+    m_pausedTime.reset();
 }
 
 steady_clock::time_point DurationTracker::GetTimePointForNow()

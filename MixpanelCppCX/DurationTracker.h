@@ -33,6 +33,18 @@ namespace Codevoid::Utilities::Mixpanel {
         /// </summary>
         std::optional<std::chrono::milliseconds> EndTimerFor(const std::wstring& name);
 
+        /// <summary>
+        /// Pauses all the timers to adjust for an "idle" period
+        /// that we don't want/need to keep track of.
+        /// </summary>
+        void PauseTimers();
+
+        /// <summary>
+        /// Resume tracking, accounting for the duration of the time
+        /// we were paused.
+        /// </summary>
+        void ResumeTimers();
+
     private:
         struct TrackingTimer
         {
@@ -41,6 +53,7 @@ namespace Codevoid::Utilities::Mixpanel {
         };
 
         std::unordered_map<std::wstring, TrackingTimer> m_timersForEvents;
+        std::optional<std::chrono::steady_clock::time_point> m_pausedTime;
 
         /// <summary>
         /// Helper that "hides" the details of the exact clock
