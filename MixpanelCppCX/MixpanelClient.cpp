@@ -95,6 +95,8 @@ void MixpanelClient::Start()
     this->StartWorker();
     m_suspendingEventToken = CoreApplication::Suspending += ref new EventHandler<SuspendingEventArgs^>(this, &MixpanelClient::HandleApplicationSuspend);
     m_resumingEventToken = CoreApplication::Resuming += ref new EventHandler<Object^>(this, &MixpanelClient::HandleApplicationResuming);
+    m_enteredBackgroundEventToken = CoreApplication::EnteredBackground += ref new EventHandler<EnteredBackgroundEventArgs^>(this, &MixpanelClient::HandleApplicationEnteredBackground);
+    m_leavingBackgroundEventToken = CoreApplication::LeavingBackground += ref new EventHandler<LeavingBackgroundEventArgs^>(this, &MixpanelClient::HandleApplicationLeavingBackground);
 }
 
 void MixpanelClient::HandleApplicationSuspend(Object^, SuspendingEventArgs^ args)
@@ -109,6 +111,16 @@ void MixpanelClient::HandleApplicationSuspend(Object^, SuspendingEventArgs^ args
 void MixpanelClient::HandleApplicationResuming(Object^, Object^)
 {
     this->StartWorker();
+}
+
+void MixpanelClient::HandleApplicationEnteredBackground(Platform::Object^, EnteredBackgroundEventArgs^)
+{
+    m_durationTracker.PauseTimers();
+}
+
+void MixpanelClient::HandleApplicationLeavingBackground(Object^, LeavingBackgroundEventArgs^)
+{
+    m_durationTracker.ResumeTimers();
 }
 
 task<void> MixpanelClient::PauseWorker()
