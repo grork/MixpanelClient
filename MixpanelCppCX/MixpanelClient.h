@@ -219,6 +219,18 @@ namespace Codevoid::Utilities::Mixpanel {
         /// </summary>
         void HandleApplicationResuming(Platform::Object^ sender, Platform::Object^ args);
 
+        /// <summary>
+        /// Handles the app entering the background, intended to inform the automatic duration
+        /// of events that it should stop measuring the time.
+        /// </summary>
+        void HandleApplicationEnteredBackground(Platform::Object^ sender, Windows::ApplicationModel::EnteredBackgroundEventArgs^ args);
+
+        /// <summary>
+        /// Handles the app leaving the background, intended to inform the automatic duration
+        /// of events that it should now start measuring the time again.
+        /// </summary>
+        void HandleApplicationLeavingBackground(Platform::Object^ sender, Windows::ApplicationModel::LeavingBackgroundEventArgs^ args);
+
         static concurrency::task<bool> SendRequestToService(Windows::Foundation::Uri^ uri,
                                                      Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^ payload,
                                                      Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ userAgent);
@@ -263,6 +275,8 @@ namespace Codevoid::Utilities::Mixpanel {
             Windows::Web::Http::Headers::HttpProductInfoHeaderValue^)> m_requestHelper;
         Windows::Foundation::EventRegistrationToken m_suspendingEventToken;
         Windows::Foundation::EventRegistrationToken m_resumingEventToken;
+        Windows::Foundation::EventRegistrationToken m_enteredBackgroundEventToken;
+        Windows::Foundation::EventRegistrationToken m_leavingBackgroundEventToken;
     };
 
     unsigned WindowsTickToUnixSeconds(long long windowsTicks);
