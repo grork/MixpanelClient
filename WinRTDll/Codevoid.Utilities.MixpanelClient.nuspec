@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>Codevoid.Utilities.Mixpanel</id>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <authors>Dominic Hopton</authors>
     <owners>Dominic Hopton</owners>
     <licenseUrl>https://github.com/grork/MixpanelClient/blob/master/LICENSE.txt</licenseUrl>
@@ -10,7 +10,7 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <title>Mixpanel Client for UWP in C++</title>
     <description>A client library for uploading events to Mixpanel. Written in C++.</description>
-    <releaseNotes>Initial Release</releaseNotes>
+    <releaseNotes>Supports (optional) automatic duration attachment to events (see README.md for details)</releaseNotes>
     <copyright>Copyright 2018</copyright>
     <tags>Mixpanel UWP analytics telemetry client C++ javascript typescript</tags>
   </metadata>
