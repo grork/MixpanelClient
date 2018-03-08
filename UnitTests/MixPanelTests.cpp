@@ -847,9 +847,10 @@ namespace Codevoid::Tests::Mixpanel
             Assert::AreEqual(1, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
             
             auto jsonObjectPayload = dynamic_cast<JsonObject^>(capturedPayloads[0][0]);
-            Assert::IsTrue(jsonObjectPayload->HasKey(L"duration"), L"Duration wasn't attached");
+            Assert::IsTrue(jsonObjectPayload->HasKey(L"properties"), L"properties weren't attached");
 
-            auto attachedDuration = jsonObjectPayload->GetNamedNumber(L"duration");
+            auto propertiesPayload = jsonObjectPayload->GetNamedObject(L"properties");
+            auto attachedDuration = propertiesPayload->GetNamedNumber(L"duration");
             Assert::AreEqual(1000.0, attachedDuration, L"Incorrect duration attached");
         }
 #pragma endregion

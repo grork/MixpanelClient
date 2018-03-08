@@ -233,7 +233,7 @@ void MixpanelClient::Track(String^ name, IPropertySet^ properties)
         {
             properties->Insert(
                 StringReference(DURATION_PROPERTY_NAME),
-                JsonValue::CreateNumberValue(static_cast<double>((*durationForEvent).count()))
+                static_cast<double>((*durationForEvent).count())
             );
         }
     }
