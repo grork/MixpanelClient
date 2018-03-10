@@ -27,6 +27,9 @@ there are 10 or more items in the queue — whichever comes first.
 they're uploaded 1 at a time.
 - The queue is paused automatically when being suspended, and resumed when...
 resumed.
+- This library does automatic session tracking — it starts tracking the session
+duration on start, and will automatically end/resume the session based on
+suspend/resume events.
 
 Usage
 =====
@@ -98,6 +101,18 @@ If you wish to override the time for a single event, include a property named
 mixpanelClient.AutomaticallyAttachTimeToEvents = false;
 ```
 
+bool AutomaticallyTrackSessions
+------------------------------------
+By default, session duration is tracked & sent to the service. The session is
+started when Start() is called, and ends either when the app is suspended or
+when RestartSession()/Shutdown() is called.
+
+Set this to false to have the session tracking turned off.
+
+```
+mixpanelClient.AutomaticallyTrackSessions = false;
+```
+
 bool DropEventsForPrivacy
 -------------------------
 
@@ -146,6 +161,17 @@ the event when tracked.
 
 ```
 mixpanelClient.StartTimedEvent("LoggedIn");
+```
+
+void RestartSessionTracking()
+---------------------------------
+Explicitly starts a restarts session. If there is one already in progress, the
+in progress session will be ended, otherwise starts one. Intended to be used in
+situations where your session doesn't always match between suspend & resume.
+E.g. you want to start a session when someone logs in.
+
+```
+mixpanelClient.RestartSessionTracking();
 ```
 
 ### Parameters

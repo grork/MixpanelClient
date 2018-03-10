@@ -49,6 +49,14 @@ namespace Codevoid::Utilities::Mixpanel {
         void StartTimedEvent(Platform::String^ name);
 
         /// <summary>
+        /// Explicitly starts a restarts session. If there is one already in progress, the
+        /// in progress session will be ended, otherwise starts one.Intended to be used in
+        /// situations where your session doesn't always match between suspend &amp; resume.
+        //  E.g.you want to start a session when someone logs in.
+        /// </summary>
+        void RestartSessionTracking();
+
+        /// <summary>
         /// Sets a property &amp; it's value that will be attached to all datapoints logged with
         /// this instance of the client. Suppports String, Double, and Boolean values.
         ///
@@ -120,6 +128,12 @@ namespace Codevoid::Utilities::Mixpanel {
         property bool AutomaticallyAttachTimeToEvents;
 
         /// <summary>
+        /// When enabled, tracks the duration of sessions automatically, based on
+        /// suspend &amp; resume events.
+        /// </summary>
+        property bool AutomaticallyTrackSessions;
+
+        /// <summary>
         /// When enabled, and even is tracked, it is immediately dropped, and never
         /// sent anywhere. Intent is to allow clients to provide privacy options
         /// to their user, but maintain all the rest of their tracking logic.
@@ -154,6 +168,17 @@ namespace Codevoid::Utilities::Mixpanel {
             Windows::Storage::StorageFolder^ queueFolder,
             Windows::Foundation::Uri^ serviceUri
         );
+
+        /// <summary>
+        /// Starts tracking a session (e.g. the duration)
+        /// </summary>
+        void StartSessionTracking();
+
+        /// <summary>
+        /// Ends the session, and sends any session properties + duration of
+        /// the session into the queue to be uploaded.
+        /// </summary>
+        void EndSessionTracking();
 
         /// <summary>
         ///	Configures the class for simpler / faster testing by:
@@ -277,6 +302,7 @@ namespace Codevoid::Utilities::Mixpanel {
         Windows::Foundation::EventRegistrationToken m_resumingEventToken;
         Windows::Foundation::EventRegistrationToken m_enteredBackgroundEventToken;
         Windows::Foundation::EventRegistrationToken m_leavingBackgroundEventToken;
+        bool m_sessionTrackingStarted = false;
     };
 
     unsigned WindowsTickToUnixSeconds(long long windowsTicks);

@@ -113,6 +113,10 @@ namespace Codevoid::Tests::Mixpanel
             // to help maintain these tests as stateless
             m_client->PersistSuperPropertiesToApplicationData = false;
 
+            // We don't want the automatic session tracking
+            // to add additional events when we're not expecting it.
+            m_client->AutomaticallyTrackSessions = false;
+
             auto folder = AsyncHelper::RunSynced(GetAndClearTestFolder());
 
             // The URL here is a helpful endpoint on the internet that just round-files

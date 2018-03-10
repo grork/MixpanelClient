@@ -29,6 +29,7 @@ constexpr auto SUPER_PROPERTIES_CONTAINER_NAME = L"Codevoid_Utilities_Mixpanel";
 constexpr auto MIXPANEL_QUEUE_FOLDER = L"MixpanelUploadQueue";
 constexpr auto CRYPTO_TOKEN_HMAC_NAME = L"SHA256";
 constexpr auto DURATION_PROPERTY_NAME = L"duration";
+constexpr auto SESSION_TRACKING_EVENT = L"Session";
 
 constexpr vector<shared_ptr<PayloadContainer>>::difference_type DEFAULT_UPLOAD_SIZE_STRIDE = 50;
 
@@ -75,6 +76,7 @@ MixpanelClient::MixpanelClient(String^ token) :
     m_token = token;
     this->PersistSuperPropertiesToApplicationData = true;
     this->AutomaticallyAttachTimeToEvents = true;
+    this->AutomaticallyTrackSessions = true;
 }
 
 IAsyncAction^ MixpanelClient::InitializeAsync()
@@ -93,6 +95,7 @@ void MixpanelClient::StartWorker()
 void MixpanelClient::Start()
 {
     this->StartWorker();
+    this->StartSessionTracking();
     m_suspendingEventToken = CoreApplication::Suspending += ref new EventHandler<SuspendingEventArgs^>(this, &MixpanelClient::HandleApplicationSuspend);
     m_resumingEventToken = CoreApplication::Resuming += ref new EventHandler<Object^>(this, &MixpanelClient::HandleApplicationResuming);
     m_enteredBackgroundEventToken = CoreApplication::EnteredBackground += ref new EventHandler<EnteredBackgroundEventArgs^>(this, &MixpanelClient::HandleApplicationEnteredBackground);
@@ -102,7 +105,9 @@ void MixpanelClient::Start()
 void MixpanelClient::HandleApplicationSuspend(Object^, SuspendingEventArgs^ args)
 {
     auto deferral = args->SuspendingOperation->GetDeferral();
-    
+
+    this->EndSessionTracking();
+
     this->PauseWorker().then([deferral]() {
         deferral->Complete();
     });
@@ -111,6 +116,7 @@ void MixpanelClient::HandleApplicationSuspend(Object^, SuspendingEventArgs^ args
 void MixpanelClient::HandleApplicationResuming(Object^, Object^)
 {
     this->StartWorker();
+    this->StartSessionTracking();
 }
 
 void MixpanelClient::HandleApplicationEnteredBackground(Platform::Object^, EnteredBackgroundEventArgs^)
@@ -121,6 +127,35 @@ void MixpanelClient::HandleApplicationEnteredBackground(Platform::Object^, Enter
 void MixpanelClient::HandleApplicationLeavingBackground(Object^, LeavingBackgroundEventArgs^)
 {
     m_durationTracker.ResumeTimers();
+}
+
+void MixpanelClient::StartSessionTracking()
+{
+    if (!this->AutomaticallyTrackSessions)
+    {
+        return;
+    }
+
+    m_sessionTrackingStarted = true;
+    this->ThrowIfNotInitialized();
+    this->StartTimedEvent(StringReference(SESSION_TRACKING_EVENT));
+}
+
+void MixpanelClient::EndSessionTracking()
+{
+    if (!m_sessionTrackingStarted || !this->AutomaticallyTrackSessions)
+    {
+        return;
+    }
+
+    this->ThrowIfNotInitialized();
+    this->Track(StringReference(SESSION_TRACKING_EVENT), nullptr);
+}
+
+void MixpanelClient::RestartSessionTracking()
+{
+    this->EndSessionTracking();
+    this->StartSessionTracking();
 }
 
 task<void> MixpanelClient::PauseWorker()
@@ -159,6 +194,8 @@ task<void> MixpanelClient::Shutdown()
     {
         return;
     }
+
+    this->EndSessionTracking();
 
     co_await m_eventStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
     m_eventStorageQueue = nullptr;
