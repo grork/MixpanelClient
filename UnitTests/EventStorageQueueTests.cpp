@@ -289,7 +289,7 @@ namespace Codevoid::Tests::Mixpanel
 
             AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorageAndShutdown());
 
-            Assert::AreEqual(0, (int)this->GetWrittenItemsSize(), L"Shouldn't have anything in the successfully written queue.");
+            Assert::AreEqual(2, (int)this->GetWrittenItemsSize(), L"Should've have anything in the successfully written queue.");
             Assert::AreEqual(2, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
 
             AsyncHelper::RunSynced(m_queue->Clear());

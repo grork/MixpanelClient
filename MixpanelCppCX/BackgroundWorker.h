@@ -474,7 +474,7 @@ namespace Codevoid::Utilities {
                     }
                 }
 
-                if (m_state > WorkerState::Paused)
+                if (m_state > WorkerState::Drain)
                 {
                     TRACE_OUT(m_tracePrefix + L": Queue shutting down, skipping post processing");
                     continue;

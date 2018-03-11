@@ -239,7 +239,7 @@ namespace Codevoid::Tests
             worker.Shutdown();
 
             Assert::AreEqual(0, (int)worker.GetQueueLength(), L"Items still in queue");
-            Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
+            Assert::IsTrue(postProcessCalled, L"Queue was drained, but post process should've have been called");
         }
 
         TEST_METHOD(WorkIsProcessedButNotPostProcessedWhenDrained)
@@ -269,7 +269,7 @@ namespace Codevoid::Tests
 
             Assert::AreEqual(0, (int)worker.GetQueueLength(), L"Items still in queue");
             Assert::IsTrue(processWasCalled, L"Queue was drained, but nothing was processed");
-            Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
+            Assert::IsTrue(postProcessCalled, L"Queue was drained, but post process should've have been called");
         }
 
         TEST_METHOD(WorkIsNotProcessedAndNotPostProcessedWhenDropped)
@@ -358,7 +358,7 @@ namespace Codevoid::Tests
 
             Assert::IsTrue(processWasCalled, L"Queue processed something");
             Assert::AreEqual(0, (int)worker.GetQueueLength(), L"Items still in queue");
-            Assert::AreEqual(0, postProcessItemCount, L"Queue was drained, but post process wasn't called for the correct number of item");
+            Assert::AreEqual(5, postProcessItemCount, L"Queue was drained, but post process wasn't called for the correct number of items");
         }
 
         TEST_METHOD(WorkCorrectlyDropsAfterStartingToProcessItems)
@@ -574,7 +574,7 @@ namespace Codevoid::Tests
             worker.Shutdown();
 
             Assert::AreEqual(0, (int)worker.GetQueueLength(), L"Items still in queue");
-            Assert::IsFalse(postProcessCalled, L"Queue was processed, but post process should't have been called");
+            Assert::IsTrue(postProcessCalled, L"Queue was processed, but post process should've have been called");
         }
 
         TEST_METHOD(WorkerIsNotTriggeredWhenOnlyQueueingNonCriticalWork)
