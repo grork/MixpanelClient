@@ -354,10 +354,10 @@ namespace Codevoid::Tests::Mixpanel
         {
             IPropertySet^ properties = ref new PropertySet();
             properties->Insert(L"StringValue", L"Value");
-            m_client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
-            m_client->SetSuperProperty(L"SuperPropertyB", 7.0);
-            m_client->SetSuperProperty(L"SuperPropertyC", true);
-            m_client->SetSuperProperty(L"SuperPropertyD", 1);
+            m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
+            m_client->SetSuperPropertyAsDouble(L"SuperPropertyB", 7.0);
+            m_client->SetSuperPropertyAsBoolean(L"SuperPropertyC", true);
+            m_client->SetSuperPropertyAsInteger(L"SuperPropertyD", 1);
 
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
 
@@ -398,7 +398,7 @@ namespace Codevoid::Tests::Mixpanel
         TEST_METHOD(CanSetSuperPropertyMoreThanOnce)
         {
             IPropertySet^ properties = ref new PropertySet();
-            m_client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
+            m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
 
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
 
@@ -411,7 +411,7 @@ namespace Codevoid::Tests::Mixpanel
             Assert::AreEqual(L"SuperValueA", propertiesPayload->GetNamedString(L"SuperPropertyA"), L"SuperPropertyA had incorrect value");
 
             // Set the super property a second time
-            m_client->SetSuperProperty(L"SuperPropertyA", L"DifferentValue");
+            m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"DifferentValue");
 
             // Validate payload again
             trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
@@ -425,7 +425,7 @@ namespace Codevoid::Tests::Mixpanel
         TEST_METHOD(CanClearSuperProperties)
         {
             IPropertySet^ properties = ref new PropertySet();
-            m_client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
+            m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
 
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
 
@@ -455,15 +455,15 @@ namespace Codevoid::Tests::Mixpanel
 
         TEST_METHOD(CanCheckForSuperPropertyWhenSet)
         {
-            m_client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
+            m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
             Assert::IsTrue(m_client->HasSuperProperty(L"SuperPropertyA"), L"SuperPropertyA not in list");
         }
 
         TEST_METHOD(CanReadBackSuperProperties)
         {
-            m_client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
-            m_client->SetSuperProperty(L"SuperPropertyB", true);
-            m_client->SetSuperProperty(L"SuperPropertyC", 7.0);
+            m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
+            m_client->SetSuperPropertyAsBoolean(L"SuperPropertyB", true);
+            m_client->SetSuperPropertyAsDouble(L"SuperPropertyC", 7.0);
 
             Assert::AreEqual(L"SuperValueA", m_client->GetSuperPropertyAsString(L"SuperPropertyA"), L"SuperPropertyA didn't match");
             Assert::IsTrue(m_client->GetSuperPropertyAsBool(L"SuperPropertyB"), L"SuperPropertyB didn't match");
@@ -476,7 +476,7 @@ namespace Codevoid::Tests::Mixpanel
 
             // Add Property, and validate it actualy makes it before we
             // try to remove it
-            m_client->SetSuperProperty(StringReference(PROPERTY_NAME), L"SuperValueA");
+            m_client->SetSuperPropertyAsString(StringReference(PROPERTY_NAME), L"SuperValueA");
             Assert::IsTrue(m_client->HasSuperProperty(StringReference(PROPERTY_NAME)), L"Property wasn't found; expected it");
             
             m_client->RemoveSuperProperty(StringReference(PROPERTY_NAME));
@@ -486,7 +486,7 @@ namespace Codevoid::Tests::Mixpanel
         TEST_METHOD(SuperPropertiesArePersistedAcrossClientInstances)
         {
             auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
-            client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
+            client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
 
             client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
             auto superPropertyValue = client->GetSuperPropertyAsString(L"SuperPropertyA");
@@ -502,7 +502,7 @@ namespace Codevoid::Tests::Mixpanel
         TEST_METHOD(ClearingSuperPropertiesClearsAcrossInstances)
         {
             auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
-            client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
+            client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
 
             client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
             auto superPropertyValue = client->GetSuperPropertyAsString(L"SuperPropertyA");
@@ -559,10 +559,10 @@ namespace Codevoid::Tests::Mixpanel
 
         TEST_METHOD(CanSetGetAndCheckSessionProperty)
         {
-            m_client->SetSessionProperty(L"SessionPropertyA", true);
-            m_client->SetSessionProperty(L"SessionPropertyB", 1);
-            m_client->SetSessionProperty(L"SessionPropertyC", 1.0);
-            m_client->SetSessionProperty(L"SessionPropertyD", L"true");
+            m_client->SetSessionPropertyAsBoolean(L"SessionPropertyA", true);
+            m_client->SetSessionPropertyAsInteger(L"SessionPropertyB", 1);
+            m_client->SetSessionPropertyAsDouble(L"SessionPropertyC", 1.0);
+            m_client->SetSessionPropertyAsString(L"SessionPropertyD", L"true");
 
             Assert::IsFalse(m_client->HasSessionProperty("SessionPropertyMissing"), L"Didn't expect to find non-existant property");
 
@@ -581,7 +581,7 @@ namespace Codevoid::Tests::Mixpanel
 
         TEST_METHOD(CanRemoveSessionProperty)
         {
-            m_client->SetSessionProperty(L"SessionPropertyA", true);
+            m_client->SetSessionPropertyAsBoolean(L"SessionPropertyA", true);
 
             Assert::IsTrue(m_client->HasSessionProperty(L"SessionPropertyA"), L"SessionPropertyA not set");
 
@@ -592,8 +592,8 @@ namespace Codevoid::Tests::Mixpanel
 
         TEST_METHOD(CanClearSessionProperties)
         {
-            m_client->SetSessionProperty(L"SessionPropertyA", true);
-            m_client->SetSessionProperty(L"SessionPropertyB", true);
+            m_client->SetSessionPropertyAsBoolean(L"SessionPropertyA", true);
+            m_client->SetSessionPropertyAsBoolean(L"SessionPropertyB", true);
 
             Assert::IsTrue(m_client->HasSessionProperty(L"SessionPropertyA"), L"SessionPropertyA not set");
             Assert::IsTrue(m_client->HasSessionProperty(L"SessionPropertyB"), L"SessionPropertyB not set");
@@ -928,7 +928,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->AutomaticallyTrackSessions = true;
             m_client->StartSessionTracking();
 
-            m_client->SetSessionProperty("SessionPropertyA", true);
+            m_client->SetSessionPropertyAsBoolean("SessionPropertyA", true);
             
             SetNextClockAccessTime_MixpanelClient(now + 1000ms);
             m_client->EndSessionTracking();
@@ -969,7 +969,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->AutomaticallyTrackSessions = true;
             m_client->StartSessionTracking();
 
-            m_client->SetSessionProperty("SessionPropertyA", true);
+            m_client->SetSessionPropertyAsBoolean("SessionPropertyA", true);
 
             SetNextClockAccessTime_MixpanelClient(now + 1000ms);
             m_client->EndSessionTracking();

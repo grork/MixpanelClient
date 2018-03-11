@@ -424,22 +424,22 @@ void MixpanelClient::SetUploadToServiceMock(const function<task<bool>(Uri^, IMap
     m_requestHelper = mock;
 }
 
-void MixpanelClient::SetSessionProperty(String^ name, String^ value)
+void MixpanelClient::SetSessionPropertyAsString(String^ name, String^ value)
 {
     this->InitializeSessionPropertyCollection()->Insert(name, value);
 }
 
-void MixpanelClient::SetSessionProperty(String^ name, int value)
+void MixpanelClient::SetSessionPropertyAsInteger(String^ name, int value)
 {
     this->InitializeSessionPropertyCollection()->Insert(name, value);
 }
 
-void MixpanelClient::SetSessionProperty(String^ name, double value)
+void MixpanelClient::SetSessionPropertyAsDouble(String^ name, double value)
 {
     this->InitializeSessionPropertyCollection()->Insert(name, value);
 }
 
-void MixpanelClient::SetSessionProperty(String^ name, bool value)
+void MixpanelClient::SetSessionPropertyAsBoolean(String^ name, bool value)
 {
     this->InitializeSessionPropertyCollection()->Insert(name, value);
 }
@@ -495,22 +495,22 @@ void MixpanelClient::ClearSessionProperties()
     m_sessionProperties = nullptr;
 }
 
-void MixpanelClient::SetSuperProperty(String^ name, String^ value)
+void MixpanelClient::SetSuperPropertyAsString(String^ name, String^ value)
 {
     this->InitializeSuperPropertyCollection()->Insert(name, value);
 }
 
-void MixpanelClient::SetSuperProperty(String^ name, int value)
+void MixpanelClient::SetSuperPropertyAsInteger(String^ name, int value)
 {
     this->InitializeSuperPropertyCollection()->Insert(name, value);
 }
 
-void MixpanelClient::SetSuperProperty(String^ name, double value)
+void MixpanelClient::SetSuperPropertyAsDouble(String^ name, double value)
 {
     this->InitializeSuperPropertyCollection()->Insert(name, value);
 }
 
-void MixpanelClient::SetSuperProperty(String^ name, bool value)
+void MixpanelClient::SetSuperPropertyAsBoolean(String^ name, bool value)
 {
     this->InitializeSuperPropertyCollection()->Insert(name, value);
 }

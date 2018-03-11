@@ -60,12 +60,10 @@ Adding a super property
 Assuming you have an instance of `MixpanelClient`, you can set super properties
 with three data types -- `String`, `Double`, and `Boolean`:
 ```
-mixpanelClient.SetSuperProperty("PropertyName", "PropertyValue");
+mixpanelClient.SetSuperPropertyAsString("PropertyName", "PropertyValue");
 mixpanelClient.SetSuperPropertyAsDouble("DoublePropertyName", 3.14);
 mixpanelClient.SetSuperPropertyAsBoolean("BooleanPropertyName", false);
 ```
-_Note:_ if you're using a language that supports overloading (C++, C#), then you
-don't need the extra names -- just `.SetSuperProperty`.
 
 Once set, the super properties will attached to every event when logged,
 automatically. This is useful for tracking against a single user, for example.
@@ -75,12 +73,10 @@ Adding a session property
 Assuming you have an instance of `MixpanelClient`, you can set session properties
 with three data types -- `String`, `Double`, and `Boolean`:
 ```
-mixpanelClient.SetSessionProperty("PropertyName", "PropertyValue");
+mixpanelClient.SetSessionPropertyAsString("PropertyName", "PropertyValue");
 mixpanelClient.SetSessionPropertyAsDouble("DoublePropertyName", 3.14);
 mixpanelClient.SetSessionPropertyAsBoolean("BooleanPropertyName", false);
 ```
-_Note:_ if you're using a language that supports overloading (C++, C#), then you
-don't need the extra names -- just `.SetSessionProperty`.
 
 Once set, the session properties will attached to the session event when the
 session ends. This is useful to tracking how often something happened in a session
@@ -192,14 +188,14 @@ mixpanelClient.RestartSessionTracking();
 ### Parameters
 `name` — Name of the event that the duration is to be tracked (required)
 
-void SetSessionProperty(String name, [String/Integer/Double/Boolean] value)
+void SetSessionPropertyAs<Type>(String name, [String/Integer/Double/Boolean] value)
 -----------------------------------------------------------------
 Sets a session property on the class, that is persisted for the duration of the
 session. You can store `string`'s, `integer`'s, `double`'s, and `boolean`'s.
-When consuming this from JavaScript, you need to use the named versions of this 
-method: `SetSessionPropertyAsIntegter` for integers,
-`SetSessionPropertyAsDouble` for doubles, and `SetSessionPropertyAsBoolean`
-for, obviously, `Booleans`.
+When consuming this, you need to use the named versions of this method: 
+`SetSessionPropertyAsString` for strings, `SetSessionPropertyAsIntegter` for
+integers, `SetSessionPropertyAsDouble` for doubles, and
+`SetSessionPropertyAsBoolean` for, obviously, `Booleans`.
 
 ```
 mixpanelClient.SetSessionProperty("ASessionProperty", "SessionValue");
@@ -255,13 +251,14 @@ Clears all currently set session properties.
 mixpanelClient.ClearSuperProperties();
 ```
 
-void SetSuperProperty(String name, [String/Integer/Double/Boolean] value)
+void SetSuperPropertyAs<Type>(String name, [String/Integer/Double/Boolean] value)
 -----------------------------------------------------------------
 Sets a super property on the class, that is persisted across instances. You can
-store `string`'s, `int`'s,`double`'s, and `boolean`'s. When consuming this from
-JavaScript, you need to use the named versions of this method:
-`SetSuperPropertyAsInteger`, `SetSuperPropertyAsDouble` for doubles, and
-`SetSuperPropertyAsBoolean` for, obviously, `Booleans`.
+store `string`'s, `int`'s,`double`'s, and `boolean`'s. When consuming this, you
+need to use the named versions of this method:
+`SetSuperPropertyAsString` for strings, `SetSuperPropertyAsInteger` for integers,
+`SetSuperPropertyAsDouble` for doubles, and `SetSuperPropertyAsBoolean` for,
+obviously, `Booleans`.
 
 ```
 mixpanelClient.SetSuperProperty("ASuperProperty", "SuperValue");

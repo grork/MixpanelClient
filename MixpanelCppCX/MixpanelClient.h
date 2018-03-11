@@ -57,23 +57,40 @@ namespace Codevoid::Utilities::Mixpanel {
         void RestartSessionTracking();
 
         /// <summary>
-        /// Sets a property &amp; it's value that will be attached to the session event logged with
-        /// the current session. Suppports String, Double, and Boolean values.
+        /// Sets a string property &amp; it's value that will be attached to the session event
+        /// logged with the current session.
         ///
         /// <param name="name">Name of the session property to set</param>
         /// <param name="value">Value to set for the session property</param>
         /// </summary>
-        [Windows::Foundation::Metadata::DefaultOverload]
-        void SetSessionProperty(Platform::String^ name, Platform::String^ value);
+        void SetSessionPropertyAsString(Platform::String^ name, Platform::String^ value);
 
-        [Windows::Foundation::Metadata::OverloadAttribute(L"SetSessionPropertyAsInteger")]
-        void SetSessionProperty(Platform::String^ name, int value);
+        /// <summary>
+        /// Sets a integer property &amp; it's value that will be attached to the session event
+        /// logged with the current session.
+        ///
+        /// <param name="name">Name of the session property to set</param>
+        /// <param name="value">Value to set for the session property</param>
+        /// </summary>
+        void SetSessionPropertyAsInteger(Platform::String^ name, int value);
 
-        [Windows::Foundation::Metadata::OverloadAttribute(L"SetSessionPropertyAsDouble")]
-        void SetSessionProperty(Platform::String^ name, double value);
+        /// <summary>
+        /// Sets a double property &amp; it's value that will be attached to the session event
+        /// logged with the current session.
+        ///
+        /// <param name="name">Name of the session property to set</param>
+        /// <param name="value">Value to set for the session property</param>
+        /// </summary>
+        void SetSessionPropertyAsDouble(Platform::String^ name, double value);
 
-        [Windows::Foundation::Metadata::OverloadAttribute(L"SetSessionPropertyAsBoolean")]
-        void SetSessionProperty(Platform::String^ name, bool value);
+        /// <summary>
+        /// Sets a boolean property &amp; it's value that will be attached to the session event
+        /// logged with the current session.
+        ///
+        /// <param name="name">Name of the session property to set</param>
+        /// <param name="value">Value to set for the session property</param>
+        /// </summary>
+        void SetSessionPropertyAsBoolean(Platform::String^ name, bool value);
 
         /// <summary>
         /// Removes a property &amp; it's value from the session properties associated with
@@ -131,23 +148,40 @@ namespace Codevoid::Utilities::Mixpanel {
         void ClearSessionProperties();
 
         /// <summary>
-        /// Sets a property &amp; it's value that will be attached to all datapoints logged with
-        /// this instance of the client. Suppports String, Double, and Boolean values.
+        /// Sets a string property &amp; it's value that will be attached to all datapoints logged
+        /// with this instance of the client. Suppports String, Double, and Boolean values.
         ///
         /// <param name="name">Name of the super property to set</param>
         /// <param name="value">Value to set for the super property</param>
         /// </summary>
-        [Windows::Foundation::Metadata::DefaultOverload]
-        void SetSuperProperty(Platform::String^ name, Platform::String^ value);
+        void SetSuperPropertyAsString(Platform::String^ name, Platform::String^ value);
+
+        /// <summary>
+        /// Sets a integer property &amp; it's value that will be attached to all datapoints logged
+        /// with this instance of the client. Suppports String, Double, and Boolean values.
+        ///
+        /// <param name="name">Name of the super property to set</param>
+        /// <param name="value">Value to set for the super property</param>
+        /// </summary>
+        void SetSuperPropertyAsInteger(Platform::String^ name, int value);
+
+        /// <summary>
+        /// Sets a double property &amp; it's value that will be attached to all datapoints logged
+        /// with this instance of the client. Suppports String, Double, and Boolean values.
+        ///
+        /// <param name="name">Name of the super property to set</param>
+        /// <param name="value">Value to set for the super property</param>
+        /// </summary>
+        void SetSuperPropertyAsDouble(Platform::String^ name, double value);
         
-        [Windows::Foundation::Metadata::OverloadAttribute(L"SetSuperPropertyAsInteger")]
-        void SetSuperProperty(Platform::String^ name, int value);
-
-        [Windows::Foundation::Metadata::OverloadAttribute(L"SetSuperPropertyAsDouble")]
-        void SetSuperProperty(Platform::String^ name, double value);
-
-        [Windows::Foundation::Metadata::OverloadAttribute(L"SetSuperPropertyAsBoolean")]
-        void SetSuperProperty(Platform::String^ name, bool value);
+        /// <summary>
+        /// Sets a boolean property &amp; it's value that will be attached to all datapoints logged
+        /// with this instance of the client. Suppports String, Double, and Boolean values.
+        ///
+        /// <param name="name">Name of the super property to set</param>
+        /// <param name="value">Value to set for the super property</param>
+        /// </summary>
+        void SetSuperPropertyAsBoolean(Platform::String^ name, bool value);
 
         /// <summary>
         /// Removes a property &amp; it's value from the super properties associated with
