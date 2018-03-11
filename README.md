@@ -70,6 +70,21 @@ don't need the extra names -- just `.SetSuperProperty`.
 Once set, the super properties will attached to every event when logged,
 automatically. This is useful for tracking against a single user, for example.
 
+Adding a session property
+-----------------------
+Assuming you have an instance of `MixpanelClient`, you can set session properties
+with three data types -- `String`, `Double`, and `Boolean`:
+```
+mixpanelClient.SetSessionProperty("PropertyName", "PropertyValue");
+mixpanelClient.SetSessionPropertyAsDouble("DoublePropertyName", 3.14);
+mixpanelClient.SetSessionPropertyAsBoolean("BooleanPropertyName", false);
+```
+_Note:_ if you're using a language that supports overloading (C++, C#), then you
+don't need the extra names -- just `.SetSessionProperty`.
+
+Once set, the session properties will attached to the session event when the
+session ends. This is useful to tracking how often something happened in a session
+
 API
 ===
 
@@ -177,12 +192,76 @@ mixpanelClient.RestartSessionTracking();
 ### Parameters
 `name` — Name of the event that the duration is to be tracked (required)
 
-void SetSuperProperty(String name, [String/Double/Boolean] value)
+void SetSessionProperty(String name, [String/Integer/Double/Boolean] value)
+-----------------------------------------------------------------
+Sets a session property on the class, that is persisted for the duration of the
+session. You can store `string`'s, `integer`'s, `double`'s, and `boolean`'s.
+When consuming this from JavaScript, you need to use the named versions of this 
+method: `SetSessionPropertyAsIntegter` for integers,
+`SetSessionPropertyAsDouble` for doubles, and `SetSessionPropertyAsBoolean`
+for, obviously, `Booleans`.
+
+```
+mixpanelClient.SetSessionProperty("ASessionProperty", "SessionValue");
+```
+
+### Parameters
+`name` — Name of the property that is to be set (required)
+`value` — Value to be set for the supplied name (required)
+
+string/double/bool GetSessionPropertyAsString/Integer/Double/Boolean(string name)
+-----------------------------------------------------------------------
+Retrieves a value from the session property storage, and returns it to the caller.
+
+Since they're all different only in their return type, and accept the same
+parameters, they're named differently based on their datatype.
+
+```
+var currentValue = mixpanelClient.GetSessionProperty("ASessionProperty");
+```
+
+### Parameters
+`name` — Named session property to retrieve.
+
+bool HasSessionProperty(string name)
+----------------------------------
+Checks if a session property has been set & has a value.
+
+```
+if(mixpanelClient.HasSessionProperty("ASessionProperty")) {
+    console.log("ASessionProperty has been set");
+}
+```
+
+`name` — Property to check for being set.
+
+void RemoveSessionProperty(string name)
+-------------------------------------
+Removes a session property from the set of session properties. If the property isn't
+set, then the method returns silently.
+
+```
+mixpanelClient.RemoveSessionProperty("ASessionProperty");
+```
+
+### Parameters
+`name` — Property to remove.
+
+void ClearSessionProperties()
+---------------------------
+Clears all currently set session properties.
+
+```
+mixpanelClient.ClearSuperProperties();
+```
+
+void SetSuperProperty(String name, [String/Integer/Double/Boolean] value)
 -----------------------------------------------------------------
 Sets a super property on the class, that is persisted across instances. You can
-store `string`'s, `doubles`, and `booleans`. When consuming this from JavaScript,
-you need to use the named versions of this method: `SetSuperPropertyAsDouble`
-for doubles, and `SetSuperPropertyAsBoolean` for, obviously, `Booleans`.
+store `string`'s, `int`'s,`double`'s, and `boolean`'s. When consuming this from
+JavaScript, you need to use the named versions of this method:
+`SetSuperPropertyAsInteger`, `SetSuperPropertyAsDouble` for doubles, and
+`SetSuperPropertyAsBoolean` for, obviously, `Booleans`.
 
 ```
 mixpanelClient.SetSuperProperty("ASuperProperty", "SuperValue");
@@ -192,7 +271,7 @@ mixpanelClient.SetSuperProperty("ASuperProperty", "SuperValue");
 `name` — Name of the property that is to be set (required)
 `value` — Value to be set for the supplied name (required)
 
-string/double/bool GetSuperPropertyAsString/Double/Boolean(string name)
+string/double/bool GetSuperPropertyAsString/Integer/Double/Boolean(string name)
 -----------------------------------------------------------------------
 Retrieves a value from the super property storage, and returns it to the caller.
 

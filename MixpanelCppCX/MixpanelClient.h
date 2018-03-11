@@ -57,6 +57,80 @@ namespace Codevoid::Utilities::Mixpanel {
         void RestartSessionTracking();
 
         /// <summary>
+        /// Sets a property &amp; it's value that will be attached to the session event logged with
+        /// the current session. Suppports String, Double, and Boolean values.
+        ///
+        /// <param name="name">Name of the session property to set</param>
+        /// <param name="value">Value to set for the session property</param>
+        /// </summary>
+        [Windows::Foundation::Metadata::DefaultOverload]
+        void SetSessionProperty(Platform::String^ name, Platform::String^ value);
+
+        [Windows::Foundation::Metadata::OverloadAttribute(L"SetSessionPropertyAsInteger")]
+        void SetSessionProperty(Platform::String^ name, int value);
+
+        [Windows::Foundation::Metadata::OverloadAttribute(L"SetSessionPropertyAsDouble")]
+        void SetSessionProperty(Platform::String^ name, double value);
+
+        [Windows::Foundation::Metadata::OverloadAttribute(L"SetSessionPropertyAsBoolean")]
+        void SetSessionProperty(Platform::String^ name, bool value);
+
+        /// <summary>
+        /// Removes a property &amp; it's value from the session properties associated with
+        /// the current ession.
+        /// </summary>
+        void RemoveSessionProperty(Platform::String^ name);
+
+        /// <summary>
+        /// Reads a currently set session property from any set session properties, and returns it as a String.
+        ///
+        /// If there is no session property with the requested name, an exception will be thrown. If the
+        /// data type of the session property is not a String, an InvalidCastException will be thrown
+        /// <param name="name">Name of the session property to read</param>
+        /// </summary>
+        Platform::String^ GetSessionPropertyAsString(Platform::String^ name);
+
+        /// <summary>
+        /// Reads a currently set session property from any set session properties, and returns it as a Integer.
+        ///
+        /// If there is no session property with the requested name, an exception will be thrown. If the
+        /// data type of the session property is not a Integer, an InvalidCastException will be thrown
+        /// <param name="name">Name of the session property to read</param>
+        /// </summary>
+        int GetSessionPropertyAsInteger(Platform::String^ name);
+
+        /// <summary>
+        /// Reads a currently set session property from any set session properties, and returns it as a Double.
+        ///
+        /// If there is no session property with the requested name, an exception will be thrown. If the
+        /// data type of the session property is not a Double, an InvalidCastException will be thrown
+        /// <param name="name">Name of the session property to read</param>
+        /// </summary>
+        double GetSessionPropertyAsDouble(Platform::String^ name);
+
+        /// <summary>
+        /// Reads a currently set session property from any set session properties, and returns it as a Boolean.
+        ///
+        /// If there is no session property with the requested name, an exception will be thrown. If the
+        /// data type of the session property is not a Boolean, an InvalidCastException will be thrown
+        /// <param name="name">Name of the session property to read</param>
+        /// </summary>
+        bool GetSessionPropertyAsBool(Platform::String^ name);
+
+        /// <summary>
+        /// Checks if the session property has been set. Primarily intended to allow people to avoid
+        /// exceptions when reading for a session property that hasn't been set yet.
+        ///
+        /// <param name="name">session Property to check for being present</param>
+        /// </summary>
+        bool HasSessionProperty(Platform::String^ name);
+
+        /// <summary>
+        /// Clears any session propreties that might be present
+        /// </summary>
+        void ClearSessionProperties();
+
+        /// <summary>
         /// Sets a property &amp; it's value that will be attached to all datapoints logged with
         /// this instance of the client. Suppports String, Double, and Boolean values.
         ///
@@ -66,6 +140,9 @@ namespace Codevoid::Utilities::Mixpanel {
         [Windows::Foundation::Metadata::DefaultOverload]
         void SetSuperProperty(Platform::String^ name, Platform::String^ value);
         
+        [Windows::Foundation::Metadata::OverloadAttribute(L"SetSuperPropertyAsInteger")]
+        void SetSuperProperty(Platform::String^ name, int value);
+
         [Windows::Foundation::Metadata::OverloadAttribute(L"SetSuperPropertyAsDouble")]
         void SetSuperProperty(Platform::String^ name, double value);
 
@@ -86,6 +163,15 @@ namespace Codevoid::Utilities::Mixpanel {
         /// <param name="name">Name of the super property to read</param>
         /// </summary>
         Platform::String^ GetSuperPropertyAsString(Platform::String^ name);
+
+        /// <summary>
+        /// Reads a currently set super property from any set super properties, and returns it as a Integer.
+        ///
+        /// If there is no super property with the requested name, an exception will be thrown. If the
+        /// data type of the super property is not a Integer, an InvalidCastException will be thrown
+        /// <param name="name">Name of the super property to read</param>
+        /// </summary>
+        int GetSuperPropertyAsInteger(Platform::String^ name);
 
         /// <summary>
         /// Reads a currently set super property from any set super properties, and returns it as a Double.
@@ -281,13 +367,15 @@ namespace Codevoid::Utilities::Mixpanel {
         Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
         static void AppendPropertySetToJsonPayload(Windows::Foundation::Collections::IPropertySet^ properties, Windows::Data::Json::JsonObject^ toAppendTo);
         void ThrowIfNotInitialized();
-        void InitializeSuperPropertyCollection();
+        Windows::Foundation::Collections::IPropertySet^ InitializeSuperPropertyCollection();
+        Windows::Foundation::Collections::IPropertySet^ InitializeSessionPropertyCollection();
 
         /// <summary>
         /// The API Token being used for all requests
         /// </summary>
         Platform::String^ m_token;
         Windows::Foundation::Collections::IPropertySet^ m_superProperties;
+        Windows::Foundation::Collections::IPropertySet^ m_sessionProperties;
 
         Codevoid::Utilities::Mixpanel::DurationTracker m_durationTracker;
         Windows::Foundation::Uri^ m_serviceUri;

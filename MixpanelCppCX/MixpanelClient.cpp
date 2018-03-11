@@ -149,7 +149,8 @@ void MixpanelClient::EndSessionTracking()
     }
 
     this->ThrowIfNotInitialized();
-    this->Track(StringReference(SESSION_TRACKING_EVENT), nullptr);
+    this->Track(StringReference(SESSION_TRACKING_EVENT), m_sessionProperties);
+    this->ClearSessionProperties();
 }
 
 void MixpanelClient::RestartSessionTracking()
@@ -423,92 +424,170 @@ void MixpanelClient::SetUploadToServiceMock(const function<task<bool>(Uri^, IMap
     m_requestHelper = mock;
 }
 
-void MixpanelClient::SetSuperProperty(String^ name, String^ value)
+void MixpanelClient::SetSessionProperty(String^ name, String^ value)
 {
-    this->InitializeSuperPropertyCollection();
-    m_superProperties->Insert(name, value);
+    this->InitializeSessionPropertyCollection()->Insert(name, value);
 }
 
-void MixpanelClient::SetSuperProperty(String^ name, double value)
+void MixpanelClient::SetSessionProperty(String^ name, int value)
 {
-    this->InitializeSuperPropertyCollection();
-    m_superProperties->Insert(name, value);
+    this->InitializeSessionPropertyCollection()->Insert(name, value);
 }
 
-void MixpanelClient::SetSuperProperty(String^ name, bool value)
+void MixpanelClient::SetSessionProperty(String^ name, double value)
 {
-    this->InitializeSuperPropertyCollection();
-    m_superProperties->Insert(name, value);
+    this->InitializeSessionPropertyCollection()->Insert(name, value);
 }
 
-String^ MixpanelClient::GetSuperPropertyAsString(String^ name)
+void MixpanelClient::SetSessionProperty(String^ name, bool value)
 {
-    this->InitializeSuperPropertyCollection();
-    return static_cast<String^>(m_superProperties->Lookup(name));
+    this->InitializeSessionPropertyCollection()->Insert(name, value);
 }
 
-double MixpanelClient::GetSuperPropertyAsDouble(String^ name)
+String^ MixpanelClient::GetSessionPropertyAsString(String^ name)
 {
-    this->InitializeSuperPropertyCollection();
-    return static_cast<double>(m_superProperties->Lookup(name));
+    return static_cast<String^>(this->InitializeSessionPropertyCollection()->Lookup(name));
 }
 
-bool MixpanelClient::GetSuperPropertyAsBool(String^ name)
+int MixpanelClient::GetSessionPropertyAsInteger(String^ name)
 {
-    this->InitializeSuperPropertyCollection();
-    return static_cast<bool>(m_superProperties->Lookup(name));
+    return static_cast<int>(this->InitializeSessionPropertyCollection()->Lookup(name));
 }
 
-bool MixpanelClient::HasSuperProperty(String^ name)
+double MixpanelClient::GetSessionPropertyAsDouble(String^ name)
 {
-    this->InitializeSuperPropertyCollection();
-
-    return m_superProperties->HasKey(name);
+    return static_cast<double>(this->InitializeSessionPropertyCollection()->Lookup(name));
 }
 
-void MixpanelClient::RemoveSuperProperty(String^ name)
+bool MixpanelClient::GetSessionPropertyAsBool(String^ name)
 {
-    this->InitializeSuperPropertyCollection();
-    m_superProperties->Remove(name);
+    return static_cast<bool>(this->InitializeSessionPropertyCollection()->Lookup(name));
 }
 
-void MixpanelClient::InitializeSuperPropertyCollection()
+bool MixpanelClient::HasSessionProperty(String^ name)
 {
-    if (m_superProperties != nullptr)
+    return this->InitializeSessionPropertyCollection()->HasKey(name);
+}
+
+void MixpanelClient::RemoveSessionProperty(String^ name)
+{
+    this->InitializeSessionPropertyCollection()->Remove(name);
+}
+
+IPropertySet^ MixpanelClient::InitializeSessionPropertyCollection()
+{
+    if (m_sessionProperties == nullptr)
+    {
+        m_sessionProperties = ref new ValueSet();
+    }
+
+    return m_sessionProperties;
+}
+
+void MixpanelClient::ClearSessionProperties()
+{
+    if (m_sessionProperties == nullptr)
     {
         return;
     }
 
-    if (this->PersistSuperPropertiesToApplicationData)
+    m_sessionProperties->Clear();
+    m_sessionProperties = nullptr;
+}
+
+void MixpanelClient::SetSuperProperty(String^ name, String^ value)
+{
+    this->InitializeSuperPropertyCollection()->Insert(name, value);
+}
+
+void MixpanelClient::SetSuperProperty(String^ name, int value)
+{
+    this->InitializeSuperPropertyCollection()->Insert(name, value);
+}
+
+void MixpanelClient::SetSuperProperty(String^ name, double value)
+{
+    this->InitializeSuperPropertyCollection()->Insert(name, value);
+}
+
+void MixpanelClient::SetSuperProperty(String^ name, bool value)
+{
+    this->InitializeSuperPropertyCollection()->Insert(name, value);
+}
+
+String^ MixpanelClient::GetSuperPropertyAsString(String^ name)
+{
+    return static_cast<String^>(this->InitializeSuperPropertyCollection()->Lookup(name));
+}
+
+int MixpanelClient::GetSuperPropertyAsInteger(String^ name)
+{
+    return static_cast<int>(this->InitializeSuperPropertyCollection()->Lookup(name));
+}
+
+double MixpanelClient::GetSuperPropertyAsDouble(String^ name)
+{
+    return static_cast<double>(this->InitializeSuperPropertyCollection()->Lookup(name));
+}
+
+bool MixpanelClient::GetSuperPropertyAsBool(String^ name)
+{
+    return static_cast<bool>(this->InitializeSuperPropertyCollection()->Lookup(name));
+}
+
+bool MixpanelClient::HasSuperProperty(String^ name)
+{
+    return this->InitializeSuperPropertyCollection()->HasKey(name);
+}
+
+void MixpanelClient::RemoveSuperProperty(String^ name)
+{
+    this->InitializeSuperPropertyCollection()->Remove(name);
+}
+
+IPropertySet^ MixpanelClient::InitializeSuperPropertyCollection()
+{
+    if (m_superProperties == nullptr)
     {
-        auto localSettings = ApplicationData::Current->LocalSettings;
+        if (this->PersistSuperPropertiesToApplicationData)
+        {
+            auto localSettings = ApplicationData::Current->LocalSettings;
 
-        // Obtain the container that houses all the super properties
-        // split by Token. E.g. if two instances are using different
-        // tokens, they'll share different super properties.
-        auto superPropertiesContainer = localSettings->CreateContainer(
-            StringReference(SUPER_PROPERTIES_CONTAINER_NAME),
-            ApplicationDataCreateDisposition::Always
-        );
+            // Obtain the container that houses all the super properties
+            // split by Token. E.g. if two instances are using different
+            // tokens, they'll share different super properties.
+            auto superPropertiesContainer = localSettings->CreateContainer(
+                StringReference(SUPER_PROPERTIES_CONTAINER_NAME),
+                ApplicationDataCreateDisposition::Always
+            );
 
-        // Create the token-specific container where we'll actually
-        // store the properties.
-        auto superProperties = superPropertiesContainer->CreateContainer(
-            HashTokenForSettingContainerName(m_token),
-            ApplicationDataCreateDisposition::Always
-        );
+            // Create the token-specific container where we'll actually
+            // store the properties.
+            auto superProperties = superPropertiesContainer->CreateContainer(
+                HashTokenForSettingContainerName(m_token),
+                ApplicationDataCreateDisposition::Always
+            );
 
-        m_superProperties = superProperties->Values;
+            m_superProperties = superProperties->Values;
+        }
+        else
+        {
+            m_superProperties = ref new ValueSet();
+        }
     }
-    else
-    {
-        m_superProperties = ref new ValueSet();
-    }
+
+    return m_superProperties;
 }
 
 void MixpanelClient::ClearSuperProperties()
 {
+    if (m_superProperties == nullptr)
+    {
+        return;
+    }
+
     m_superProperties->Clear();
+    m_superProperties = nullptr;
 }
 
 JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(String^ name, IPropertySet^ properties)

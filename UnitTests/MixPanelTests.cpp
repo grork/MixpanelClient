@@ -357,6 +357,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
             m_client->SetSuperProperty(L"SuperPropertyB", 7.0);
             m_client->SetSuperProperty(L"SuperPropertyC", true);
+            m_client->SetSuperProperty(L"SuperPropertyD", 1);
 
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
 
@@ -388,6 +389,10 @@ namespace Codevoid::Tests::Mixpanel
             // Validate that Super Property C is present
             Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyC"), L"No SuperPropertyC in properties payload");
             Assert::AreEqual(true, propertiesPayload->GetNamedBoolean(L"SuperPropertyC"), L"SuperPropertyC had incorrect value");
+
+            // Validate that Super Property D is present
+            Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyD"), L"No SuperPropertyD in properties payload");
+            Assert::AreEqual(1.0, propertiesPayload->GetNamedNumber(L"SuperPropertyD"), L"SuperPropertyD had incorrect value");
         }
 
         TEST_METHOD(CanSetSuperPropertyMoreThanOnce)
@@ -417,7 +422,7 @@ namespace Codevoid::Tests::Mixpanel
             Assert::AreEqual(L"DifferentValue", propertiesPayload->GetNamedString(L"SuperPropertyA"), L"SuperPropertyA had incorrect value");
         }
 
-        TEST_METHOD(ClearingSuperPropertiesWorks)
+        TEST_METHOD(CanClearSuperProperties)
         {
             IPropertySet^ properties = ref new PropertySet();
             m_client->SetSuperProperty(L"SuperPropertyA", L"SuperValueA");
@@ -550,6 +555,53 @@ namespace Codevoid::Tests::Mixpanel
 
             auto rawTimeValue = propertiesPayload->GetNamedValue("time");
             Assert::IsFalse(JsonValueType::Number == rawTimeValue->ValueType, L"Time was not the correct type");
+        }
+
+        TEST_METHOD(CanSetGetAndCheckSessionProperty)
+        {
+            m_client->SetSessionProperty(L"SessionPropertyA", true);
+            m_client->SetSessionProperty(L"SessionPropertyB", 1);
+            m_client->SetSessionProperty(L"SessionPropertyC", 1.0);
+            m_client->SetSessionProperty(L"SessionPropertyD", L"true");
+
+            Assert::IsFalse(m_client->HasSessionProperty("SessionPropertyMissing"), L"Didn't expect to find non-existant property");
+
+            Assert::IsTrue(m_client->HasSessionProperty(L"SessionPropertyA"), L"SessionPropertyA not set");
+            Assert::AreEqual(true, m_client->GetSessionPropertyAsBool(L"SessionPropertyA"), L"SessionPropertyA had wrong value");
+
+            Assert::IsTrue(m_client->HasSessionProperty(L"SessionPropertyB"), L"SessionPropertyB not set");
+            Assert::AreEqual(1, m_client->GetSessionPropertyAsInteger(L"SessionPropertyB"), L"SessionPropertyB had wrong value");
+
+            Assert::IsTrue(m_client->HasSessionProperty(L"SessionPropertyC"), L"SessionPropertyC not set");
+            Assert::AreEqual(1.0, m_client->GetSessionPropertyAsDouble(L"SessionPropertyC"), L"SessionPropertyC had wrong value");
+
+            Assert::IsTrue(m_client->HasSessionProperty(L"SessionPropertyD"), L"SessionPropertyD not set");
+            Assert::AreEqual(L"true", m_client->GetSessionPropertyAsString(L"SessionPropertyD"), L"SessionPropertyD had wrong value");
+        }
+
+        TEST_METHOD(CanRemoveSessionProperty)
+        {
+            m_client->SetSessionProperty(L"SessionPropertyA", true);
+
+            Assert::IsTrue(m_client->HasSessionProperty(L"SessionPropertyA"), L"SessionPropertyA not set");
+
+            m_client->RemoveSessionProperty(L"SessionPropertyA");
+
+            Assert::IsFalse(m_client->HasSessionProperty(L"SessionPropertyA"), L"SessionPropertyA should have been removed set");
+        }
+
+        TEST_METHOD(CanClearSessionProperties)
+        {
+            m_client->SetSessionProperty(L"SessionPropertyA", true);
+            m_client->SetSessionProperty(L"SessionPropertyB", true);
+
+            Assert::IsTrue(m_client->HasSessionProperty(L"SessionPropertyA"), L"SessionPropertyA not set");
+            Assert::IsTrue(m_client->HasSessionProperty(L"SessionPropertyB"), L"SessionPropertyB not set");
+
+            m_client->ClearSessionProperties();
+
+            Assert::IsFalse(m_client->HasSessionProperty(L"SessionPropertyA"), L"SessionPropertyA should have been removed set");
+            Assert::IsFalse(m_client->HasSessionProperty(L"SessionPropertyB"), L"SessionPropertyB should have been removed set");
         }
 #pragma endregion
 
@@ -856,6 +908,103 @@ namespace Codevoid::Tests::Mixpanel
             auto propertiesPayload = jsonObjectPayload->GetNamedObject(L"properties");
             auto attachedDuration = propertiesPayload->GetNamedNumber(L"duration");
             Assert::AreEqual(1000.0, attachedDuration, L"Incorrect duration attached");
+        }
+
+        TEST_METHOD(SessionPropertiesAreAutomaticallyAttached)
+        {
+            vector<vector<IJsonValue^>> capturedPayloads;
+            m_client->SetUploadToServiceMock([&capturedPayloads](auto, auto payloads, auto)
+            {
+                capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
+                return task_from_result(true);
+            });
+
+            m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
+            m_client->Start();
+
+            auto now = chrono::steady_clock::now();
+            SetNextClockAccessTime_MixpanelClient(now);
+
+            m_client->AutomaticallyTrackSessions = true;
+            m_client->StartSessionTracking();
+
+            m_client->SetSessionProperty("SessionPropertyA", true);
+            
+            SetNextClockAccessTime_MixpanelClient(now + 1000ms);
+            m_client->EndSessionTracking();
+
+            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
+
+            Assert::AreEqual(1, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
+            Assert::AreEqual(1, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
+
+            auto jsonObjectPayload = dynamic_cast<JsonObject^>(capturedPayloads[0][0]);
+            Assert::IsTrue(jsonObjectPayload->HasKey(L"properties"), L"properties weren't attached");
+
+            auto propertiesPayload = jsonObjectPayload->GetNamedObject(L"properties");
+            Assert::IsTrue(propertiesPayload->HasKey(L"duration"), L"No Duration found");
+
+            auto attachedDuration = propertiesPayload->GetNamedNumber(L"duration");
+            Assert::AreEqual(1000.0, attachedDuration, L"Incorrect duration attached");
+
+            Assert::IsTrue(propertiesPayload->HasKey(L"SessionPropertyA"), L"Session property not attached");
+            Assert::IsTrue(propertiesPayload->GetNamedBoolean("SessionPropertyA"), L"Wrong session property value");
+        }
+
+        TEST_METHOD(SessionPropertiesClearedAfterEndingTheSession)
+        {
+            vector<vector<IJsonValue^>> capturedPayloads;
+            m_client->SetUploadToServiceMock([&capturedPayloads](auto, auto payloads, auto)
+            {
+                capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
+                return task_from_result(true);
+            });
+
+            m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
+            m_client->Start();
+
+            auto now = chrono::steady_clock::now();
+            SetNextClockAccessTime_MixpanelClient(now);
+
+            m_client->AutomaticallyTrackSessions = true;
+            m_client->StartSessionTracking();
+
+            m_client->SetSessionProperty("SessionPropertyA", true);
+
+            SetNextClockAccessTime_MixpanelClient(now + 1000ms);
+            m_client->EndSessionTracking();
+
+            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
+
+            Assert::AreEqual(1, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
+            Assert::AreEqual(1, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
+
+            auto jsonObjectPayload = dynamic_cast<JsonObject^>(capturedPayloads[0][0]);
+            Assert::IsTrue(jsonObjectPayload->HasKey(L"properties"), L"properties weren't attached");
+
+            auto propertiesPayload = jsonObjectPayload->GetNamedObject(L"properties");
+            Assert::IsTrue(propertiesPayload->HasKey(L"SessionPropertyA"), L"Session property not attached");
+            Assert::IsTrue(propertiesPayload->GetNamedBoolean("SessionPropertyA"), L"Wrong session property value");
+
+            capturedPayloads.clear();
+
+            // Start and end a second session and expect no session property to be attached
+            SetNextClockAccessTime_MixpanelClient(now + 2000ms);
+            m_client->StartSessionTracking();
+
+            SetNextClockAccessTime_MixpanelClient(now + 2500ms);
+            m_client->EndSessionTracking();
+
+            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
+
+            Assert::AreEqual(1, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
+            Assert::AreEqual(1, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
+
+            jsonObjectPayload = dynamic_cast<JsonObject^>(capturedPayloads[0][0]);
+            Assert::IsTrue(jsonObjectPayload->HasKey(L"properties"), L"properties weren't attached");
+
+            propertiesPayload = jsonObjectPayload->GetNamedObject(L"properties");
+            Assert::IsFalse(propertiesPayload->HasKey(L"SessionPropertyA"), L"Session property was attached");
         }
 #pragma endregion
     };
