@@ -92,15 +92,39 @@ task<vector<shared_ptr<PayloadContainer>>> EventStorageQueue::LoadItemsFromStora
     {
         TRACE_OUT(L"Reading from storage:" + file->Path);
         auto contents = co_await FileIO::ReadTextAsync(file);
-        auto payload = JsonObject::Parse(contents);
+
+        // There are situations where the file gets corrupted
+        // on disk. This will cause bad things to happen.
+        if (contents == L"")
+        {
+            continue;
+        }
+
+        JsonObject^ payload = nullptr;
+
+        // If the file is there, has contents but *isn't*
+        // correct JSON, it'll fail to parse. If it does
+        // we'll just move on past this file
+        try
+        {
+            payload = JsonObject::Parse(contents);
+        }
+        catch (...) { }
+
+        if (payload == nullptr)
+        {
+            co_await file->DeleteAsync();
+            continue;
+        }
 
         // Convert the file name to the ID
         // This assumes the data is constant, and that wcstoll will stop
         // when it finds a non-numeric char and give me a number that we need
         auto rawString = file->Name->Data();
         auto id = std::wcstoll(rawString, nullptr, 0);
+
         // Note, it's assumed that items being restored from disk have lasted longer
-        // than a few seconds (E.g. across an app restart), we probably want  to get
+        // than a few seconds (E.g. across an app restart), we probably want to get
         // it to the network now.
         loadedPayload.emplace_back(make_shared<PayloadContainer>(id, payload, EventPriority::Normal));
     }

@@ -329,6 +329,21 @@ namespace Codevoid::Tests::Mixpanel
             Assert::AreEqual(3, (int)queue.size(), L"Expected items in the successfully written queue");
         }
 
+        TEST_METHOD(QueueCanBeRestoredFromStorageWithEmptyItem)
+        {
+            auto item1 = GenerateSamplePayload();
+            auto item2 = GenerateSamplePayload();
+            auto item3 = GenerateSamplePayload();
+
+            AsyncHelper::RunSynced(this->WritePayload(1, item1));
+            AsyncHelper::RunSynced(this->WritePayload(2, item2));
+            AsyncHelper::RunSynced(this->WritePayload(3, item3));
+            AsyncHelper::RunSynced(this->WriteEmptyPayload(4));
+
+            auto queue = AsyncHelper::RunSynced(EventStorageQueue::LoadItemsFromStorage(m_queueFolder));
+            Assert::AreEqual(3, (int)queue.size(), L"Expected items in the successfully written queue");
+        }
+
         TEST_METHOD(ItemsCanBeRemovedFromStorage)
         {
             m_queue->SetWriteToStorageIdleLimits(10ms, 1);
@@ -358,6 +373,13 @@ namespace Codevoid::Tests::Mixpanel
             auto fileName = ref new String(std::to_wstring(id).append(L".json").c_str());
             auto file = co_await m_queueFolder->CreateFileAsync(fileName, CreationCollisionOption::ReplaceExisting);
             co_await FileIO::WriteTextAsync(file, payload->Stringify());
+        }
+
+        task<void> WriteEmptyPayload(long long id)
+        {
+            auto fileName = ref new String(std::to_wstring(id).append(L".json").c_str());
+            auto file = co_await m_queueFolder->CreateFileAsync(fileName, CreationCollisionOption::ReplaceExisting);
+            co_await FileIO::WriteTextAsync(file, L"");
         }
 
         task<JsonObject^> RetrievePayloadForId(long long id)
