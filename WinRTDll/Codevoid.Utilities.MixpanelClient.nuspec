@@ -21,8 +21,13 @@
     
     <!-- Implementation files -->
     <file src="..\Win32\Release\WinRTDll\Codevoid.Utilities.Mixpanel.dll" target="runtimes\win10-x86\native" />
+    <file src="..\Win32\Release\WinRTDll\Codevoid.Utilities.Mixpanel.pdb" target="runtimes\win10-x86\native" />
+
     <file src="..\x64\Release\WinRTDll\Codevoid.Utilities.Mixpanel.dll" target="runtimes\win10-x64\native" />
+    <file src="..\x64\Release\WinRTDll\Codevoid.Utilities.Mixpanel.pdb" target="runtimes\win10-x64\native" />
+
     <file src="..\ARM\Release\WinRTDll\Codevoid.Utilities.Mixpanel.dll" target="runtimes\win10-ARM\native" />
+    <file src="..\ARM\Release\WinRTDll\Codevoid.Utilities.Mixpanel.pdb" target="runtimes\win10-ARM\native" />
     
     <!-- Metadata -->
     <file src="..\x64\Release\WinRTDll\Codevoid.Utilities.Mixpanel.winmd" target="lib\uap10.0" />
