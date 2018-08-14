@@ -93,27 +93,22 @@ task<vector<shared_ptr<PayloadContainer>>> EventStorageQueue::LoadItemsFromStora
         TRACE_OUT(L"Reading from storage:" + file->Path);
         auto contents = co_await FileIO::ReadTextAsync(file);
 
+        JsonObject^ payload = nullptr;
+        bool successfullyParsed = false;
+
         // There are situations where the file gets corrupted
         // on disk. This will cause bad things to happen.
-        if (contents == L"")
+        if (!contents->IsEmpty())
         {
-            continue;
+            // If the file is there, has contents but *isn't*
+            // correct JSON, it'll fail to parse. If it does
+            // we'll just move on past this file
+            successfullyParsed = JsonObject::TryParse(contents, &payload);
         }
 
-        JsonObject^ payload = nullptr;
-
-        // If the file is there, has contents but *isn't*
-        // correct JSON, it'll fail to parse. If it does
-        // we'll just move on past this file
-        try
+        if (!successfullyParsed || (payload == nullptr))
         {
-            payload = JsonObject::Parse(contents);
-        }
-        catch (...) { }
-
-        if (payload == nullptr)
-        {
-            co_await file->DeleteAsync();
+            create_task(file->DeleteAsync()).wait();
             continue;
         }
 

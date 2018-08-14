@@ -164,7 +164,8 @@ namespace Codevoid::Tests::Mixpanel
             Assert::AreEqual(3, itemCounts, L"Persisted Items weren't supplied to upload correctly");
 
             AsyncHelper::RunSynced(m_client->ClearStorageAsync());
-            m_client->Shutdown();
+            m_client->Shutdown().wait();
+            m_client = nullptr;
         }
 
 #pragma region Tracking Events and Super Properties
@@ -822,6 +823,7 @@ namespace Codevoid::Tests::Mixpanel
             Assert::AreEqual(50, (*capturedPayloadCounts)[51], L"Wrong number of items in the third payload");
 
             m_client->Shutdown().wait();
+            m_client = nullptr;
         }
 
         TEST_METHOD(ItemsThatFailAreRetriedMoreThanOnce)
@@ -876,6 +878,7 @@ namespace Codevoid::Tests::Mixpanel
             Assert::AreEqual(3, event2Count, L"Event 2 should have been retried twice, and once successfully");
 
             m_client->Shutdown().wait();
+            m_client = nullptr;
         }
 
         TEST_METHOD(DurationIsAutomaticallyAttached)
