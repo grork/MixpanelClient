@@ -29,9 +29,6 @@ namespace Codevoid::Utilities::Mixpanel {
         EventPriority Priority;
     };
 
-    /// <summary>
-    /// MixpanelClient offers a API for interacting with Mixpanel for UWP apps running on Windows 10+
-    /// </summary>
     class EventStorageQueue
     {
         friend class Codevoid::Tests::Mixpanel::EventStorageQueueTests;
@@ -47,7 +44,7 @@ namespace Codevoid::Utilities::Mixpanel {
 
         ~EventStorageQueue();
 
-        /// <summary>	
+        /// <summary>
         /// Adds <paramref name="data" /> to the queue, and returns of the ID added to that data object.
         ///
         /// Items placed in the queue are processed after being first written to storage.

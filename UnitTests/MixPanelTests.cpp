@@ -331,6 +331,7 @@ namespace Codevoid::Tests::Mixpanel
             IPropertySet^ properties = ref new PropertySet();
             properties->Insert(L"StringValue", L"Value");
 
+            m_client->EmbelishPropertySet(properties);
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
 
             // Check that the event data is correct
@@ -360,6 +361,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->SetSuperPropertyAsBoolean(L"SuperPropertyC", true);
             m_client->SetSuperPropertyAsInteger(L"SuperPropertyD", 1);
 
+            m_client->EmbelishPropertySet(properties);
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
 
             // Check that the event data is correct
@@ -401,6 +403,7 @@ namespace Codevoid::Tests::Mixpanel
             IPropertySet^ properties = ref new PropertySet();
             m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
 
+            m_client->EmbelishPropertySet(properties);
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
 
             // Check that the actual properties we passed in are present
@@ -415,6 +418,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"DifferentValue");
 
             // Validate payload again
+            m_client->EmbelishPropertySet(properties);
             trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
             propertiesPayload = trackPayload->GetNamedObject("properties");
 
@@ -428,6 +432,7 @@ namespace Codevoid::Tests::Mixpanel
             IPropertySet^ properties = ref new PropertySet();
             m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
 
+            m_client->EmbelishPropertySet(properties);
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
 
             // Check that the actual properties we passed in are present
@@ -440,8 +445,10 @@ namespace Codevoid::Tests::Mixpanel
 
             // Clear the super properties, and generate the payload again
             m_client->ClearSuperProperties();
+            properties = ref new PropertySet();
 
             // Validate payload again
+            m_client->EmbelishPropertySet(properties);
             trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
             propertiesPayload = trackPayload->GetNamedObject("properties");
 
@@ -521,6 +528,7 @@ namespace Codevoid::Tests::Mixpanel
             properties->Insert(L"StringValue", L"Value");
             m_client->AutomaticallyAttachTimeToEvents = false;
 
+            m_client->EmbelishPropertySet(properties);
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
             auto propertiesPayload = trackPayload->GetNamedObject("properties");
 
@@ -531,6 +539,7 @@ namespace Codevoid::Tests::Mixpanel
             // Turn the automatic attachment of time back on
             m_client->AutomaticallyAttachTimeToEvents = true;
 
+            m_client->EmbelishPropertySet(properties);
             trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
             propertiesPayload = trackPayload->GetNamedObject("properties");
 
@@ -548,6 +557,7 @@ namespace Codevoid::Tests::Mixpanel
             properties->Insert(L"StringValue", L"Value");
             properties->Insert(L"time", L"fakevalue");
 
+            m_client->EmbelishPropertySet(properties);
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
             auto propertiesPayload = trackPayload->GetNamedObject("properties");
 

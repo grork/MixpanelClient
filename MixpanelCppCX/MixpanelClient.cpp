@@ -55,6 +55,35 @@ String^ HashTokenForSettingContainerName(String^ token)
     return CryptographicBuffer::EncodeToBase64String(hashedBuffer);
 }
 
+IPropertySet^ CopyOrCreatePropertySet(IPropertySet^ properties)
+{
+    IPropertySet^ result = ref new PropertySet();
+    if (properties == nullptr)
+    {
+        return result;
+    }
+
+    for (const auto& kvp : properties)
+    {
+        result->Insert(kvp->Key, kvp->Value);
+    }
+
+    return result;
+}
+
+void MergePropertySet(IPropertySet^ destination, IPropertySet^ source)
+{
+    if (source == nullptr)
+    {
+        return;
+    }
+
+    for (const auto& kvp : source)
+    {
+        destination->Insert(kvp->Key, kvp->Value);
+    }
+}
+
 MixpanelClient::MixpanelClient(String^ token) :
     m_userAgent(ref new HttpProductInfoHeaderValue(L"Codevoid.Utilities.MixpanelClient", L"1.0")),
     m_uploadWorker(
@@ -255,26 +284,9 @@ void MixpanelClient::Track(String^ name, IPropertySet^ properties)
         throw ref new InvalidArgumentException(L"Name cannot be empty or null");
     }
 
-    if (properties == nullptr)
-    {
-        properties = ref new PropertySet();
-    }
-
-    // Auto attach the duration event if there isn't already
-    // an attached "duration" event.
-    if (!properties->HasKey(StringReference(DURATION_PROPERTY_NAME)))
-    {
-        auto durationForEvent = m_durationTracker.EndTimerFor(name->Data());
-
-        // If the event wasn't timed, then don't attach it.
-        if (durationForEvent.has_value())
-        {
-            properties->Insert(
-                StringReference(DURATION_PROPERTY_NAME),
-                static_cast<double>((*durationForEvent).count())
-            );
-        }
-    }
+    properties = CopyOrCreatePropertySet(properties);
+    this->EmbelishPropertySet(properties);
+    this->AddDurationForEvent(name, properties);
 
     IJsonValue^ payload = this->GenerateTrackingJsonPayload(name, properties);
     m_eventStorageQueue->QueueEventToStorage(payload);
@@ -590,25 +602,46 @@ void MixpanelClient::ClearSuperProperties()
     m_superProperties = nullptr;
 }
 
-JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(String^ name, IPropertySet^ properties)
+void MixpanelClient::EmbelishPropertySet(IPropertySet^ properties)
 {
-    JsonObject^ propertiesPayload = ref new JsonObject();
-    MixpanelClient::AppendPropertySetToJsonPayload(properties, propertiesPayload);
+    MergePropertySet(properties, m_superProperties);
 
     // The properties payload is expected to have the API Token, rather than
     // in the general payload properties. So, lets explicitly add it.
-    propertiesPayload->Insert(L"token", JsonValue::CreateStringValue(m_token));
+    properties->Insert(L"token", m_token);
 
     if (this->AutomaticallyAttachTimeToEvents && (properties && !properties->HasKey(L"time")))
     {
         auto now = time_point_cast<milliseconds>(system_clock::now()).time_since_epoch().count();
-        propertiesPayload->SetNamedValue(L"time", JsonValue::CreateNumberValue(static_cast<double>(now)));
+        properties->Insert(L"time", static_cast<double>(now));
+    }
+}
+
+void MixpanelClient::AddDurationForEvent(String^ name, IPropertySet^ properties)
+{
+    // Auto attach the duration event if there isn't already
+    // an attached "duration" event.
+    if (properties->HasKey(StringReference(DURATION_PROPERTY_NAME)))
+    {
+        return;
     }
 
-    if (m_superProperties)
+    auto durationForEvent = m_durationTracker.EndTimerFor(name->Data());
+
+    // If the event wasn't timed, then don't attach it.
+    if (durationForEvent.has_value())
     {
-        MixpanelClient::AppendPropertySetToJsonPayload(m_superProperties, propertiesPayload);
+        properties->Insert(
+            StringReference(DURATION_PROPERTY_NAME),
+            static_cast<double>((*durationForEvent).count())
+        );
     }
+}
+
+JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(String^ name, IPropertySet^ properties)
+{
+    JsonObject^ propertiesPayload = ref new JsonObject();
+    MixpanelClient::AppendPropertySetToJsonPayload(properties, propertiesPayload);
 
     JsonObject^ trackPayload = ref new JsonObject();
     trackPayload->Insert(L"event", JsonValue::CreateStringValue(name));
