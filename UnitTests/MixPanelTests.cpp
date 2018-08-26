@@ -331,7 +331,7 @@ namespace Codevoid::Tests::Mixpanel
             IPropertySet^ properties = ref new PropertySet();
             properties->Insert(L"StringValue", L"Value");
 
-            m_client->EmbelishPropertySet(properties);
+            properties = m_client->EmbelishPropertySet(properties);
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
 
             // Check that the event data is correct
@@ -361,7 +361,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->SetSuperPropertyAsBoolean(L"SuperPropertyC", true);
             m_client->SetSuperPropertyAsInteger(L"SuperPropertyD", 1);
 
-            m_client->EmbelishPropertySet(properties);
+            properties = m_client->EmbelishPropertySet(properties);
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
 
             // Check that the event data is correct
@@ -400,10 +400,9 @@ namespace Codevoid::Tests::Mixpanel
 
         TEST_METHOD(CanSetSuperPropertyMoreThanOnce)
         {
-            IPropertySet^ properties = ref new PropertySet();
             m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
 
-            m_client->EmbelishPropertySet(properties);
+            IPropertySet^ properties = m_client->EmbelishPropertySet(nullptr);
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
 
             // Check that the actual properties we passed in are present
@@ -418,42 +417,13 @@ namespace Codevoid::Tests::Mixpanel
             m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"DifferentValue");
 
             // Validate payload again
-            m_client->EmbelishPropertySet(properties);
+            properties = m_client->EmbelishPropertySet(nullptr);
             trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
             propertiesPayload = trackPayload->GetNamedObject("properties");
 
             // Validate that Super Property is present
             Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyA"), L"No SuperPropertyA in properties payload");
             Assert::AreEqual(L"DifferentValue", propertiesPayload->GetNamedString(L"SuperPropertyA"), L"SuperPropertyA had incorrect value");
-        }
-
-        TEST_METHOD(CanClearSuperProperties)
-        {
-            IPropertySet^ properties = ref new PropertySet();
-            m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
-
-            m_client->EmbelishPropertySet(properties);
-            auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
-
-            // Check that the actual properties we passed in are present
-            Assert::IsTrue(trackPayload->HasKey(L"properties"), L"No properties payload");
-            auto propertiesPayload = trackPayload->GetNamedObject("properties");
-
-            // Validate that Super Property is present
-            Assert::IsTrue(propertiesPayload->HasKey(L"SuperPropertyA"), L"No SuperPropertyA in properties payload");
-            Assert::AreEqual(L"SuperValueA", propertiesPayload->GetNamedString(L"SuperPropertyA"), L"SuperPropertyA had incorrect value");
-
-            // Clear the super properties, and generate the payload again
-            m_client->ClearSuperProperties();
-            properties = ref new PropertySet();
-
-            // Validate payload again
-            m_client->EmbelishPropertySet(properties);
-            trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
-            propertiesPayload = trackPayload->GetNamedObject("properties");
-
-            // Validate that Super Property isn't present
-            Assert::IsFalse(propertiesPayload->HasKey(L"SuperPropertyA"), L"SuperPropertyA present, when it should have been cleared");
         }
 
         TEST_METHOD(CanCheckForSuperPropertyWhenNotSet)
@@ -507,6 +477,21 @@ namespace Codevoid::Tests::Mixpanel
             Assert::IsTrue(0 == ApplicationData::Current->LocalSettings->Containers->Size, L"Expected local data to be empty");
         }
 
+        TEST_METHOD(CanClearSuperProperties)
+        {
+            m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
+
+            // Validate that Super Property is present
+            Assert::IsTrue(m_client->HasSuperProperty(L"SuperPropertyA"), L"No SuperPropertyA in properties payload");
+            Assert::AreEqual(L"SuperValueA", m_client->GetSuperPropertyAsString(L"SuperPropertyA"), L"SuperPropertyA had incorrect value");
+
+            // Clear the super properties, and generate the payload again
+            m_client->ClearSuperProperties();
+
+            // Validate that Super Property isn't present
+            Assert::IsFalse(m_client->HasSuperProperty(L"SuperPropertyA"), L"SuperPropertyA present, when it should have been cleared");
+        }
+
         TEST_METHOD(ClearingSuperPropertiesClearsAcrossInstances)
         {
             auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
@@ -522,13 +507,135 @@ namespace Codevoid::Tests::Mixpanel
             Assert::IsFalse(client->HasSuperProperty(L"SuperPropertyA"), L"Didn't expect super property to be found");
         }
 
+        TEST_METHOD(SettingPropertyInPayloadOverridesSuperProperty)
+        {
+            constexpr auto SUPER_PROPERTY_VALUE = 7;
+            constexpr auto LOCAL_PROPERTY_VALUE = 8;
+            const auto propertyName = StringReference(L"SuperProperty");
+            m_client->SetSuperPropertyAsInteger(propertyName, SUPER_PROPERTY_VALUE);
+
+            IPropertySet^ properties = ref new PropertySet();
+            properties->Insert(propertyName, LOCAL_PROPERTY_VALUE);
+            properties = m_client->EmbelishPropertySet(properties);
+            
+            auto retrievedValue = static_cast<int>(properties->Lookup(propertyName));
+            Assert::AreEqual(LOCAL_PROPERTY_VALUE, retrievedValue, L"Property set didn't allow local value to override super properties");
+        }
+
+        TEST_METHOD(SuperPropertiesAttachedOnNewInstanceWithoutSettingSuperProperty)
+        {
+            const auto PROPERTY_NAME = StringReference(L"SuperPropertyK");
+            const auto PROPERTY_VALUE = StringReference(L"PropertyValueK");
+            auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+            client->SetSuperPropertyAsString(PROPERTY_NAME, PROPERTY_VALUE);
+
+            client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+            auto properties = client->EmbelishPropertySet(nullptr);
+            auto trackPayload = client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+
+            auto propertiesPayload = trackPayload->GetNamedObject("properties");
+            Assert::IsTrue(propertiesPayload->HasKey(PROPERTY_NAME), L"Super Property not found");
+            Assert::AreEqual(PROPERTY_VALUE, propertiesPayload->GetNamedString(PROPERTY_NAME), L"Wrong value in the payload");
+        }
+
+        TEST_METHOD(NoIdentityFoundWhenNotSet)
+        {
+            Assert::IsFalse(m_client->HasUserIdentity());
+        }
+
+        TEST_METHOD(CanSetExplicitClientIdentityAndHasIdentity)
+        {
+            auto USER_IDENTITY = StringReference(L"ExplicitIdentity");
+            m_client->SetUserIdentityExplicitly(USER_IDENTITY);
+
+            Assert::IsTrue(m_client->HasUserIdentity());
+
+            auto userIdentity = m_client->GetDistinctId();
+            Assert::AreEqual(StringReference(USER_IDENTITY), userIdentity, "Stored User Identity was wrong");
+        }
+
+        TEST_METHOD(ClientIdentityCanBeCleared)
+        {
+            auto USER_IDENTITY = StringReference(L"UserIdentityToBeCleared");
+            m_client->SetUserIdentityExplicitly(USER_IDENTITY);
+
+            Assert::IsTrue(m_client->HasUserIdentity(), L"Expected to find identity");
+            Assert::AreEqual(USER_IDENTITY, m_client->GetDistinctId(), L"Wrong identity stored");
+
+            m_client->ClearUserIdentity();
+
+            Assert::IsFalse(m_client->HasUserIdentity(), L"User identity was not cleared");
+        }
+
+        TEST_METHOD(ClientIdentityIsPersistedAcrossInstances)
+        {
+            auto USER_IDENTITY = StringReference(L"PersistedExplicitIdentity");
+            auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+            client->SetUserIdentityExplicitly(USER_IDENTITY);
+
+            client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+            auto storedUserIdentity = client->GetDistinctId();
+            Assert::AreEqual(USER_IDENTITY, storedUserIdentity, L"User Identity wasn't persisted");
+
+            // Since we don't want to rely on the destruction of the
+            // super properties in the clear method, lets just clear the local state
+            client->ClearUserIdentity();
+
+            Assert::IsFalse(client->HasUserIdentity(), L"Expected local data to be empty");
+        }
+
+        TEST_METHOD(ClientIdentityClearedAcrossInstances)
+        {
+            auto USER_IDENTITY = StringReference(L"PersistedExplicitIdentity");
+            auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+            client->SetUserIdentityExplicitly(USER_IDENTITY);
+
+            client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+            client->ClearUserIdentity();
+
+            Assert::IsFalse(client->HasUserIdentity(), L"Expected local data to be empty");
+
+            client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+            Assert::IsFalse(client->HasUserIdentity(), L"Expected local data to be empty in a new instance");
+        }
+
+        TEST_METHOD(CanAutomaticallyGenerateUserIdentity)
+        {
+            Assert::IsFalse(m_client->HasUserIdentity(), L"Expected no identity");
+            m_client->GenerateAndSetUserIdentity();
+            Assert::IsTrue(m_client->HasUserIdentity(), L"User Identity should have been set");
+            auto clientId = m_client->GetDistinctId();
+            Assert::IsFalse(clientId->IsEmpty(), L"Retrived ID was empty");
+        }
+
+        TEST_METHOD(ClearingSuperPropertiesKeepsUserIdentity)
+        {
+            auto USER_IDENTITY = StringReference(L"UserIdenitySavedWhenClearing");
+            m_client->SetUserIdentityExplicitly(USER_IDENTITY);
+
+            m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
+
+            // Validate that Super Property is present
+            Assert::IsTrue(m_client->HasSuperProperty(L"SuperPropertyA"), L"No SuperPropertyA in properties payload");
+            Assert::AreEqual(L"SuperValueA", m_client->GetSuperPropertyAsString(L"SuperPropertyA"), L"SuperPropertyA had incorrect value");
+
+            // Clear the super properties, and generate the payload again
+            m_client->ClearSuperProperties();
+
+            // Validate that Super Property isn't present
+            Assert::IsFalse(m_client->HasSuperProperty(L"SuperPropertyA"), L"SuperPropertyA present, when it should have been cleared");
+
+            // Validate that User Identity is present
+            Assert::IsTrue(m_client->HasUserIdentity(), L"User Identity not present, when it should saved");
+        }
+
         TEST_METHOD(TimeOnlyAddedWhenAutomaticallyAttachingTimePropertyIsEnabled)
         {
             IPropertySet^ properties = ref new PropertySet();
             properties->Insert(L"StringValue", L"Value");
             m_client->AutomaticallyAttachTimeToEvents = false;
 
-            m_client->EmbelishPropertySet(properties);
+            properties = m_client->EmbelishPropertySet(properties);
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
             auto propertiesPayload = trackPayload->GetNamedObject("properties");
 
@@ -539,7 +646,7 @@ namespace Codevoid::Tests::Mixpanel
             // Turn the automatic attachment of time back on
             m_client->AutomaticallyAttachTimeToEvents = true;
 
-            m_client->EmbelishPropertySet(properties);
+            properties = m_client->EmbelishPropertySet(properties);
             trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
             propertiesPayload = trackPayload->GetNamedObject("properties");
 
@@ -557,7 +664,7 @@ namespace Codevoid::Tests::Mixpanel
             properties->Insert(L"StringValue", L"Value");
             properties->Insert(L"time", L"fakevalue");
 
-            m_client->EmbelishPropertySet(properties);
+            properties = m_client->EmbelishPropertySet(properties);
             auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
             auto propertiesPayload = trackPayload->GetNamedObject("properties");
 
@@ -772,7 +879,7 @@ namespace Codevoid::Tests::Mixpanel
 
             m_client->Start();
 
-            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
+            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT * 10);
 
             Assert::AreEqual(3, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
             Assert::AreEqual(50, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");

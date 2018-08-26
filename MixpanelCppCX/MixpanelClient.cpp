@@ -30,6 +30,7 @@ constexpr auto MIXPANEL_QUEUE_FOLDER = L"MixpanelUploadQueue";
 constexpr auto CRYPTO_TOKEN_HMAC_NAME = L"SHA256";
 constexpr auto DURATION_PROPERTY_NAME = L"duration";
 constexpr auto SESSION_TRACKING_EVENT = L"Session";
+constexpr auto DISTINCT_ID_PROPERTY_NAME = L"distinct_id";
 
 constexpr vector<shared_ptr<PayloadContainer>>::difference_type DEFAULT_UPLOAD_SIZE_STRIDE = 50;
 
@@ -82,6 +83,16 @@ void MergePropertySet(IPropertySet^ destination, IPropertySet^ source)
     {
         destination->Insert(kvp->Key, kvp->Value);
     }
+}
+
+String^ GenerateGuidAsString()
+{
+    GUID newGuid;
+    wchar_t guidAsString[MAX_PATH];
+    CoCreateGuid(&newGuid);
+    StringFromGUID2(newGuid, guidAsString, ARRAYSIZE(guidAsString));
+
+    return ref new String(guidAsString);
 }
 
 MixpanelClient::MixpanelClient(String^ token) :
@@ -284,8 +295,7 @@ void MixpanelClient::Track(String^ name, IPropertySet^ properties)
         throw ref new InvalidArgumentException(L"Name cannot be empty or null");
     }
 
-    properties = CopyOrCreatePropertySet(properties);
-    this->EmbelishPropertySet(properties);
+    properties = this->EmbelishPropertySet(properties);
     this->AddDurationForEvent(name, properties);
 
     IJsonValue^ payload = this->GenerateTrackingJsonPayload(name, properties);
@@ -559,62 +569,75 @@ void MixpanelClient::RemoveSuperProperty(String^ name)
 
 IPropertySet^ MixpanelClient::InitializeSuperPropertyCollection()
 {
-    if (m_superProperties == nullptr)
+    if (m_superProperties != nullptr)
     {
-        if (this->PersistSuperPropertiesToApplicationData)
-        {
-            auto localSettings = ApplicationData::Current->LocalSettings;
-
-            // Obtain the container that houses all the super properties
-            // split by Token. E.g. if two instances are using different
-            // tokens, they'll share different super properties.
-            auto superPropertiesContainer = localSettings->CreateContainer(
-                StringReference(SUPER_PROPERTIES_CONTAINER_NAME),
-                ApplicationDataCreateDisposition::Always
-            );
-
-            // Create the token-specific container where we'll actually
-            // store the properties.
-            auto superProperties = superPropertiesContainer->CreateContainer(
-                HashTokenForSettingContainerName(m_token),
-                ApplicationDataCreateDisposition::Always
-            );
-
-            m_superProperties = superProperties->Values;
-        }
-        else
-        {
-            m_superProperties = ref new ValueSet();
-        }
+        return m_superProperties;
     }
+
+    if (!this->PersistSuperPropertiesToApplicationData)
+    {
+        m_superProperties = ref new ValueSet();
+        return m_superProperties;
+    }
+
+    auto localSettings = ApplicationData::Current->LocalSettings;
+
+    // Obtain the container that houses all the super properties
+    // split by Token. E.g. if two instances are using different
+    // tokens, they'll share different super properties.
+    auto superPropertiesContainer = localSettings->CreateContainer(
+        StringReference(SUPER_PROPERTIES_CONTAINER_NAME),
+        ApplicationDataCreateDisposition::Always
+    );
+
+    // Create the token-specific container where we'll actually
+    // store the properties.
+    auto superProperties = superPropertiesContainer->CreateContainer(
+        HashTokenForSettingContainerName(m_token),
+        ApplicationDataCreateDisposition::Always
+    );
+
+    m_superProperties = superProperties->Values;
 
     return m_superProperties;
 }
 
 void MixpanelClient::ClearSuperProperties()
 {
-    if (m_superProperties == nullptr)
-    {
-        return;
-    }
+    this->InitializeSuperPropertyCollection();
+
+    String^ distinctId = this->GetDistinctId();
 
     m_superProperties->Clear();
     m_superProperties = nullptr;
+
+    if (!distinctId->IsEmpty())
+    {
+        this->SetUserIdentityExplicitly(distinctId);
+    }
 }
 
-void MixpanelClient::EmbelishPropertySet(IPropertySet^ properties)
+IPropertySet^ MixpanelClient::EmbelishPropertySet(IPropertySet^ properties)
 {
-    MergePropertySet(properties, m_superProperties);
-
-    // The properties payload is expected to have the API Token, rather than
-    // in the general payload properties. So, lets explicitly add it.
-    properties->Insert(L"token", m_token);
-
-    if (this->AutomaticallyAttachTimeToEvents && (properties && !properties->HasKey(L"time")))
+    // Copy them from the super properties, so that any that are explicitly
+    // set by the caller, override those super properties ('cause they're
+    // applied later)
+    auto embelishedProperties = CopyOrCreatePropertySet(m_superProperties);
+    if (this->AutomaticallyAttachTimeToEvents)
     {
         auto now = time_point_cast<milliseconds>(system_clock::now()).time_since_epoch().count();
-        properties->Insert(L"time", static_cast<double>(now));
+        embelishedProperties->Insert(L"time", static_cast<double>(now));
     }
+
+    // Merge the properties provided into our clone
+    MergePropertySet(embelishedProperties, properties);
+
+    // The properties payload is expected to have the API Token, rather than
+    // in the general payload properties. So, lets explicitly add it after
+    // everything else so it doesn't get squashed
+    embelishedProperties->Insert(L"token", m_token);
+
+    return embelishedProperties;
 }
 
 void MixpanelClient::AddDurationForEvent(String^ name, IPropertySet^ properties)
@@ -723,6 +746,43 @@ void MixpanelClient::AppendPropertySetToJsonPayload(IPropertySet^ properties, Js
 
         throw ref new InvalidCastException(L"Property set includes unsupported data type: " + kvp->Key);
     }
+}
+
+void MixpanelClient::SetUserIdentityExplicitly(String^ identity)
+{
+    this->InitializeSuperPropertyCollection();
+    this->SetSuperPropertyAsString(StringReference(DISTINCT_ID_PROPERTY_NAME), identity);
+}
+
+void MixpanelClient::GenerateAndSetUserIdentity()
+{
+    auto autoGeneratedId = GenerateGuidAsString();
+    this->SetUserIdentityExplicitly(autoGeneratedId);
+}
+
+bool MixpanelClient::HasUserIdentity()
+{
+    return !this->GetDistinctId()->IsEmpty();
+}
+
+void MixpanelClient::ClearUserIdentity()
+{
+    this->InitializeSuperPropertyCollection();
+    this->RemoveSuperProperty(StringReference(DISTINCT_ID_PROPERTY_NAME));
+}
+
+String^ MixpanelClient::GetDistinctId()
+{
+    this->InitializeSuperPropertyCollection();
+
+    static auto distinctProperty = StringReference(DISTINCT_ID_PROPERTY_NAME);
+    if (!this->HasSuperProperty(distinctProperty))
+    {
+        return nullptr;
+    }
+
+    String^ distinctId = this->GetSuperPropertyAsString(distinctProperty);
+    return distinctId;
 }
 
 void MixpanelClient::ThrowIfNotInitialized()

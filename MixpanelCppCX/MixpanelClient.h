@@ -277,6 +277,30 @@ namespace Codevoid::Utilities::Mixpanel {
         /// </summary>
         Windows::Foundation::IAsyncAction^ ClearStorageAsync();
 
+        /// <summary>
+        /// If a user ID had been set via SetUserIdentityExplicitly, or generating
+        /// one, this will return true. Intended to be checked before setting an identity.
+        /// </summary>
+        bool HasUserIdentity();
+
+        /// <summary>
+        /// Sets the value of 'distinct_id' property of your events when tracked to ensure that
+        /// they can be tracked as a user. With this, it'll always be attached to all your requests.
+        /// </summary>
+        void SetUserIdentityExplicitly(Platform::String^ identity);
+
+        /// <summary>
+        /// When called, the user identity set, if any, will be cleared and your subsequent events
+        /// will be individual events with no ability to track over time the behaviour of one client.
+        /// </summary>
+        void ClearUserIdentity();
+
+        /// <summary>
+        /// Recommended way to set a user identity -- this generates a GUID for the user identity
+        /// and sets it to be attached on all future events.
+        /// </summary>
+        void GenerateAndSetUserIdentity();
+
     private:
         /// <summary>
         /// Allows synchronous initalization if one has the storage
@@ -399,12 +423,13 @@ namespace Codevoid::Utilities::Mixpanel {
         void HandleCompletedUploads(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
         void AddItemsToUploadQueue(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
         Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
-        void EmbelishPropertySet(Windows::Foundation::Collections::IPropertySet^ properties);
+        Windows::Foundation::Collections::IPropertySet^ EmbelishPropertySet(Windows::Foundation::Collections::IPropertySet^ properties);
         void AddDurationForEvent(Platform::String^, Windows::Foundation::Collections::IPropertySet^ properties);
         static void AppendPropertySetToJsonPayload(Windows::Foundation::Collections::IPropertySet^ properties, Windows::Data::Json::JsonObject^ toAppendTo);
         void ThrowIfNotInitialized();
         Windows::Foundation::Collections::IPropertySet^ InitializeSuperPropertyCollection();
         Windows::Foundation::Collections::IPropertySet^ InitializeSessionPropertyCollection();
+        Platform::String^ GetDistinctId();
 
         /// <summary>
         /// The API Token being used for all requests

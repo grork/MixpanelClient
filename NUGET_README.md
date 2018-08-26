@@ -60,6 +60,15 @@ For more detailed usage, see the README.md in the package, or [here](https://git
 Release Notes
 =============
 
+v1.2.4
+------
+Fixed issue due to bugs with Co-routines in VS 2017 15.7 (would crash randomly)
+
+v1.2.3
+------
+Fixed issue with handling corrupt JSON queue files (E.g. owning process was killed mid-write)
+Publish PDBs
+
 v1.2.2
 ------
 Fixing issue with projection of overloaded methods into javascript. This is a _breaking change_, where all `SetXXProperty` Methods as now typed in their name.

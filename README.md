@@ -55,6 +55,21 @@ properties.add("MyOtherProperty", 9);
 mixpanelClient.Track("MyOtherEvent", properties);
 ```
 
+Setting a User Identity
+-----------------------
+If you want to be able to track your customers across multiple settings, and
+correlate the events that a device/customer generates, you need to set an identity
+for that user.
+
+You can do that in two ways:
+1. Call `GenerateAndSetUserIdentity` and create a GUID identifier
+2. Use your own method for generating a unique identifier, and call `SetUserIdentityExplicitly`.
+
+From that point, any events will have that identifier logged.
+
+If you want to check if you have identified this user, you can call `HasUserIdentity`.
+
+
 Adding a super property
 -----------------------
 Assuming you have an instance of `MixpanelClient`, you can set super properties
@@ -150,6 +165,37 @@ from a previous session.
 mixpanelClient.InitializeAsync().done(...);
 ```
 
+bool HasUserIdentity()
+----------------------
+Checks if a user identity has been set, and if so, returns 'true'.
+
+```
+mixpanelClient.HasUserIdentity();
+```
+
+void GenerateAndSetUserIdentity()
+---------------------------------
+Generates a random identifier for a user, and sets it for all future events. Any
+existing identity that may or may not be stored will be overwritten.
+
+```
+if(!mixpanelClient.HasUserIdentity()) {
+    mixpanelClient.GenerateAndSetUserIdentity();
+}
+```
+
+void SetUserIdentityExplicitl(String identity)
+----------------------------------------------
+Sets an explicit identifier for a user to be attached to all future events. Any
+existing identity will be overwritten.
+
+```
+mixpanelClient.SetUserIdentityExplicitly("User1");
+```
+
+### Parameters
+`identity` - The user Identity be be set for future events.
+
 void Track(String name, IPropertySet properties)
 ------------------------------------------------
 Adds the event with the supplied name & properties (in addition to any super
@@ -160,8 +206,18 @@ promises/events to know when it's made it to the service.
 mixpanelClient.Track("LoggedIn", null);
 ```
 
+void ClearUserIdentity()
+------------------------
+Clears any user identity that might be set, so that future events are no longer
+associated with a user.
+
+This should be called after a `ClearSuperProperties` to truely return to a default
+state.
+
+
 ### Parameters
 `name` — Name of the event that is being logged (required)
+
 `properties` — Any additional properties you would like to log with this event (optional)
 
 void StartTimedEvent(string name)
@@ -248,7 +304,7 @@ void ClearSessionProperties()
 Clears all currently set session properties.
 
 ```
-mixpanelClient.ClearSuperProperties();
+mixpanelClient.ClearSessionProperties();
 ```
 
 void SetSuperPropertyAs<Type>(String name, [String/Integer/Double/Boolean] value)
@@ -266,6 +322,7 @@ mixpanelClient.SetSuperProperty("ASuperProperty", "SuperValue");
 
 ### Parameters
 `name` — Name of the property that is to be set (required)
+
 `value` — Value to be set for the supplied name (required)
 
 string/double/bool GetSuperPropertyAsString/Integer/Double/Boolean(string name)
@@ -308,7 +365,8 @@ mixpanelClient.RemoveSuperProperty("ASuperProperty");
 
 void ClearSuperProperties()
 ---------------------------
-Clears all currently set super properties.
+Clears all currently set super properties, excluding the user identity. To clear
+that, call `ClearUserIdentity`.
 
 ```
 mixpanelClient.ClearSuperProperties();
