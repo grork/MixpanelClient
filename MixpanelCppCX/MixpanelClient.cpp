@@ -97,13 +97,13 @@ String^ GenerateGuidAsString()
 
 MixpanelClient::MixpanelClient(String^ token) :
     m_userAgent(ref new HttpProductInfoHeaderValue(L"Codevoid.Utilities.MixpanelClient", L"1.0")),
-    m_uploadWorker(
+    m_trackUploadWorker(
         [this](const auto& items, const auto& shouldContinueProcessing) -> auto {
             // Not using std::bind, because ref classes & it don't play nice
-            return this->HandleEventBatchUpload(items, shouldContinueProcessing);
+            return this->HandleBatchUploadWithUri(m_trackEventUri, items, shouldContinueProcessing);
         },
         [this](const auto& items) -> void {
-            this->HandleCompletedUploads(items);
+            MixpanelClient::HandleCompletedUploadsForQueue(*m_trackStorageQueue, items);
         },
         wstring(L"UploadToMixpanel")
     )
@@ -126,15 +126,15 @@ IAsyncAction^ MixpanelClient::InitializeAsync()
     });
 }
 
-void MixpanelClient::StartWorker()
+void MixpanelClient::StartWorkers()
 {
-    m_uploadWorker.Start();
-    m_eventStorageQueue->EnableQueuingToStorage();
+    m_trackUploadWorker.Start();
+    m_trackStorageQueue->EnableQueuingToStorage();
 }
 
 void MixpanelClient::Start()
 {
-    this->StartWorker();
+    this->StartWorkers();
     this->StartSessionTracking();
     m_suspendingEventToken = CoreApplication::Suspending += ref new EventHandler<SuspendingEventArgs^>(this, &MixpanelClient::HandleApplicationSuspend);
     m_resumingEventToken = CoreApplication::Resuming += ref new EventHandler<Object^>(this, &MixpanelClient::HandleApplicationResuming);
@@ -148,14 +148,14 @@ void MixpanelClient::HandleApplicationSuspend(Object^, SuspendingEventArgs^ args
 
     this->EndSessionTracking();
 
-    this->PauseWorker().then([deferral]() {
+    this->PauseWorkers().then([deferral]() {
         deferral->Complete();
     });
 }
 
 void MixpanelClient::HandleApplicationResuming(Object^, Object^)
 {
-    this->StartWorker();
+    this->StartWorkers();
     this->StartSessionTracking();
 }
 
@@ -199,16 +199,16 @@ void MixpanelClient::RestartSessionTracking()
     this->StartSessionTracking();
 }
 
-task<void> MixpanelClient::PauseWorker()
+task<void> MixpanelClient::PauseWorkers()
 {
-    m_uploadWorker.Pause();
-    return m_eventStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
+    m_trackUploadWorker.Pause();
+    return m_trackStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
 }
 
 IAsyncAction^ MixpanelClient::PauseAsync()
 {
     return create_async([this]() {
-        this->PauseWorker().wait();
+        this->PauseWorkers().wait();
     });
 }
 
@@ -218,7 +218,7 @@ task<void> MixpanelClient::Shutdown()
     // operations, so we dont want it to drain or reach
     // a 'safe' place. We want it to give up as soon as
     // we're trying to get out of dodge.
-    m_uploadWorker.ShutdownAndDrop();
+    m_trackUploadWorker.ShutdownAndDrop();
 
     // Remove the suspending/resuming events, since we're
     // shutting everythign down. Of note, these can be detatched
@@ -231,22 +231,22 @@ task<void> MixpanelClient::Shutdown()
         m_resumingEventToken = { 0 };
     }
 
-    if (m_eventStorageQueue == nullptr)
+    if (m_trackStorageQueue == nullptr)
     {
         return;
     }
 
     this->EndSessionTracking();
 
-    co_await m_eventStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
-    m_eventStorageQueue = nullptr;
+    co_await m_trackStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
+    m_trackStorageQueue = nullptr;
 }
 
 IAsyncAction^ MixpanelClient::ClearStorageAsync()
 {
     this->ThrowIfNotInitialized();
     return create_async([this]() {
-        return m_eventStorageQueue->Clear();
+        return m_trackStorageQueue->Clear();
     });
 }
 
@@ -260,24 +260,24 @@ task<void> MixpanelClient::Initialize()
     auto previousItems = co_await EventStorageQueue::LoadItemsFromStorage(folder);
     if (previousItems.size() > 0)
     {
-        this->AddItemsToUploadQueue(previousItems);
+        this->AddItemsToTrackQueue(previousItems);
     }
 }
 
 void MixpanelClient::Initialize(StorageFolder^ queueFolder,
                                 Uri^ serviceUri)
 {
-    m_eventStorageQueue = make_unique<EventStorageQueue>(queueFolder, [this](auto writtenItems) {
+    m_trackStorageQueue = make_unique<EventStorageQueue>(queueFolder, [this](auto writtenItems) {
         if (m_writtenToStorageMockCallback == nullptr)
         {
-            this->AddItemsToUploadQueue(writtenItems);
+            this->AddItemsToTrackQueue(writtenItems);
             return;
         }
 
         m_writtenToStorageMockCallback(writtenItems);
     });
 
-    m_serviceUri = serviceUri;
+    m_trackEventUri = serviceUri;
     m_requestHelper = &MixpanelClient::SendRequestToService;
 }
 
@@ -295,11 +295,11 @@ void MixpanelClient::Track(String^ name, IPropertySet^ properties)
         throw ref new InvalidArgumentException(L"Name cannot be empty or null");
     }
 
-    properties = this->EmbelishPropertySet(properties);
-    this->AddDurationForEvent(name, properties);
+    properties = this->EmbelishPropertySetForTrack(properties);
+    this->AddDurationForTrack(name, properties);
 
-    IJsonValue^ payload = MixpanelClient::GenerateTrackingJsonPayload(name, properties);
-    m_eventStorageQueue->QueueEventToStorage(payload);
+    IJsonValue^ payload = MixpanelClient::GenerateTrackJsonPayload(name, properties);
+    m_trackStorageQueue->QueueEventToStorage(payload);
 }
 
 void MixpanelClient::StartTimedEvent(String^ name)
@@ -318,7 +318,7 @@ void MixpanelClient::StartTimedEvent(String^ name)
     m_durationTracker.StartTimerFor(name->Data());
 }
 
-void MixpanelClient::AddItemsToUploadQueue(const vector<shared_ptr<PayloadContainer>>& itemsToUpload)
+void MixpanelClient::AddItemsToTrackQueue(const vector<shared_ptr<PayloadContainer>>& itemsToUpload)
 {
     // If there are any normal priority items, we'll make the work we queue
     // as normal too -- but otherwise, no point in waking up the network stack
@@ -327,18 +327,18 @@ void MixpanelClient::AddItemsToUploadQueue(const vector<shared_ptr<PayloadContai
         return item->Priority == EventPriority::Normal;
     });
 
-    m_uploadWorker.AddWork(itemsToUpload, anyNormalPriorityItems ? WorkPriority::Normal : WorkPriority::Low);
+    m_trackUploadWorker.AddWork(itemsToUpload, anyNormalPriorityItems ? WorkPriority::Normal : WorkPriority::Low);
 }
 
-void MixpanelClient::HandleCompletedUploads(const vector<shared_ptr<PayloadContainer>>& items)
+void MixpanelClient::HandleCompletedUploadsForQueue(EventStorageQueue& queue, const vector<shared_ptr<PayloadContainer>>& items)
 {
     for (auto&& item : items)
     {
-        m_eventStorageQueue->RemoveEventFromStorage(*item).get();
+        queue.RemoveEventFromStorage(*item).get();
     }
 }
 
-vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleEventBatchUpload(const vector<shared_ptr<PayloadContainer>>& items, const function<bool()>& /*shouldKeepProcessing*/)
+vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleBatchUploadWithUri(Uri^ destination, const vector<shared_ptr<PayloadContainer>>& items, const function<bool()>& /*shouldKeepProcessing*/)
 {
     vector<shared_ptr<PayloadContainer>>::difference_type strideSize = DEFAULT_UPLOAD_SIZE_STRIDE;
     vector<shared_ptr<PayloadContainer>> successfulItems;
@@ -365,7 +365,7 @@ vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleEventBatchUpload(cons
         }
 
         TRACE_OUT(L"MixpanelClient: Sending " + to_wstring(eventPayload.size()) + L" events to service");
-        if (!this->PostTrackEventsToMixpanel(eventPayload).get())
+        if (!this->PostPayloadToUri(destination, eventPayload).get())
         {
             TRACE_OUT(L"MixpanelClient: Upload failed");
             if (strideSize != 1)
@@ -395,11 +395,11 @@ vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleEventBatchUpload(cons
     return successfulItems;
 }
 
-task<bool> MixpanelClient::PostTrackEventsToMixpanel(const vector<IJsonValue^>& events)
+task<bool> MixpanelClient::PostPayloadToUri(Uri^ destination, const vector<IJsonValue^>& dataItems)
 {
     auto jsonEvents = ref new JsonArray();
     
-    for (auto&& payload : events)
+    for (auto&& payload : dataItems)
     {
         jsonEvents->Append(payload);
     }
@@ -407,7 +407,7 @@ task<bool> MixpanelClient::PostTrackEventsToMixpanel(const vector<IJsonValue^>& 
     auto formPayload = ref new Map<String^, IJsonValue^>();
     formPayload->Insert(L"data", jsonEvents);
 
-    return co_await m_requestHelper(m_serviceUri, formPayload, m_userAgent);
+    return co_await m_requestHelper(destination, formPayload, m_userAgent);
 }
 
 task<bool> MixpanelClient::SendRequestToService(Uri^ uri, IMap<String^, IJsonValue^>^ payload, HttpProductInfoHeaderValue^ userAgent)
@@ -432,7 +432,7 @@ task<bool> MixpanelClient::SendRequestToService(Uri^ uri, IMap<String^, IJsonVal
             return false;
         }
 
-        // IsSuccessStatusCode defines failure as 200-299 inclusive
+        // IsSuccessStatusCode defines success as 200-299 inclusive
         return requestResult->IsSuccessStatusCode;
     }
     catch (...)
@@ -617,7 +617,7 @@ void MixpanelClient::ClearSuperProperties()
     }
 }
 
-IPropertySet^ MixpanelClient::EmbelishPropertySet(IPropertySet^ properties)
+IPropertySet^ MixpanelClient::EmbelishPropertySetForTrack(IPropertySet^ properties)
 {
     this->InitializeSuperPropertyCollection();
 
@@ -642,7 +642,7 @@ IPropertySet^ MixpanelClient::EmbelishPropertySet(IPropertySet^ properties)
     return embelishedProperties;
 }
 
-void MixpanelClient::AddDurationForEvent(String^ name, IPropertySet^ properties)
+void MixpanelClient::AddDurationForTrack(String^ name, IPropertySet^ properties)
 {
     // Auto attach the duration event if there isn't already
     // an attached "duration" event.
@@ -663,7 +663,7 @@ void MixpanelClient::AddDurationForEvent(String^ name, IPropertySet^ properties)
     }
 }
 
-JsonObject^ MixpanelClient::GenerateTrackingJsonPayload(String^ name, IPropertySet^ properties)
+JsonObject^ MixpanelClient::GenerateTrackJsonPayload(String^ name, IPropertySet^ properties)
 {
     JsonObject^ propertiesPayload = ref new JsonObject();
     MixpanelClient::AppendPropertySetToJsonPayload(properties, propertiesPayload);
@@ -789,7 +789,7 @@ String^ MixpanelClient::GetDistinctId()
 
 void MixpanelClient::ThrowIfNotInitialized()
 {
-    if (m_eventStorageQueue != nullptr)
+    if (m_trackStorageQueue != nullptr)
     {
         return;
     }
@@ -804,13 +804,13 @@ void MixpanelClient::SetWrittenToStorageMock(function<void(vector<shared_ptr<Pay
 
 void MixpanelClient::ConfigureForTesting(const milliseconds& idleTimeout, const size_t& itemThreshold)
 {
-    m_eventStorageQueue->DontWriteToStorageForTestPurposeses();
-    m_eventStorageQueue->SetWriteToStorageIdleLimits(idleTimeout, itemThreshold);
-    m_uploadWorker.SetIdleTimeout(idleTimeout);
-    m_uploadWorker.SetItemThreshold(itemThreshold);
+    m_trackStorageQueue->DontWriteToStorageForTestPurposeses();
+    m_trackStorageQueue->SetWriteToStorageIdleLimits(idleTimeout, itemThreshold);
+    m_trackUploadWorker.SetIdleTimeout(idleTimeout);
+    m_trackUploadWorker.SetItemThreshold(itemThreshold);
 }
 
 void MixpanelClient::ForceWritingToStorage()
 {
-    m_eventStorageQueue->NoReallyWriteToStorageDuringTesting();
+    m_trackStorageQueue->NoReallyWriteToStorageDuringTesting();
 }

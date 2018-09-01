@@ -346,13 +346,13 @@ namespace Codevoid::Utilities::Mixpanel {
         /// Start worker that does the work of starting the queues, but doesn't do some of the
         /// one-time work related to starting the queue (E.g. attacking handlers)
         /// </summary>
-        void StartWorker();
+        void StartWorkers();
 
         /// <summary>
         /// Projects the internal task-based interface for pausing, rather than
         /// asking internal consumers to consume IAsyncAction^ interface.
         /// </summary>
-        concurrency::task<void> PauseWorker();
+        concurrency::task<void> PauseWorkers();
 
         /// <summary>
         /// By default all the super properties are persisted to storage.
@@ -373,7 +373,7 @@ namespace Codevoid::Utilities::Mixpanel {
         /// The returned task will be completed when all the supplied items
         /// have been sent to the service.
         /// </summary>
-        concurrency::task<bool> PostTrackEventsToMixpanel(const std::vector<Windows::Data::Json::IJsonValue^>& payload);
+        concurrency::task<bool> PostPayloadToUri(Windows::Foundation::Uri^ destination, const std::vector<Windows::Data::Json::IJsonValue^>& payload);
 
         /// <summary>
         /// Handles suspending event as raised from the platform's CoreApplication object
@@ -416,15 +416,16 @@ namespace Codevoid::Utilities::Mixpanel {
         std::function<void(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>)> m_writtenToStorageMockCallback;
 
         std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>
-            HandleEventBatchUpload(
+            HandleBatchUploadWithUri(
+                Windows::Foundation::Uri^ destination,
                 const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items,
                 const std::function<bool()>& shouldKeepProcessing
             );
-        void HandleCompletedUploads(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
-        void AddItemsToUploadQueue(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
-        static Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
-        Windows::Foundation::Collections::IPropertySet^ EmbelishPropertySet(Windows::Foundation::Collections::IPropertySet^ properties);
-        void AddDurationForEvent(Platform::String^, Windows::Foundation::Collections::IPropertySet^ properties);
+        static void HandleCompletedUploadsForQueue(Codevoid::Utilities::Mixpanel::EventStorageQueue& queue, const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
+        void AddItemsToTrackQueue(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
+        static Windows::Data::Json::JsonObject^ GenerateTrackJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
+        Windows::Foundation::Collections::IPropertySet^ EmbelishPropertySetForTrack(Windows::Foundation::Collections::IPropertySet^ properties);
+        void AddDurationForTrack(Platform::String^, Windows::Foundation::Collections::IPropertySet^ properties);
         static void AppendPropertySetToJsonPayload(Windows::Foundation::Collections::IPropertySet^ properties, Windows::Data::Json::JsonObject^ toAppendTo);
         void ThrowIfNotInitialized();
         Windows::Foundation::Collections::IPropertySet^ InitializeSuperPropertyCollection();
@@ -439,10 +440,10 @@ namespace Codevoid::Utilities::Mixpanel {
         Windows::Foundation::Collections::IPropertySet^ m_sessionProperties;
 
         Codevoid::Utilities::Mixpanel::DurationTracker m_durationTracker;
-        Windows::Foundation::Uri^ m_serviceUri;
+        Windows::Foundation::Uri^ m_trackEventUri;
         Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ m_userAgent;
-        std::unique_ptr<Codevoid::Utilities::Mixpanel::EventStorageQueue> m_eventStorageQueue;
-        Codevoid::Utilities::BackgroundWorker<Codevoid::Utilities::Mixpanel::PayloadContainer> m_uploadWorker;
+        std::unique_ptr<Codevoid::Utilities::Mixpanel::EventStorageQueue> m_trackStorageQueue;
+        Codevoid::Utilities::BackgroundWorker<Codevoid::Utilities::Mixpanel::PayloadContainer> m_trackUploadWorker;
         std::function<concurrency::task<bool>(
             Windows::Foundation::Uri^,
             Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^,
