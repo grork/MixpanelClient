@@ -31,6 +31,8 @@ constexpr auto CRYPTO_TOKEN_HMAC_NAME = L"SHA256";
 constexpr auto DURATION_PROPERTY_NAME = L"duration";
 constexpr auto SESSION_TRACKING_EVENT = L"Session";
 constexpr auto DISTINCT_ID_PROPERTY_NAME = L"distinct_id";
+constexpr auto DISTINCT_ID_PROPERTY_NAME_ENGAGE = L"$distinct_id";
+constexpr auto TOKEN_PROPERTY_NAME_ENGAGE = L"$token";
 
 constexpr vector<shared_ptr<PayloadContainer>>::difference_type DEFAULT_UPLOAD_SIZE_STRIDE = 50;
 
@@ -93,6 +95,31 @@ String^ GenerateGuidAsString()
     StringFromGUID2(newGuid, guidAsString, ARRAYSIZE(guidAsString));
 
     return ref new String(guidAsString);
+}
+
+void ThrowIfPrefixedWithMp(String^ keyToCheck)
+{
+    // MixPanel explicilty disallows properties prefixed with mp_
+    // So check each key and throw if it is unacceptable.
+    wstring key(keyToCheck->Data());
+
+    size_t prefixPos = key.find(L"mp_");
+    if ((prefixPos != wstring::npos) && (prefixPos == 0))
+    {
+        throw ref new InvalidArgumentException(L"Arguments cannot start with mp_. Property name: " + keyToCheck);
+    }
+}
+
+template <typename T>
+JsonArray^ AppendNumberToJsonArray(IVector<T>^ values)
+{
+    JsonArray^ target = ref new JsonArray();
+    for (const auto& value : values)
+    {
+        target->Append(JsonValue::CreateNumberValue((double)value));
+    }
+
+    return target;
 }
 
 MixpanelClient::MixpanelClient(String^ token) :
@@ -642,6 +669,21 @@ IPropertySet^ MixpanelClient::EmbelishPropertySetForTrack(IPropertySet^ properti
     return embelishedProperties;
 }
 
+IPropertySet^ MixpanelClient::GetEngageProperties(IPropertySet^ options)
+{
+    IPropertySet^ properties = CopyOrCreatePropertySet(options);
+
+    if (!this->HasUserIdentity())
+    {
+        throw ref new InvalidArgumentException(L"Must set a user identity before configuring user profile");
+    }
+
+    properties->Insert(StringReference(DISTINCT_ID_PROPERTY_NAME_ENGAGE), this->GetDistinctId());
+    properties->Insert(StringReference(TOKEN_PROPERTY_NAME_ENGAGE), m_token);
+
+    return properties;
+}
+
 void MixpanelClient::AddDurationForTrack(String^ name, IPropertySet^ properties)
 {
     // Auto attach the duration event if there isn't already
@@ -675,19 +717,55 @@ JsonObject^ MixpanelClient::GenerateTrackJsonPayload(String^ name, IPropertySet^
     return trackPayload;
 }
 
+JsonObject^ MixpanelClient::GenerateEngageJsonPayload(EngageOperationType operation, IPropertySet^ values, IPropertySet^ options)
+{
+    JsonObject^ engagePayload = ref new JsonObject();
+    MixpanelClient::AppendPropertySetToJsonPayload(options, engagePayload);
+
+    JsonObject^ operationValues = ref new JsonObject();
+    MixpanelClient::AppendPropertySetToJsonPayload(values, operationValues);
+    
+    String^ operationName = nullptr;
+
+    switch (operation)
+    {
+        case EngageOperationType::Set:
+            operationName = L"$set";
+            break;
+
+        case EngageOperationType::Set_Once:
+            operationName = L"$set_once";
+            break;
+
+        case EngageOperationType::Append:
+            operationName = L"$append";
+            break;
+
+        case EngageOperationType::Add:
+            // Addition operation in MixPanel only supports numerics, so
+            // this will restrict that set at calling time, rather than
+            // having the service reject it for badness later
+            operationValues = ref new JsonObject();
+            MixpanelClient::AppendNumericPropertySetToJsonPayload(values, operationValues);
+            operationName = L"$add";
+            break;
+
+        case EngageOperationType::Union:
+            operationName = L"$union";
+            break;
+    }
+
+    engagePayload->Insert(operationName, operationValues);
+
+    return engagePayload;
+}
+
 void MixpanelClient::AppendPropertySetToJsonPayload(IPropertySet^ properties, JsonObject^ toAppendTo)
 {
     for (const auto& kvp : properties)
     {
-        // MixPanel explicilty disallows properties prefixed with mp_
-        // So check each key and throw if it is unacceptable.
-        wstring key(kvp->Key->Data());
-
-        size_t prefixPos = key.find(L"mp_");
-        if ((prefixPos != wstring::npos) && (prefixPos == 0))
-        {
-            throw ref new InvalidArgumentException(L"Arguments cannot start with mp_. Property name: " + kvp->Key);
-        }
+        String^ key = kvp->Key;
+        ThrowIfPrefixedWithMp(key);
 
         // Work out which type this thing actually is.
         // We only support:
@@ -746,7 +824,75 @@ void MixpanelClient::AppendPropertySetToJsonPayload(IPropertySet^ properties, Js
             continue;
         }
 
+        IVector<String^>^ candidateStringVector = dynamic_cast<IVector<String^>^>(kvp->Value);
+        if (candidateStringVector != nullptr)
+        {
+            JsonArray^ stringArray = ref new JsonArray();
+            for (const auto& value : candidateStringVector)
+            {
+                stringArray->Append(JsonValue::CreateStringValue(value));
+            }
+
+            toAppendTo->Insert(kvp->Key, stringArray);
+            continue;
+        }
+
+        IVector<int>^ candidateIntegerVector = dynamic_cast<IVector<int>^>(kvp->Value);
+        if (candidateIntegerVector != nullptr)
+        {
+            toAppendTo->Insert(kvp->Key, AppendNumberToJsonArray(candidateIntegerVector));
+            continue;
+        }
+
+        IVector<double>^ candidateDoubleVector = dynamic_cast<IVector<double>^>(kvp->Value);
+        if (candidateDoubleVector != nullptr)
+        {
+            toAppendTo->Insert(kvp->Key, AppendNumberToJsonArray(candidateDoubleVector));
+            continue;
+        }
+
+        IVector<float>^ candidateFloatVector = dynamic_cast<IVector<float>^>(kvp->Value);
+        if (candidateFloatVector != nullptr)
+        {
+            toAppendTo->Insert(kvp->Key, AppendNumberToJsonArray(candidateFloatVector));
+            continue;
+        }
+
         throw ref new InvalidCastException(L"Property set includes unsupported data type: " + kvp->Key);
+    }
+}
+
+void MixpanelClient::AppendNumericPropertySetToJsonPayload(IPropertySet^ properties, JsonObject^ toAppendTo)
+{
+    for (const auto& kvp : properties)
+    {
+        ThrowIfPrefixedWithMp(kvp->Key);
+
+        IBox<int>^ candidateInt = dynamic_cast<IBox<int>^>(kvp->Value);
+        if (candidateInt != nullptr)
+        {
+            auto intValue = JsonValue::CreateNumberValue(candidateInt->Value);
+            toAppendTo->Insert(kvp->Key, intValue);
+            continue;
+        }
+
+        IBox<double>^ candidateDouble = dynamic_cast<IBox<double>^>(kvp->Value);
+        if (candidateDouble != nullptr)
+        {
+            auto doubleValue = JsonValue::CreateNumberValue(candidateDouble->Value);
+            toAppendTo->Insert(kvp->Key, doubleValue);
+            continue;
+        }
+
+        IBox<float>^ candidateFloat = dynamic_cast<IBox<float>^>(kvp->Value);
+        if (candidateFloat != nullptr)
+        {
+            auto floatValue = JsonValue::CreateNumberValue(candidateFloat->Value);
+            toAppendTo->Insert(kvp->Key, floatValue);
+            continue;
+        }
+
+        throw ref new InvalidCastException(L"Property set includes non-numeric data type: " + kvp->Key);
     }
 }
 

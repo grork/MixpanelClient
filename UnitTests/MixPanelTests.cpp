@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "CppUnitTest.h"
 #include "DurationTracker.h"
+#include "EngageOptionNames.h"
 #include "MixpanelClient.h"
 #include "AsyncHelper.h"
 
@@ -21,6 +22,8 @@ constexpr auto DEFAULT_TOKEN = L"DEFAULT_TOKEN";
 constexpr auto OVERRIDE_STORAGE_FOLDER = L"MixpanelClientTests";
 constexpr milliseconds DEFAULT_IDLE_TIMEOUT = 10ms;
 constexpr size_t SPIN_LOOP_LIMIT = 500;
+constexpr auto DISTINCT_ENGAGE_KEY = L"$distinct_id";
+constexpr auto TOKEN_ENGAGE_KEY = L"$token";
 
 extern std::optional<steady_clock::time_point> g_overrideNextTimeAccess;
 
@@ -214,6 +217,11 @@ namespace Codevoid::Tests::Mixpanel
 
         TEST_METHOD(GeneratingJsonObjectDoesntThrowForSupportedTypes)
         {
+            IVector<String^>^ stringVector = ref new Vector<String^>();
+            stringVector->Append(ref new String(L"1"));
+            IVector<int>^ intVector = ref new Vector<int>({ 1, 2, 3 });
+            IVector<float>^ floatVector = ref new Vector<float>({ 1.0f, 2.0f, 3.0f });
+            IVector<double>^ doubleVector = ref new Vector<double>({ 1.0, 2.0, 3.0 });
             IPropertySet^ properties = ref new PropertySet();
             properties->Insert(L"StringValue", L"Value");
             properties->Insert(L"IntValue", 42);
@@ -222,6 +230,10 @@ namespace Codevoid::Tests::Mixpanel
             properties->Insert(L"BooleanValue", true);
             auto calendar = ref new Windows::Globalization::Calendar();
             properties->Insert(L"DateTimeValue", calendar->GetDateTime());
+            properties->Insert(L"StringVector", stringVector);
+            properties->Insert(L"IntegerVector", intVector);
+            //properties->Insert(L"FloatVector", floatVector);
+            //properties->Insert(L"DoubleVector", doubleVector);
 
             JsonObject^ result = ref new JsonObject();
             try
@@ -262,6 +274,12 @@ namespace Codevoid::Tests::Mixpanel
 
         TEST_METHOD(CorrectJsonValuesAreGeneratedForSupportedTypes)
         {
+            IVector<String^>^ stringVector = ref new Vector<String^>();
+            stringVector->Append(ref new String(L"1"));
+            IVector<int>^ intVector = ref new Vector<int>({ 1, 2, 3 });
+            IVector<float>^ floatVector = ref new Vector<float>({ 1.0f, 2.0f, 3.0f });
+            IVector<double>^ doubleVector = ref new Vector<double>({ 1.0, 2.0, 3.0 });
+
             IPropertySet^ properties = ref new PropertySet();
             properties->Insert(L"StringValue", L"Value");
             properties->Insert(L"IntValue", 42);
@@ -271,6 +289,10 @@ namespace Codevoid::Tests::Mixpanel
             auto calendar = ref new Windows::Globalization::Calendar();
             auto insertedDateTime = calendar->GetDateTime();
             properties->Insert(L"DateTimeValue", insertedDateTime);
+            properties->Insert(L"StringVector", stringVector);
+            properties->Insert(L"IntegerVector", intVector);
+            properties->Insert(L"FloatVector", floatVector);
+            properties->Insert(L"DoubleVector", doubleVector);
 
             auto result = ref new JsonObject();
             MixpanelClient::AppendPropertySetToJsonPayload(properties, result);
@@ -304,6 +326,32 @@ namespace Codevoid::Tests::Mixpanel
             Assert::IsTrue(result->HasKey(L"DateTimeValue"), L"DateTimee key isn't present");
             double dateTime = static_cast<double>(result->GetNamedNumber(L"DateTimeValue"));
             Assert::AreEqual(static_cast<double>(WindowsTickToUnixSeconds(insertedDateTime.UniversalTime)), dateTime, L"DateTimeValue didn't match");
+
+            Assert::IsTrue(result->HasKey(L"StringVector"), L"String Vector isn't present");
+            JsonArray^ stringArray = result->GetNamedArray(L"StringVector");
+            Assert::AreEqual(1, (int)stringArray->Size, L"Wrong Number of items in string vector");
+            Assert::AreEqual(L"1", stringArray->GetStringAt(0), L"Wrong value in string vector");
+
+            Assert::IsTrue(result->HasKey(L"IntegerVector"), L"Integer Vector isn't present");
+            JsonArray^ integerArray = result->GetNamedArray(L"IntegerVector");
+            Assert::AreEqual(3, (int)integerArray->Size, L"Wrong Number of items in string vector");
+            Assert::AreEqual((double)1, integerArray->GetNumberAt(0), L"Wrong value in integer vector");
+            Assert::AreEqual((double)2, integerArray->GetNumberAt(1), L"Wrong value in integer vector");
+            Assert::AreEqual((double)3, integerArray->GetNumberAt(2), L"Wrong value in integer vector");
+
+            Assert::IsTrue(result->HasKey(L"FloatVector"), L"Float Vector isn't present");
+            JsonArray^ floatArray = result->GetNamedArray(L"FloatVector");
+            Assert::AreEqual(3, (int)floatArray->Size, L"Wrong Number of items in float vector");
+            Assert::AreEqual((double)1.0f, floatArray->GetNumberAt(0), L"Wrong value in float vector");
+            Assert::AreEqual((double)2.0f, floatArray->GetNumberAt(1), L"Wrong value in float vector");
+            Assert::AreEqual((double)3.0f, floatArray->GetNumberAt(2), L"Wrong value in float vector");
+
+            Assert::IsTrue(result->HasKey(L"DoubleVector"), L"Double Vector isn't present");
+            JsonArray^ doubleArray = result->GetNamedArray(L"DoubleVector");
+            Assert::AreEqual(3, (int)doubleArray->Size, L"Wrong Number of items in Double vector");
+            Assert::AreEqual((double)1.0f, doubleArray->GetNumberAt(0), L"Wrong value in Double vector");
+            Assert::AreEqual((double)2.0f, doubleArray->GetNumberAt(1), L"Wrong value in Double vector");
+            Assert::AreEqual((double)3.0f, doubleArray->GetNumberAt(2), L"Wrong value in Double vector");
         }
 
         TEST_METHOD(ExceptionThrownWhenIncludingMpPrefixInPropertySet)
@@ -324,6 +372,53 @@ namespace Codevoid::Tests::Mixpanel
             }
 
             Assert::IsTrue(exceptionThrown, L"Didn't get exception for mp_ prefixed property in property set");
+        }
+
+        TEST_METHOD(CanEncodeNumericValuesInJson)
+        {
+            IPropertySet^ properties = ref new PropertySet();
+            properties->Insert(L"IntValue", 42);
+            properties->Insert(L"DoubleValue", 4.1);
+            properties->Insert(L"FloatValue", 4.2f);
+
+            auto result = ref new JsonObject();
+            MixpanelClient::AppendNumericPropertySetToJsonPayload(properties, result);
+
+            // Validate that IntValue is present, and matches
+            Assert::IsTrue(result->HasKey(L"IntValue"), L"IntValue not present");
+            int number = static_cast<int>(result->GetNamedNumber(L"IntValue"));
+            Assert::AreEqual(42, number, L"IntValue doesn't match");
+
+            // Validate that that DoubleValue is present, and matches
+            Assert::IsTrue(result->HasKey(L"DoubleValue"), L"DoubleValue not present");
+            double number2 = static_cast<double>(result->GetNamedNumber(L"DoubleValue"));
+            Assert::AreEqual(4.1, number2, L"DoubleValue didn't match");
+
+            // Validate that FloatValue is present, and matches
+            Assert::IsTrue(result->HasKey(L"FloatValue"), L"FloatValue key isn't present");
+            float number3 = static_cast<float>(result->GetNamedNumber(L"FloatValue"));
+            Assert::AreEqual(4.2f, number3, L"FloatValue didn't match");
+        }
+
+        TEST_METHOD(ExceptionThrownWhenIncludingNonNumericValuesInPropertySet)
+        {
+            IPropertySet^ properties = ref new PropertySet();
+            properties->Insert(L"Bar", 3.14);
+            properties->Insert(L"Foo", L"Value");
+
+            bool exceptionThrown = false;
+            JsonObject^ result = ref new JsonObject();
+
+            try
+            {
+                MixpanelClient::AppendNumericPropertySetToJsonPayload(properties, result);
+            }
+            catch (InvalidCastException^ ex)
+            {
+                exceptionThrown = true;
+            }
+
+            Assert::IsTrue(exceptionThrown, L"Didn't get exception for non-numeric property in property set");
         }
 
         TEST_METHOD(TrackingPayloadIncludesTokenAndPayload)
@@ -1127,6 +1222,170 @@ namespace Codevoid::Tests::Mixpanel
 
             // Validate that User Identity is present
             Assert::IsTrue(m_client->HasUserIdentity(), L"User Identity not present, when it should saved");
+        }
+
+        TEST_METHOD(ExceptionThrownGettingEngagePropertiesWhenNoIdentitySet)
+        {
+            bool exceptionThrown = false;
+            try
+            {
+                m_client->GetEngageProperties(nullptr);
+            }
+            catch(InvalidArgumentException^ ex)
+            {
+                exceptionThrown = true;
+            }
+
+            Assert::IsTrue(exceptionThrown, L"No exception thrown when an identity isn't set");
+        }
+
+        TEST_METHOD(IdentityIncludedWhenGettingEngagePropertiesWithEmptyOptions)
+        {
+            constexpr auto IDENTITY = L"IDENTITY_INCLUDED_WHEN_GETTING_PROPERTIES";
+            m_client->SetUserIdentityExplicitly(StringReference(IDENTITY));
+
+            auto properties = m_client->GetEngageProperties(nullptr);
+            Assert::IsTrue(properties->HasKey("$distinct_id"), L"No distinct ID set");
+            Assert::AreEqual(StringReference(IDENTITY),
+                             static_cast<String^>(properties->Lookup(StringReference(DISTINCT_ENGAGE_KEY))),
+                             L"Key doesn't match");
+
+            Assert::IsTrue(properties->HasKey(L"$token"), L"Token not included in property set");
+        }
+
+        TEST_METHOD(OptionsIncludedWhenGettingEnageProperties)
+        {
+            auto calendar = ref new Windows::Globalization::Calendar();
+            m_client->GenerateAndSetUserIdentity();
+
+            auto options = ref new PropertySet();
+            options->Insert(EngageOptionNames::Ip, L"512.512.512.512");
+            options->Insert(EngageOptionNames::Time, calendar->GetDateTime());
+            options->Insert(EngageOptionNames::IgnoreTime, true);
+            options->Insert(EngageOptionNames::IgnoreAlias, true);
+
+            auto properties = m_client->GetEngageProperties(options);
+
+            Assert::IsTrue(properties->HasKey(StringReference(DISTINCT_ENGAGE_KEY)), L"No identity included");
+            Assert::IsTrue(properties->HasKey(StringReference(TOKEN_ENGAGE_KEY)), L"Token not included in property set");
+
+            Assert::IsTrue(properties->HasKey(EngageOptionNames::Ip), L"IP Option not found");
+            Assert::IsTrue(properties->HasKey(EngageOptionNames::Time), L"Time Option not found");
+            Assert::IsTrue(properties->HasKey(EngageOptionNames::IgnoreTime), L"IgnoreTime Option not found");
+            Assert::IsTrue(properties->HasKey(EngageOptionNames::IgnoreAlias), L"IgnoreAlias not found");
+        }
+
+        void TestEngagePayloadOption(EngageOperationType operation, String^ payloadPropertyName)
+        {
+            constexpr auto KEY = L"MyKey";
+            constexpr auto VALUE = L"MyValue";
+
+            m_client->GenerateAndSetUserIdentity();
+            auto properties = m_client->GetEngageProperties(nullptr);
+            auto values = ref new ValueSet();
+            values->Insert(StringReference(KEY), StringReference(VALUE));
+
+            JsonObject^ payload = MixpanelClient::GenerateEngageJsonPayload(operation, values, properties);
+
+            Assert::IsTrue(payload->HasKey(StringReference(DISTINCT_ENGAGE_KEY)), L"No distinct value found");
+            Assert::IsTrue(payload->HasKey(StringReference(TOKEN_ENGAGE_KEY)), L"No token value found");
+
+            Assert::IsTrue(payload->HasKey(payloadPropertyName), L"Has no set object");
+
+            auto jsonValues = payload->GetNamedObject(payloadPropertyName);
+            Assert::AreEqual(1, (int)jsonValues->Size, L"Wrong number of values");
+            Assert::IsTrue(jsonValues->HasKey(StringReference(KEY)), L"Custom Value not found");
+            Assert::AreEqual(StringReference(VALUE), jsonValues->GetNamedString(StringReference(KEY)), L"Value of single key didn't match");
+        }
+
+        TEST_METHOD(GeneratingEngagePayloadWithSetIncludesValues)
+        {
+            TestEngagePayloadOption(EngageOperationType::Set, L"$set");
+        }
+
+        TEST_METHOD(GeneratingEngagePayloadWithSetOnceIncludesValues)
+        {
+            TestEngagePayloadOption(EngageOperationType::Set_Once, L"$set_once");
+        }
+
+        TEST_METHOD(GeneratingEngagePayloadWithAppendIncludesValues)
+        {
+            TestEngagePayloadOption(EngageOperationType::Append, L"$append");
+        }
+
+        TEST_METHOD(GeneratingPayloadWithAddIncludesValues)
+        {
+            constexpr auto KEY = L"MyKey";
+            constexpr auto VALUE = 3.14;
+
+            m_client->GenerateAndSetUserIdentity();
+            auto properties = m_client->GetEngageProperties(nullptr);
+            auto values = ref new ValueSet();
+            values->Insert(StringReference(KEY), VALUE);
+
+            JsonObject^ payload = MixpanelClient::GenerateEngageJsonPayload(EngageOperationType::Add, values, properties);
+
+            Assert::IsTrue(payload->HasKey(StringReference(DISTINCT_ENGAGE_KEY)), L"No distinct value found");
+            Assert::IsTrue(payload->HasKey(StringReference(TOKEN_ENGAGE_KEY)), L"No token value found");
+
+            Assert::IsTrue(payload->HasKey(L"$add"), L"Has no set object");
+
+            auto jsonValues = payload->GetNamedObject(L"$add");
+            Assert::AreEqual(1, (int)jsonValues->Size, L"Wrong number of values");
+            Assert::IsTrue(jsonValues->HasKey(StringReference(KEY)), L"Custom Value not found");
+            Assert::AreEqual(VALUE, jsonValues->GetNamedNumber(StringReference(KEY)), L"Value of single key didn't match");
+        }
+
+        TEST_METHOD(GeneratingPayloadWithUnionIncludesValues)
+        {
+            constexpr auto KEY = L"MyKey";
+            Vector<int>^ VALUE = ref new Vector<int>({ 1, 2, 3 });
+
+            m_client->GenerateAndSetUserIdentity();
+            auto properties = m_client->GetEngageProperties(nullptr);
+            auto values = ref new PropertySet();
+            values->Insert(StringReference(KEY), VALUE);
+
+            JsonObject^ payload = MixpanelClient::GenerateEngageJsonPayload(EngageOperationType::Union, values, properties);
+
+            Assert::IsTrue(payload->HasKey(StringReference(DISTINCT_ENGAGE_KEY)), L"No distinct value found");
+            Assert::IsTrue(payload->HasKey(StringReference(TOKEN_ENGAGE_KEY)), L"No token value found");
+
+            Assert::IsTrue(payload->HasKey(L"$union"), L"Has no set object");
+
+            auto jsonValues = payload->GetNamedObject(L"$union");
+            Assert::AreEqual(1, (int)jsonValues->Size, L"Wrong number of values");
+            Assert::IsTrue(jsonValues->HasKey(StringReference(KEY)), L"Custom Value not found");
+
+            JsonArray^ unionValues = jsonValues->GetNamedArray(StringReference(KEY));
+            Assert::AreEqual(3, (int)unionValues->Size, L"Wrong Number value in JSON payload");
+            Assert::AreEqual((double)1, unionValues->GetNumberAt(0), L"First value wrong");
+            Assert::AreEqual((double)2, unionValues->GetNumberAt(1), L"Second value wrong");
+            Assert::AreEqual((double)3, unionValues->GetNumberAt(2), L"Third value wrong");
+        }
+
+        TEST_METHOD(GeneratingPayloadWithAddFailsWithNonNumericValues)
+        {
+            constexpr auto KEY = L"MyKey";
+            constexpr auto VALUE = L"MyValue";
+
+            m_client->GenerateAndSetUserIdentity();
+            auto properties = m_client->GetEngageProperties(nullptr);
+            auto values = ref new ValueSet();
+            values->Insert(StringReference(KEY), StringReference(VALUE));
+
+            bool exceptionHappened = false;
+
+            try
+            {
+                JsonObject^ payload = MixpanelClient::GenerateEngageJsonPayload(EngageOperationType::Add, values, properties);
+            }
+            catch (InvalidCastException^)
+            {
+                exceptionHappened = true;
+            }
+
+            Assert::IsTrue(exceptionHappened, L"Exception didn't happen");
         }
 #pragma endregion
     };

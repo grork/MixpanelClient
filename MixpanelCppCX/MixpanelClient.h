@@ -7,6 +7,18 @@ namespace Codevoid::Tests::Mixpanel {
 }
 
 namespace Codevoid::Utilities::Mixpanel {
+
+    public enum class EngageOperationType
+    {
+        Set,
+        Set_Once,
+        Add,
+        Append,
+        Union,
+        Remove,
+        Unset,
+    };
+
     /// <summary>
     /// MixpanelClient offers a API for interacting with Mixpanel for UWP apps running on Windows 10+
     /// </summary>
@@ -424,9 +436,12 @@ namespace Codevoid::Utilities::Mixpanel {
         static void HandleCompletedUploadsForQueue(Codevoid::Utilities::Mixpanel::EventStorageQueue& queue, const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
         void AddItemsToTrackQueue(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
         static Windows::Data::Json::JsonObject^ GenerateTrackJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
+        static Windows::Data::Json::JsonObject^ GenerateEngageJsonPayload(EngageOperationType operation, Windows::Foundation::Collections::IPropertySet^ values, Windows::Foundation::Collections::IPropertySet^ options);
         Windows::Foundation::Collections::IPropertySet^ EmbelishPropertySetForTrack(Windows::Foundation::Collections::IPropertySet^ properties);
+        Windows::Foundation::Collections::IPropertySet^ GetEngageProperties(Windows::Foundation::Collections::IPropertySet^ options);
         void AddDurationForTrack(Platform::String^, Windows::Foundation::Collections::IPropertySet^ properties);
         static void AppendPropertySetToJsonPayload(Windows::Foundation::Collections::IPropertySet^ properties, Windows::Data::Json::JsonObject^ toAppendTo);
+        static void AppendNumericPropertySetToJsonPayload(Windows::Foundation::Collections::IPropertySet^ properties, Windows::Data::Json::JsonObject^ toAppendTo);
         void ThrowIfNotInitialized();
         Windows::Foundation::Collections::IPropertySet^ InitializeSuperPropertyCollection();
         Windows::Foundation::Collections::IPropertySet^ InitializeSessionPropertyCollection();

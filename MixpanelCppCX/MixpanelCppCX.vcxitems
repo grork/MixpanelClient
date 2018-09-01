@@ -22,6 +22,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)PayloadEncoder.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)shared_pch.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)Tracing.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)EngageOptionNames.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)DurationTracker.cpp" />
@@ -29,5 +30,6 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)MixpanelClient.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)PayloadEncoder.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Tracing.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)EngageOptionNames.cpp" />
   </ItemGroup>
 </Project>
