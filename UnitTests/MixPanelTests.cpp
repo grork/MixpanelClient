@@ -332,7 +332,7 @@ namespace Codevoid::Tests::Mixpanel
             properties->Insert(L"StringValue", L"Value");
 
             properties = m_client->EmbelishPropertySet(properties);
-            auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+            auto trackPayload = MixpanelClient::GenerateTrackingJsonPayload(L"TestEvent", properties);
 
             // Check that the event data is correct
             Assert::IsTrue(trackPayload->HasKey(L"event"), L"Didn't have event key");
@@ -362,7 +362,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->SetSuperPropertyAsInteger(L"SuperPropertyD", 1);
 
             properties = m_client->EmbelishPropertySet(properties);
-            auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+            auto trackPayload = MixpanelClient::GenerateTrackingJsonPayload(L"TestEvent", properties);
 
             // Check that the event data is correct
             Assert::IsTrue(trackPayload->HasKey(L"event"), L"Didn't have event key");
@@ -403,7 +403,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
 
             IPropertySet^ properties = m_client->EmbelishPropertySet(nullptr);
-            auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+            auto trackPayload = MixpanelClient::GenerateTrackingJsonPayload(L"TestEvent", properties);
 
             // Check that the actual properties we passed in are present
             Assert::IsTrue(trackPayload->HasKey(L"properties"), L"No properties payload");
@@ -418,7 +418,7 @@ namespace Codevoid::Tests::Mixpanel
 
             // Validate payload again
             properties = m_client->EmbelishPropertySet(nullptr);
-            trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+            trackPayload = MixpanelClient::GenerateTrackingJsonPayload(L"TestEvent", properties);
             propertiesPayload = trackPayload->GetNamedObject("properties");
 
             // Validate that Super Property is present
@@ -531,7 +531,7 @@ namespace Codevoid::Tests::Mixpanel
 
             client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
             auto properties = client->EmbelishPropertySet(nullptr);
-            auto trackPayload = client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+            auto trackPayload = MixpanelClient::GenerateTrackingJsonPayload(L"TestEvent", properties);
 
             auto propertiesPayload = trackPayload->GetNamedObject("properties");
             Assert::IsTrue(propertiesPayload->HasKey(PROPERTY_NAME), L"Super Property not found");
@@ -636,7 +636,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->AutomaticallyAttachTimeToEvents = false;
 
             properties = m_client->EmbelishPropertySet(properties);
-            auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+            auto trackPayload = MixpanelClient::GenerateTrackingJsonPayload(L"TestEvent", properties);
             auto propertiesPayload = trackPayload->GetNamedObject("properties");
 
             // Validate that the time property is not present (Since it was turned
@@ -647,7 +647,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->AutomaticallyAttachTimeToEvents = true;
 
             properties = m_client->EmbelishPropertySet(properties);
-            trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+            trackPayload = MixpanelClient::GenerateTrackingJsonPayload(L"TestEvent", properties);
             propertiesPayload = trackPayload->GetNamedObject("properties");
 
             // Validate that the time is present, and is non-zero
@@ -665,7 +665,7 @@ namespace Codevoid::Tests::Mixpanel
             properties->Insert(L"time", L"fakevalue");
 
             properties = m_client->EmbelishPropertySet(properties);
-            auto trackPayload = m_client->GenerateTrackingJsonPayload(L"TestEvent", properties);
+            auto trackPayload = MixpanelClient::GenerateTrackingJsonPayload(L"TestEvent", properties);
             auto propertiesPayload = trackPayload->GetNamedObject("properties");
 
             // Validate that the time is present, and is the same as our original value

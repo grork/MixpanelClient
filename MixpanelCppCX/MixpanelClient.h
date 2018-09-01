@@ -422,7 +422,7 @@ namespace Codevoid::Utilities::Mixpanel {
             );
         void HandleCompletedUploads(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
         void AddItemsToUploadQueue(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
-        Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
+        static Windows::Data::Json::JsonObject^ GenerateTrackingJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
         Windows::Foundation::Collections::IPropertySet^ EmbelishPropertySet(Windows::Foundation::Collections::IPropertySet^ properties);
         void AddDurationForEvent(Platform::String^, Windows::Foundation::Collections::IPropertySet^ properties);
         static void AppendPropertySetToJsonPayload(Windows::Foundation::Collections::IPropertySet^ properties, Windows::Data::Json::JsonObject^ toAppendTo);

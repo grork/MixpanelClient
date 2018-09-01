@@ -298,7 +298,7 @@ void MixpanelClient::Track(String^ name, IPropertySet^ properties)
     properties = this->EmbelishPropertySet(properties);
     this->AddDurationForEvent(name, properties);
 
-    IJsonValue^ payload = this->GenerateTrackingJsonPayload(name, properties);
+    IJsonValue^ payload = MixpanelClient::GenerateTrackingJsonPayload(name, properties);
     m_eventStorageQueue->QueueEventToStorage(payload);
 }
 
@@ -619,6 +619,8 @@ void MixpanelClient::ClearSuperProperties()
 
 IPropertySet^ MixpanelClient::EmbelishPropertySet(IPropertySet^ properties)
 {
+    this->InitializeSuperPropertyCollection();
+
     // Copy them from the super properties, so that any that are explicitly
     // set by the caller, override those super properties ('cause they're
     // applied later)
