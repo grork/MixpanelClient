@@ -538,97 +538,6 @@ namespace Codevoid::Tests::Mixpanel
             Assert::AreEqual(PROPERTY_VALUE, propertiesPayload->GetNamedString(PROPERTY_NAME), L"Wrong value in the payload");
         }
 
-        TEST_METHOD(NoIdentityFoundWhenNotSet)
-        {
-            Assert::IsFalse(m_client->HasUserIdentity());
-        }
-
-        TEST_METHOD(CanSetExplicitClientIdentityAndHasIdentity)
-        {
-            auto USER_IDENTITY = StringReference(L"ExplicitIdentity");
-            m_client->SetUserIdentityExplicitly(USER_IDENTITY);
-
-            Assert::IsTrue(m_client->HasUserIdentity());
-
-            auto userIdentity = m_client->GetDistinctId();
-            Assert::AreEqual(StringReference(USER_IDENTITY), userIdentity, "Stored User Identity was wrong");
-        }
-
-        TEST_METHOD(ClientIdentityCanBeCleared)
-        {
-            auto USER_IDENTITY = StringReference(L"UserIdentityToBeCleared");
-            m_client->SetUserIdentityExplicitly(USER_IDENTITY);
-
-            Assert::IsTrue(m_client->HasUserIdentity(), L"Expected to find identity");
-            Assert::AreEqual(USER_IDENTITY, m_client->GetDistinctId(), L"Wrong identity stored");
-
-            m_client->ClearUserIdentity();
-
-            Assert::IsFalse(m_client->HasUserIdentity(), L"User identity was not cleared");
-        }
-
-        TEST_METHOD(ClientIdentityIsPersistedAcrossInstances)
-        {
-            auto USER_IDENTITY = StringReference(L"PersistedExplicitIdentity");
-            auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
-            client->SetUserIdentityExplicitly(USER_IDENTITY);
-
-            client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
-            auto storedUserIdentity = client->GetDistinctId();
-            Assert::AreEqual(USER_IDENTITY, storedUserIdentity, L"User Identity wasn't persisted");
-
-            // Since we don't want to rely on the destruction of the
-            // super properties in the clear method, lets just clear the local state
-            client->ClearUserIdentity();
-
-            Assert::IsFalse(client->HasUserIdentity(), L"Expected local data to be empty");
-        }
-
-        TEST_METHOD(ClientIdentityClearedAcrossInstances)
-        {
-            auto USER_IDENTITY = StringReference(L"PersistedExplicitIdentity");
-            auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
-            client->SetUserIdentityExplicitly(USER_IDENTITY);
-
-            client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
-            client->ClearUserIdentity();
-
-            Assert::IsFalse(client->HasUserIdentity(), L"Expected local data to be empty");
-
-            client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
-            Assert::IsFalse(client->HasUserIdentity(), L"Expected local data to be empty in a new instance");
-        }
-
-        TEST_METHOD(CanAutomaticallyGenerateUserIdentity)
-        {
-            Assert::IsFalse(m_client->HasUserIdentity(), L"Expected no identity");
-            m_client->GenerateAndSetUserIdentity();
-            Assert::IsTrue(m_client->HasUserIdentity(), L"User Identity should have been set");
-            auto clientId = m_client->GetDistinctId();
-            Assert::IsFalse(clientId->IsEmpty(), L"Retrived ID was empty");
-        }
-
-        TEST_METHOD(ClearingSuperPropertiesKeepsUserIdentity)
-        {
-            auto USER_IDENTITY = StringReference(L"UserIdenitySavedWhenClearing");
-            m_client->SetUserIdentityExplicitly(USER_IDENTITY);
-
-            m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
-
-            // Validate that Super Property is present
-            Assert::IsTrue(m_client->HasSuperProperty(L"SuperPropertyA"), L"No SuperPropertyA in properties payload");
-            Assert::AreEqual(L"SuperValueA", m_client->GetSuperPropertyAsString(L"SuperPropertyA"), L"SuperPropertyA had incorrect value");
-
-            // Clear the super properties, and generate the payload again
-            m_client->ClearSuperProperties();
-
-            // Validate that Super Property isn't present
-            Assert::IsFalse(m_client->HasSuperProperty(L"SuperPropertyA"), L"SuperPropertyA present, when it should have been cleared");
-
-            // Validate that User Identity is present
-            Assert::IsTrue(m_client->HasUserIdentity(), L"User Identity not present, when it should saved");
-        }
-
         TEST_METHOD(TimeOnlyAddedWhenAutomaticallyAttachingTimePropertyIsEnabled)
         {
             IPropertySet^ properties = ref new PropertySet();
@@ -1125,6 +1034,99 @@ namespace Codevoid::Tests::Mixpanel
 
             propertiesPayload = jsonObjectPayload->GetNamedObject(L"properties");
             Assert::IsFalse(propertiesPayload->HasKey(L"SessionPropertyA"), L"Session property was attached");
+        }
+#pragma endregion
+
+#pragma region Identity and People tests
+        TEST_METHOD(NoIdentityFoundWhenNotSet)
+        {
+            Assert::IsFalse(m_client->HasUserIdentity());
+        }
+
+        TEST_METHOD(CanSetExplicitClientIdentityAndHasIdentity)
+        {
+            auto USER_IDENTITY = StringReference(L"ExplicitIdentity");
+            m_client->SetUserIdentityExplicitly(USER_IDENTITY);
+
+            Assert::IsTrue(m_client->HasUserIdentity());
+
+            auto userIdentity = m_client->GetDistinctId();
+            Assert::AreEqual(StringReference(USER_IDENTITY), userIdentity, "Stored User Identity was wrong");
+        }
+
+        TEST_METHOD(ClientIdentityCanBeCleared)
+        {
+            auto USER_IDENTITY = StringReference(L"UserIdentityToBeCleared");
+            m_client->SetUserIdentityExplicitly(USER_IDENTITY);
+
+            Assert::IsTrue(m_client->HasUserIdentity(), L"Expected to find identity");
+            Assert::AreEqual(USER_IDENTITY, m_client->GetDistinctId(), L"Wrong identity stored");
+
+            m_client->ClearUserIdentity();
+
+            Assert::IsFalse(m_client->HasUserIdentity(), L"User identity was not cleared");
+        }
+
+        TEST_METHOD(ClientIdentityIsPersistedAcrossInstances)
+        {
+            auto USER_IDENTITY = StringReference(L"PersistedExplicitIdentity");
+            auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+            client->SetUserIdentityExplicitly(USER_IDENTITY);
+
+            client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+            auto storedUserIdentity = client->GetDistinctId();
+            Assert::AreEqual(USER_IDENTITY, storedUserIdentity, L"User Identity wasn't persisted");
+
+            // Since we don't want to rely on the destruction of the
+            // super properties in the clear method, lets just clear the local state
+            client->ClearUserIdentity();
+
+            Assert::IsFalse(client->HasUserIdentity(), L"Expected local data to be empty");
+        }
+
+        TEST_METHOD(ClientIdentityClearedAcrossInstances)
+        {
+            auto USER_IDENTITY = StringReference(L"PersistedExplicitIdentity");
+            auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+            client->SetUserIdentityExplicitly(USER_IDENTITY);
+
+            client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+            client->ClearUserIdentity();
+
+            Assert::IsFalse(client->HasUserIdentity(), L"Expected local data to be empty");
+
+            client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+            Assert::IsFalse(client->HasUserIdentity(), L"Expected local data to be empty in a new instance");
+        }
+
+        TEST_METHOD(CanAutomaticallyGenerateUserIdentity)
+        {
+            Assert::IsFalse(m_client->HasUserIdentity(), L"Expected no identity");
+            m_client->GenerateAndSetUserIdentity();
+            Assert::IsTrue(m_client->HasUserIdentity(), L"User Identity should have been set");
+            auto clientId = m_client->GetDistinctId();
+            Assert::IsFalse(clientId->IsEmpty(), L"Retrived ID was empty");
+        }
+
+        TEST_METHOD(ClearingSuperPropertiesKeepsUserIdentity)
+        {
+            auto USER_IDENTITY = StringReference(L"UserIdenitySavedWhenClearing");
+            m_client->SetUserIdentityExplicitly(USER_IDENTITY);
+
+            m_client->SetSuperPropertyAsString(L"SuperPropertyA", L"SuperValueA");
+
+            // Validate that Super Property is present
+            Assert::IsTrue(m_client->HasSuperProperty(L"SuperPropertyA"), L"No SuperPropertyA in properties payload");
+            Assert::AreEqual(L"SuperValueA", m_client->GetSuperPropertyAsString(L"SuperPropertyA"), L"SuperPropertyA had incorrect value");
+
+            // Clear the super properties, and generate the payload again
+            m_client->ClearSuperProperties();
+
+            // Validate that Super Property isn't present
+            Assert::IsFalse(m_client->HasSuperProperty(L"SuperPropertyA"), L"SuperPropertyA present, when it should have been cleared");
+
+            // Validate that User Identity is present
+            Assert::IsTrue(m_client->HasUserIdentity(), L"User Identity not present, when it should saved");
         }
 #pragma endregion
     };
