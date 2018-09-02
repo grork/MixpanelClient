@@ -2,7 +2,7 @@
 #include "CppUnitTest.h"
 #include "DurationTracker.h"
 #include "PayloadEncoder.h"
-#include "EngageOptionNames.h"
+#include "EngageConstants.h"
 #include "MixpanelClient.h"
 #include "AsyncHelper.h"
 
