@@ -17,6 +17,7 @@ namespace Codevoid::Utilities::Mixpanel {
         Union,
         Remove,
         Unset,
+        DeleteProfile,
     };
 
     /// <summary>

@@ -1380,7 +1380,7 @@ namespace Codevoid::Tests::Mixpanel
             values->Insert(StringReference(KEY_1), L"AValue");
             values->Insert(StringReference(KEY_2), nullptr);
 
-            JsonObject^ payload = MixpanelClient::GenerateEngageJsonPayload(EngageOperationType::Union, values, properties);
+            JsonObject^ payload = MixpanelClient::GenerateEngageJsonPayload(EngageOperationType::Unset, values, properties);
 
             Assert::IsTrue(payload->HasKey(StringReference(DISTINCT_ENGAGE_KEY)), L"No distinct value found");
             Assert::IsTrue(payload->HasKey(StringReference(TOKEN_ENGAGE_KEY)), L"No token value found");
@@ -1389,9 +1389,67 @@ namespace Codevoid::Tests::Mixpanel
 
             auto unsetArray = payload->GetNamedArray(L"$unset");
             Assert::AreEqual(2, (int)unsetArray->Size, L"Wrong number of values");
-            unsigned int index = 0;
-            Assert::IsTrue(unsetArray->IndexOf(JsonValue::CreateStringValue(StringReference(KEY_1)), &index), L"First Key Not found");
-            Assert::IsTrue(unsetArray->IndexOf(JsonValue::CreateStringValue(StringReference(KEY_2)), &index), L"Second Key Not found");
+            bool foundKey1 = false;
+            bool foundKey2 = false;
+
+            // Why are we looping, and not using JsonArray::IndexOf? Because
+            // when you do an index of with a JsonString, it doesn't find it.
+            // Even though, you know, it's in the bloody array.
+            for (unsigned int i = 0; i < unsetArray->Size; i++)
+            {
+                auto value = unsetArray->GetStringAt(i);
+                if (value == StringReference(KEY_1))
+                {
+                    foundKey1 = true;
+                }
+
+                if (value == StringReference(KEY_1))
+                {
+                    foundKey2 = true;
+                }
+            }
+
+            Assert::IsTrue(foundKey1, L"First Key Not found");
+            Assert::IsTrue(foundKey2, L"Second Key Not found");
+        }
+
+        TEST_METHOD(GeneratingPayloadForDeleteProfileWithValuesThrows)
+        {
+            constexpr auto KEY_1 = L"Key1";
+
+            m_client->GenerateAndSetUserIdentity();
+            auto properties = m_client->GetEngageProperties(nullptr);
+            auto values = ref new PropertySet();
+            values->Insert(StringReference(KEY_1), L"AValue");
+
+            bool exceptionHappened = false;
+            try
+            {
+                JsonObject^ payload = MixpanelClient::GenerateEngageJsonPayload(EngageOperationType::DeleteProfile, values, properties);
+            }
+            catch (InvalidArgumentException^)
+            {
+                exceptionHappened = true;
+            }
+
+            Assert::IsTrue(exceptionHappened, L"No exception thrown when delete provided with values");
+        }
+
+        TEST_METHOD(GeneratingPayloadForDeleteOnlyIncludesEmptyStringForOperationValue)
+        {
+
+            m_client->GenerateAndSetUserIdentity();
+            auto properties = m_client->GetEngageProperties(nullptr);
+
+            JsonObject^ payload = MixpanelClient::GenerateEngageJsonPayload(EngageOperationType::DeleteProfile, nullptr, properties);
+
+            Assert::IsTrue(payload->HasKey(StringReference(DISTINCT_ENGAGE_KEY)), L"No distinct value found");
+            Assert::IsTrue(payload->HasKey(StringReference(TOKEN_ENGAGE_KEY)), L"No token value found");
+
+            Assert::IsTrue(payload->HasKey(L"$delete"), L"Has no operation object");
+
+            auto deleteOperationValue = payload->GetNamedString(L"$delete");
+            Assert::IsTrue(deleteOperationValue->IsEmpty(), L"Operation shouldn't have had a value");
         }
 
         TEST_METHOD(GeneratingPayloadWithAddFailsWithNonNumericValues)

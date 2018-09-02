@@ -759,13 +759,24 @@ JsonObject^ MixpanelClient::GenerateEngageJsonPayload(EngageOperationType operat
             break;
 
         case EngageOperationType::Unset:
-            operationName = L"$unset";
-            JsonArray^ fieldsToUnset = ref new JsonArray();
-            for (const auto& value : values) {
-                fieldsToUnset->Append(JsonValue::CreateStringValue(value->Key));
-            }
+            {
+                operationName = L"$unset";
+                JsonArray^ fieldsToUnset = ref new JsonArray();
+                for (const auto& value : values) {
+                    fieldsToUnset->Append(JsonValue::CreateStringValue(value->Key));
+                }
 
-            operationValues = fieldsToUnset;
+                operationValues = fieldsToUnset;
+            }
+            break;
+
+        case EngageOperationType::DeleteProfile:
+            if (values != nullptr && values->Size > 0)
+            {
+                throw ref new InvalidArgumentException(L"You cannot provide values when deleting a profile");
+            }
+            operationName = L"$delete";
+            operationValues = JsonValue::CreateStringValue(L"");
             break;
     }
 
@@ -776,6 +787,12 @@ JsonObject^ MixpanelClient::GenerateEngageJsonPayload(EngageOperationType operat
 
 void MixpanelClient::AppendPropertySetToJsonPayload(IPropertySet^ properties, JsonObject^ toAppendTo)
 {
+    if (properties == nullptr)
+    {
+        // Nothing to add, so give up
+        return;
+    }
+
     for (const auto& kvp : properties)
     {
         String^ key = kvp->Key;
@@ -869,6 +886,12 @@ void MixpanelClient::AppendPropertySetToJsonPayload(IPropertySet^ properties, Js
         if (candidateFloatVector != nullptr)
         {
             toAppendTo->Insert(kvp->Key, AppendNumberToJsonArray(candidateFloatVector));
+            continue;
+        }
+
+        if (kvp->Value == nullptr)
+        {
+            toAppendTo->Insert(kvp->Key, JsonValue::CreateNullValue());
             continue;
         }
 
