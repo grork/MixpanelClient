@@ -722,8 +722,8 @@ JsonObject^ MixpanelClient::GenerateEngageJsonPayload(EngageOperationType operat
     JsonObject^ engagePayload = ref new JsonObject();
     MixpanelClient::AppendPropertySetToJsonPayload(options, engagePayload);
 
-    JsonObject^ operationValues = ref new JsonObject();
-    MixpanelClient::AppendPropertySetToJsonPayload(values, operationValues);
+    IJsonValue^ operationValues = ref new JsonObject();
+    MixpanelClient::AppendPropertySetToJsonPayload(values, static_cast<JsonObject^>(operationValues));
     
     String^ operationName = nullptr;
 
@@ -746,12 +746,26 @@ JsonObject^ MixpanelClient::GenerateEngageJsonPayload(EngageOperationType operat
             // this will restrict that set at calling time, rather than
             // having the service reject it for badness later
             operationValues = ref new JsonObject();
-            MixpanelClient::AppendNumericPropertySetToJsonPayload(values, operationValues);
+            MixpanelClient::AppendNumericPropertySetToJsonPayload(values, static_cast<JsonObject^>(operationValues));
             operationName = L"$add";
             break;
 
         case EngageOperationType::Union:
             operationName = L"$union";
+            break;
+
+        case EngageOperationType::Remove:
+            operationName = L"$remove";
+            break;
+
+        case EngageOperationType::Unset:
+            operationName = L"$unset";
+            JsonArray^ fieldsToUnset = ref new JsonArray();
+            for (const auto& value : values) {
+                fieldsToUnset->Append(JsonValue::CreateStringValue(value->Key));
+            }
+
+            operationValues = fieldsToUnset;
             break;
     }
 

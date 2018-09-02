@@ -1313,6 +1313,11 @@ namespace Codevoid::Tests::Mixpanel
             TestEngagePayloadOption(EngageOperationType::Append, L"$append");
         }
 
+        TEST_METHOD(GeneratingEngagePayloadWithRemoveIncludesValues)
+        {
+            TestEngagePayloadOption(EngageOperationType::Remove, L"$remove");
+        }
+
         TEST_METHOD(GeneratingPayloadWithAddIncludesValues)
         {
             constexpr auto KEY = L"MyKey";
@@ -1351,7 +1356,7 @@ namespace Codevoid::Tests::Mixpanel
             Assert::IsTrue(payload->HasKey(StringReference(DISTINCT_ENGAGE_KEY)), L"No distinct value found");
             Assert::IsTrue(payload->HasKey(StringReference(TOKEN_ENGAGE_KEY)), L"No token value found");
 
-            Assert::IsTrue(payload->HasKey(L"$union"), L"Has no set object");
+            Assert::IsTrue(payload->HasKey(L"$union"), L"Has no operation object");
 
             auto jsonValues = payload->GetNamedObject(L"$union");
             Assert::AreEqual(1, (int)jsonValues->Size, L"Wrong number of values");
@@ -1362,6 +1367,31 @@ namespace Codevoid::Tests::Mixpanel
             Assert::AreEqual((double)1, unionValues->GetNumberAt(0), L"First value wrong");
             Assert::AreEqual((double)2, unionValues->GetNumberAt(1), L"Second value wrong");
             Assert::AreEqual((double)3, unionValues->GetNumberAt(2), L"Third value wrong");
+        }
+
+        TEST_METHOD(GeneratingPayloadForUnsetOnlyIncludesSingleArrayInOperationProperty)
+        {
+            constexpr auto KEY_1 = L"Key1";
+            constexpr auto KEY_2 = L"Key2";
+
+            m_client->GenerateAndSetUserIdentity();
+            auto properties = m_client->GetEngageProperties(nullptr);
+            auto values = ref new PropertySet();
+            values->Insert(StringReference(KEY_1), L"AValue");
+            values->Insert(StringReference(KEY_2), nullptr);
+
+            JsonObject^ payload = MixpanelClient::GenerateEngageJsonPayload(EngageOperationType::Union, values, properties);
+
+            Assert::IsTrue(payload->HasKey(StringReference(DISTINCT_ENGAGE_KEY)), L"No distinct value found");
+            Assert::IsTrue(payload->HasKey(StringReference(TOKEN_ENGAGE_KEY)), L"No token value found");
+
+            Assert::IsTrue(payload->HasKey(L"$unset"), L"Has no operation object");
+
+            auto unsetArray = payload->GetNamedArray(L"$unset");
+            Assert::AreEqual(2, (int)unsetArray->Size, L"Wrong number of values");
+            unsigned int index = 0;
+            Assert::IsTrue(unsetArray->IndexOf(JsonValue::CreateStringValue(StringReference(KEY_1)), &index), L"First Key Not found");
+            Assert::IsTrue(unsetArray->IndexOf(JsonValue::CreateStringValue(StringReference(KEY_2)), &index), L"Second Key Not found");
         }
 
         TEST_METHOD(GeneratingPayloadWithAddFailsWithNonNumericValues)
