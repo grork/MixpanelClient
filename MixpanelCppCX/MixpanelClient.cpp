@@ -849,8 +849,8 @@ void MixpanelClient::AppendPropertySetToJsonPayload(IPropertySet^ properties, Js
         IBox<DateTime>^ candidateDateTime = dynamic_cast<IBox<DateTime>^>(kvp->Value);
         if (candidateDateTime != nullptr)
         {
-            auto timeAsJsonDateTime = WindowsTickToUnixSeconds(candidateDateTime->Value.UniversalTime);
-            auto dataTimeValue = JsonValue::CreateNumberValue(timeAsJsonDateTime);
+            auto mixpanelDate = DateTimeToMixpanelDateFormat(candidateDateTime->Value);
+            auto dataTimeValue = JsonValue::CreateStringValue(mixpanelDate);
             toAppendTo->Insert(kvp->Key, dataTimeValue);
             continue;
         }

@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "CppUnitTest.h"
 #include "DurationTracker.h"
+#include "PayloadEncoder.h"
 #include "EngageOptionNames.h"
 #include "MixpanelClient.h"
 #include "AsyncHelper.h"
@@ -323,9 +324,9 @@ namespace Codevoid::Tests::Mixpanel
             Assert::AreEqual(true, truthy, L"BooleanValue didn't match");
 
             // Validate that DateTimeValue is Present and matches
-            Assert::IsTrue(result->HasKey(L"DateTimeValue"), L"DateTimee key isn't present");
-            double dateTime = static_cast<double>(result->GetNamedNumber(L"DateTimeValue"));
-            Assert::AreEqual(static_cast<double>(WindowsTickToUnixSeconds(insertedDateTime.UniversalTime)), dateTime, L"DateTimeValue didn't match");
+            Assert::IsTrue(result->HasKey(L"DateTimeValue"), L"DateTime key isn't present");
+            String^ dateTime = result->GetNamedString(L"DateTimeValue");
+            Assert::AreEqual(DateTimeToMixpanelDateFormat(insertedDateTime), dateTime, L"DateTimeValue didn't match");
 
             Assert::IsTrue(result->HasKey(L"StringVector"), L"String Vector isn't present");
             JsonArray^ stringArray = result->GetNamedArray(L"StringVector");
