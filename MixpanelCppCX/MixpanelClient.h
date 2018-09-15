@@ -8,7 +8,7 @@ namespace Codevoid::Tests::Mixpanel {
 
 namespace Codevoid::Utilities::Mixpanel {
 
-    public enum class EngageOperationType
+    enum EngageOperationType
     {
         Set,
         Set_Once,
@@ -18,6 +18,58 @@ namespace Codevoid::Utilities::Mixpanel {
         Remove,
         Unset,
         DeleteProfile,
+    };
+
+    /// <summary>
+    /// Represents the different type of updates that can be performed on
+    /// profile that has been created on the service. See
+    /// https://mixpanel.com/help/reference/http for more details on each
+    /// of these, and what they may mean for your profile.
+    /// </summary>
+    public enum class UserProfileOperation {
+        /// <summary>
+        /// Sets the properties to the values provided, overwriting any
+        /// that might already exist. If they don't exist, they're created
+        /// </summary>
+        Set,
+
+        /// <summary>
+        /// If a property already exists, then the value will not be updated.
+        /// If it doesn't, it will be created.
+        /// </summary>
+        Set_Once,
+
+        /// <summary>
+        /// Adds the numerical values of a property to an existing value, and
+        /// saves the result in that property. If the proeprty doesn't exist
+        /// then it the values provided are added to 0.
+        /// </summary>
+        Add,
+
+        /// <summary>
+        /// Assumes that the values are sets, and appends the set to any
+        /// existing values that might be on the service.
+        /// </summary>
+        Append,
+
+        /// <summary>
+        /// Assumes the values are sets, and merges the set to any existing
+        /// values that might be on the service. If an value in the set is already
+        /// there, it is not duplicated.
+        /// </summary>
+        Union,
+
+        /// <summary>
+        /// Assumes values are sets, and removes any items in the set from the
+        /// values that might be on the service.
+        /// </summary>
+        Remove,
+
+        /// <summary>
+        /// Removes the entire property from the users profile, like it had
+        /// never been there.
+        /// </summary>
+        Unset
     };
 
     /// <summary>
@@ -314,6 +366,25 @@ namespace Codevoid::Utilities::Mixpanel {
         /// </summary>
         void GenerateAndSetUserIdentity();
 
+        /// <summary>
+        /// Updates the profile for the user identity in this instance, with the properties provided.
+        /// See https://mixpanel.com/help/reference/http for details on the various operations behaviour.
+        /// </summary>
+        void UpdateProfile(UserProfileOperation operation, Windows::Foundation::Collections::IPropertySet^ properties);
+
+        /// <summary>
+        /// Updates the profile for the user identity in this instance, with the properties provided.
+        /// See https://mixpanel.com/help/reference/http for details on the various operations behaviour.
+        /// </summary>
+        void UpdateProfileWithOptions(UserProfileOperation operation,
+                                      Windows::Foundation::Collections::IPropertySet^ properties,
+                                      Windows::Foundation::Collections::IPropertySet^ options);
+
+        /// <summary>
+        /// Deletes the profile for the current user identity, and clears any locally set identity
+        /// </summary>
+        void DeleteProfile();
+
     private:
         /// <summary>
         /// Allows synchronous initalization if one has the storage
@@ -322,7 +393,8 @@ namespace Codevoid::Utilities::Mixpanel {
         /// Primary intended use is for testing
         /// </summary>
         void Initialize(
-            Windows::Storage::StorageFolder^ queueFolder,
+            Windows::Storage::StorageFolder^ trackQueueFolder,
+            Windows::Storage::StorageFolder^ profileQueueFolder,
             Windows::Foundation::Uri^ serviceUri
         );
 
@@ -425,8 +497,11 @@ namespace Codevoid::Utilities::Mixpanel {
         )> mock);
 
         // Helpers for testing the persist to storage behaviour
-        void SetWrittenToStorageMock(const std::function<void(std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>)> mock);
-        std::function<void(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>)> m_writtenToStorageMockCallback;
+        void SetTrackWrittenToStorageMock(const std::function<void(std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>)> mock);
+        std::function<void(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>)> m_trackWrittenToStorageMockCallback;
+
+        void SetProfileWrittenToStorageMock(const std::function<void(std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>)> mock);
+        std::function<void(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>)> m_profileWrittenToStorageMockCallback;
 
         std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>
             HandleBatchUploadWithUri(
@@ -435,7 +510,6 @@ namespace Codevoid::Utilities::Mixpanel {
                 const std::function<bool()>& shouldKeepProcessing
             );
         static void HandleCompletedUploadsForQueue(Codevoid::Utilities::Mixpanel::EventStorageQueue& queue, const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
-        void AddItemsToTrackQueue(const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
         static Windows::Data::Json::JsonObject^ GenerateTrackJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
         static Windows::Data::Json::JsonObject^ GenerateEngageJsonPayload(EngageOperationType operation, Windows::Foundation::Collections::IPropertySet^ values, Windows::Foundation::Collections::IPropertySet^ options);
         Windows::Foundation::Collections::IPropertySet^ EmbelishPropertySetForTrack(Windows::Foundation::Collections::IPropertySet^ properties);
@@ -457,9 +531,12 @@ namespace Codevoid::Utilities::Mixpanel {
 
         Codevoid::Utilities::Mixpanel::DurationTracker m_durationTracker;
         Windows::Foundation::Uri^ m_trackEventUri;
+        Windows::Foundation::Uri^ m_engageUri;
         Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ m_userAgent;
         std::unique_ptr<Codevoid::Utilities::Mixpanel::EventStorageQueue> m_trackStorageQueue;
+        std::unique_ptr<Codevoid::Utilities::Mixpanel::EventStorageQueue> m_profileStorageQueue;
         Codevoid::Utilities::BackgroundWorker<Codevoid::Utilities::Mixpanel::PayloadContainer> m_trackUploadWorker;
+        Codevoid::Utilities::BackgroundWorker<Codevoid::Utilities::Mixpanel::PayloadContainer> m_profileUploadWorker;
         std::function<concurrency::task<bool>(
             Windows::Foundation::Uri^,
             Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^,

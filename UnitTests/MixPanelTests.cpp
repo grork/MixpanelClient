@@ -21,6 +21,7 @@ using namespace Windows::Web::Http::Headers;
 
 constexpr auto DEFAULT_TOKEN = L"DEFAULT_TOKEN";
 constexpr auto OVERRIDE_STORAGE_FOLDER = L"MixpanelClientTests";
+constexpr auto OVERRIDE_PROFILE_STORAGE_FOLDER = L"MixpanelClientTests\\Profile";
 constexpr milliseconds DEFAULT_IDLE_TIMEOUT = 10ms;
 constexpr size_t SPIN_LOOP_LIMIT = 500;
 constexpr auto DISTINCT_ENGAGE_KEY = L"$distinct_id";
@@ -39,10 +40,18 @@ void SpinWaitForItemCount(const int& count, const int target)
     while ((count < target) && (loopCount < SPIN_LOOP_LIMIT))
     {
         loopCount++;
-        this_thread::sleep_for(1ms);
+        this_thread::sleep_for(2ms);
     }
 
     Assert::IsTrue(count >= target, L"Spin Wait looped too long and never reached target");
+}
+
+IPropertySet^ GetPropertySetWithStuffInIt()
+{
+    auto properties = ref new PropertySet();
+    properties->Insert(L"Key", L"Value");
+
+    return properties;
 }
 
 namespace Codevoid::Tests::Mixpanel
@@ -52,10 +61,10 @@ namespace Codevoid::Tests::Mixpanel
     private:
         MixpanelClient^ m_client;
 
-        static task<StorageFolder^> GetAndClearTestFolder()
+        static task<StorageFolder^> GetAndClearTestFolder(String^ folder)
         {
             auto storageFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(
-                StringReference(StringReference(OVERRIDE_STORAGE_FOLDER)),
+                folder,
                 CreationCollisionOption::OpenIfExists);
 
             auto files = co_await storageFolder->GetFilesAsync();
@@ -87,9 +96,9 @@ namespace Codevoid::Tests::Mixpanel
             return items;
         }
 
-        static task<int> WriteTestPayload()
+        static task<int> WriteTestPayload(String^ folderName)
         {
-            auto storageFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(L"MixpanelUploadQueue",
+            auto storageFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(folderName,
                 CreationCollisionOption::OpenIfExists);
 
             JsonObject^ payload = ref new JsonObject();
@@ -121,11 +130,12 @@ namespace Codevoid::Tests::Mixpanel
             // to add additional events when we're not expecting it.
             m_client->AutomaticallyTrackSessions = false;
 
-            auto folder = AsyncHelper::RunSynced(GetAndClearTestFolder());
+            auto trackFolder = AsyncHelper::RunSynced(GetAndClearTestFolder(StringReference(OVERRIDE_STORAGE_FOLDER)));
+            auto profileFolder = AsyncHelper::RunSynced(GetAndClearTestFolder(StringReference(OVERRIDE_PROFILE_STORAGE_FOLDER)));
 
             // The URL here is a helpful endpoint on the internet that just round-files
             // the requests to enable simple testing.
-            m_client->Initialize(folder, ref new Uri(L"https://jsonplaceholder.typicode.com/posts"));
+            m_client->Initialize(trackFolder, profileFolder, ref new Uri(L"https://jsonplaceholder.typicode.com/posts"));
             m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 10);
 
             // Set the default service mock to avoid sending things to the
@@ -143,29 +153,40 @@ namespace Codevoid::Tests::Mixpanel
             m_client->Shutdown().wait();
             m_client = nullptr;
 
-            AsyncHelper::RunSynced(WriteTestPayload());
+            AsyncHelper::RunSynced(WriteTestPayload(L"MixpanelUploadQueue"));
+            AsyncHelper::RunSynced(WriteTestPayload(L"MixpanelUploadQueue\\Profile"));
             m_client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
             m_client->PersistSuperPropertiesToApplicationData = false;
             
             AsyncHelper::RunSynced(m_client->InitializeAsync());
 
-            vector<vector<IJsonValue^>> capturedPayloads;
-            int itemCounts = 0;
-            m_client->SetUploadToServiceMock([&capturedPayloads, &itemCounts](auto, auto payloads, auto)
+            vector<vector<IJsonValue^>> trackPayloads;
+            vector<vector<IJsonValue^>> profilePayloads;
+
+            atomic<int> itemCounts = 0;
+            m_client->SetUploadToServiceMock([&trackPayloads, &itemCounts, &profilePayloads](Uri^ uri, auto payloads, auto)
             {
                 auto convertedPayloads = MixpanelTests::CaptureRequestPayloads(payloads);
-                capturedPayloads.push_back(convertedPayloads);
-                itemCounts += (int)convertedPayloads.size();
+                if (uri->Path == StringReference(L"/track"))
+                {
+                    trackPayloads.push_back(convertedPayloads);
+                }
 
+                if (uri->Path == StringReference(L"/engage"))
+                {
+                    profilePayloads.push_back(convertedPayloads);
+                }
+
+                itemCounts += (int)convertedPayloads.size();
                 return task_from_result(true);
             });
 
             m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
             m_client->Start();
 
-            SpinWaitForItemCount(itemCounts, 3);
+            SpinWaitForItemCount(itemCounts, 6);
 
-            Assert::AreEqual(3, itemCounts, L"Persisted Items weren't supplied to upload correctly");
+            Assert::AreEqual(6, itemCounts.load(), L"Persisted Items weren't supplied to upload correctly");
 
             AsyncHelper::RunSynced(m_client->ClearStorageAsync());
             m_client->Shutdown().wait();
@@ -207,6 +228,57 @@ namespace Codevoid::Tests::Mixpanel
             try
             {
                 client->Track("Faux", ref new ValueSet());
+            }
+            catch (InvalidArgumentException^ ex)
+            {
+                exceptionThrown = true;
+            }
+
+            Assert::IsTrue(exceptionThrown, L"Didn't get expected exception");
+        }
+
+        TEST_METHOD(UpdateProfileThrowsIfNotInitialized)
+        {
+            bool exceptionThrown = false;
+            auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+
+            try
+            {
+                client->UpdateProfile(UserProfileOperation::Set, ref new ValueSet());
+            }
+            catch (InvalidArgumentException^ ex)
+            {
+                exceptionThrown = true;
+            }
+
+            Assert::IsTrue(exceptionThrown, L"Didn't get expected exception");
+        }
+
+        TEST_METHOD(UpdateProfileThrowsWhenNoPropertiesProvided)
+        {
+            bool exceptionThrown = false;
+            auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+
+            try
+            {
+                client->UpdateProfile(UserProfileOperation::Set, nullptr);
+            }
+            catch (InvalidArgumentException^ ex)
+            {
+                exceptionThrown = true;
+            }
+
+            Assert::IsTrue(exceptionThrown, L"Didn't get expected exception");
+        }
+
+        TEST_METHOD(UpdateProfileThrowsWhenEmptyPropertiesProvided)
+        {
+            bool exceptionThrown = false;
+            auto client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+
+            try
+            {
+                client->UpdateProfile(UserProfileOperation::Set, ref new ValueSet());
             }
             catch (InvalidArgumentException^ ex)
             {
@@ -731,9 +803,36 @@ namespace Codevoid::Tests::Mixpanel
 #pragma region Asynchronous Queueing and Upload
         TEST_METHOD(QueuedEventsAreProcessedToStorage)
         {
+            vector<shared_ptr<PayloadContainer>> trackWritten;
+            vector<shared_ptr<PayloadContainer>> profileWritten;
+
+            m_client->SetTrackWrittenToStorageMock([&trackWritten](auto wasWritten) {
+                trackWritten.insert(begin(trackWritten), begin(wasWritten), end(wasWritten));
+            });
+
+            m_client->SetProfileWrittenToStorageMock([&profileWritten](auto wasWritten) {
+                profileWritten.insert(begin(profileWritten), begin(wasWritten), end(wasWritten));
+            });
+
+            m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
+            m_client->GenerateAndSetUserIdentity();
+
+            m_client->Start();
+            m_client->Track(L"TestEvent", nullptr);
+            m_client->UpdateProfile(UserProfileOperation::Set, GetPropertySetWithStuffInIt());
+            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
+
+            Assert::AreEqual(1, (int)trackWritten.size(), L"Event wasn't written to disk");
+            Assert::AreEqual(1, (int)profileWritten.size(), L"Profile update wasn't written to disk");
+        }
+
+        TEST_METHOD(EventsAreNotProcessedWhenDropEventsForPrivacyIsEnabled)
+        {
+            m_client->DropEventsForPrivacy = true;
+
             vector<shared_ptr<PayloadContainer>> written;
 
-            m_client->SetWrittenToStorageMock([&written](auto wasWritten) {
+            m_client->SetTrackWrittenToStorageMock([&written](auto wasWritten) {
                 written.insert(begin(written), begin(wasWritten), end(wasWritten));
             });
 
@@ -743,24 +842,28 @@ namespace Codevoid::Tests::Mixpanel
             m_client->Track(L"TestEvent", nullptr);
 
             this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
+            AsyncHelper::RunSynced(m_client->Shutdown());
 
-            Assert::AreEqual(1, (int)written.size(), L"Event wasn't written to disk");
+            Assert::AreEqual(0, (int)written.size(), L"Event event shouldn't have been written to disk");
         }
 
-        TEST_METHOD(EventsAreNotTrackedWhenDropEventsForPrivacyIsEnabled)
+        TEST_METHOD(ProfileUpdatesAreDroppedWhenPrivacyIsEnabled)
         {
             m_client->DropEventsForPrivacy = true;
 
             vector<shared_ptr<PayloadContainer>> written;
 
-            m_client->SetWrittenToStorageMock([&written](auto wasWritten) {
+            m_client->SetTrackWrittenToStorageMock([&written](auto wasWritten) {
                 written.insert(begin(written), begin(wasWritten), end(wasWritten));
             });
 
             m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
 
+            auto properties = ref new PropertySet();
+            properties->Insert(L"Property", L"Value");
+
             m_client->Start();
-            m_client->Track(L"TestEvent", nullptr);
+            m_client->UpdateProfile(UserProfileOperation::Set, properties);
 
             this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
             AsyncHelper::RunSynced(m_client->Shutdown());
@@ -778,30 +881,50 @@ namespace Codevoid::Tests::Mixpanel
 
         TEST_METHOD(QueueCanBeCleared)
         {
+            m_client->GenerateAndSetUserIdentity();
             m_client->ForceWritingToStorage();
             m_client->Start();
             m_client->Track(L"TestEvent", nullptr);
+            m_client->UpdateProfile(UserProfileOperation::Set, GetPropertySetWithStuffInIt());
+
             AsyncHelper::RunSynced(m_client->PauseAsync());
 
-            auto fileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
+            auto trackFileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
                 auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(StringReference(OVERRIDE_STORAGE_FOLDER));
                 auto files = co_await folder->GetFilesAsync();
 
                 return files->Size;
             }));
 
-            Assert::AreEqual(1, fileCount, L"Wrong number of persisted items found");
+            auto profileFileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
+                auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(StringReference(OVERRIDE_PROFILE_STORAGE_FOLDER));
+                auto files = co_await folder->GetFilesAsync();
+
+                return files->Size;
+            }));
+
+            Assert::AreEqual(1, trackFileCount, L"Wrong number of track persisted items found");
+            Assert::AreEqual(1, profileFileCount, L"Wrong number of profile persisted items found");
 
             AsyncHelper::RunSynced(m_client->ClearStorageAsync());
 
-            fileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
+            trackFileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
                 auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(StringReference(OVERRIDE_STORAGE_FOLDER));
                 auto files = co_await folder->GetFilesAsync();
 
                 return files->Size;
             }));
 
-            Assert::AreEqual(0, fileCount, L"Didn't expect to find any items");
+            Assert::AreEqual(0, trackFileCount, L"Didn't expect to find any items");
+
+            profileFileCount = AsyncHelper::RunSynced(create_task([]() -> task<int> {
+                auto folder = co_await ApplicationData::Current->LocalFolder->GetFolderAsync(StringReference(OVERRIDE_PROFILE_STORAGE_FOLDER));
+                auto files = co_await folder->GetFilesAsync();
+
+                return files->Size;
+            }));
+
+            Assert::AreEqual(0, profileFileCount, L"Didn't expect to find any items");
         }
 
         TEST_METHOD(RequestIndicatesFailureWhenCallingNonExistantEndPoint)
@@ -827,22 +950,36 @@ namespace Codevoid::Tests::Mixpanel
 
         TEST_METHOD(QueueIsUploaded)
         {
-            vector<vector<IJsonValue^>> capturedPayloads;
-            m_client->SetUploadToServiceMock([&capturedPayloads](auto, auto payloads, auto)
+            vector<vector<IJsonValue^>> trackPayloads;
+            vector<vector<IJsonValue^>> profilePayloads;
+            m_client->SetUploadToServiceMock([&trackPayloads, &profilePayloads](Uri^ uri, auto payloads, auto)
             {
-                capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
+                auto capturedPayload = MixpanelTests::CaptureRequestPayloads(payloads);
+                if (uri->Path == StringReference(L"/track"))
+                {
+                    trackPayloads.push_back(capturedPayload);
+                }
+
+                if (uri->Path == StringReference(L"/engage"))
+                {
+                    profilePayloads.push_back(capturedPayload);
+                }
+
                 return task_from_result(true);
             });
 
             m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
-
+            m_client->GenerateAndSetUserIdentity();
             m_client->Start();
             m_client->Track(L"TestEvent", nullptr);
+            m_client->UpdateProfile(UserProfileOperation::Set, GetPropertySetWithStuffInIt());
 
-            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
+            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT * 100);
 
-            Assert::AreEqual(1, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
-            Assert::AreEqual(1, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
+            Assert::AreEqual(1, (int)trackPayloads.size(), L"Wrong number of track payloads sent");
+            Assert::AreEqual(1, (int)(trackPayloads[0].size()), L"Wrong number of items in the first track payload");
+            Assert::AreEqual(1, (int)profilePayloads.size(), L"Wrong number of profile payloads sent");
+            Assert::AreEqual(1, (int)(profilePayloads[0].size()), L"Wrong number of items in the first profile payload");
         }
 
         TEST_METHOD(BatchesIncludeMoreThanOneItem)
@@ -1475,6 +1612,36 @@ namespace Codevoid::Tests::Mixpanel
             }
 
             Assert::IsTrue(exceptionHappened, L"Exception didn't happen");
+        }
+
+        TEST_METHOD(DeleteProfileOnlyContainsRequiredInformation)
+        {
+            vector<vector<IJsonValue^>> capturedPayloads;
+            m_client->SetUploadToServiceMock([&capturedPayloads](auto, auto payloads, auto)
+            {
+                capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
+                return task_from_result(true);
+            });
+
+            m_client->GenerateAndSetUserIdentity();
+            m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
+
+            m_client->Start();
+            m_client->DeleteProfile();
+
+            this_thread::sleep_for(DEFAULT_IDLE_TIMEOUT);
+
+            Assert::AreEqual(1, (int)capturedPayloads.size(), L"Wrong number of payloads sent");
+            Assert::AreEqual(1, (int)(capturedPayloads[0].size()), L"Wrong number of items in the first payload");
+
+            auto jsonObjectPayload = dynamic_cast<JsonObject^>(capturedPayloads[0][0]);
+            Assert::AreEqual(3, (int)jsonObjectPayload->Size, L"Wrong number of properties");
+
+            Assert::IsTrue(jsonObjectPayload->HasKey(L"$token"), L"Token missing");
+            Assert::IsTrue(jsonObjectPayload->HasKey(L"$distinct_id"), L"User Identity Missing");
+            Assert::IsTrue(jsonObjectPayload->HasKey(L"$delete"), L"Delete Operation Missing");
+
+            Assert::IsTrue(jsonObjectPayload->GetNamedString(L"$delete")->IsEmpty(), L"Delete operation contained data, it shouldn't");
         }
 #pragma endregion
     };

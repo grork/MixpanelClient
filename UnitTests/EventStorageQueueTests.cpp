@@ -173,7 +173,7 @@ namespace Codevoid::Tests::Mixpanel
 
         TEST_METHOD(ItemsAreNotWrittenToDiskWhenAskedToSkipForTesting)
         {
-            m_queue->DontWriteToStorageForTestPurposeses();
+            m_queue->DontWriteToStorageForTestPurposes();
             m_queue->EnableQueuingToStorage();
             auto result = m_queue->QueueEventToStorage(GenerateSamplePayload());
             Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");

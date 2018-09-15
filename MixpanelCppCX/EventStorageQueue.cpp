@@ -243,7 +243,7 @@ void EventStorageQueue::SetWriteToStorageIdleLimits(const std::chrono::milliseco
     m_writeToStorageWorker.SetItemThreshold(idleItemThreshold);
 }
 
-void EventStorageQueue::DontWriteToStorageForTestPurposeses()
+void EventStorageQueue::DontWriteToStorageForTestPurposes()
 {
     m_dontWriteToStorageForTestPurposes = true;
 }

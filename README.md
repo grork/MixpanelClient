@@ -7,6 +7,11 @@ MixpanelCppCX is a client for the [Mixpanel](https://mixpanel.com) analytics
 service. It has been built to handle the common situations of uploading events
 to the service. It supports batching, persisting-to-storage-before-uploading,
 and [super properties](https://mixpanel.com/help/reference/javascript#super-properties).
+
+It also supports the [enagement/userprofile API](https://mixpanel.com/help/reference/http#people-analytics-updates).
+The official documentation will provide the right detail on how to use this part
+API.
+
 It's intended to be consumed by any UWP app — but the original motivation was to
 support JavaScript applications.
 
@@ -69,7 +74,6 @@ From that point, any events will have that identifier logged.
 
 If you want to check if you have identified this user, you can call `HasUserIdentity`.
 
-
 Adding a super property
 -----------------------
 Assuming you have an instance of `MixpanelClient`, you can set super properties
@@ -95,6 +99,20 @@ mixpanelClient.SetSessionPropertyAsBoolean("BooleanPropertyName", false);
 
 Once set, the session properties will attached to the session event when the
 session ends. This is useful to tracking how often something happened in a session
+
+Updating & Storing User Profiles
+--------------------------------
+Once you've set the identity of the user, you are able to update the infromation
+that Mixpanel has about an identity -- this enables you to perform deeper analysis
+of your customer behaviour.
+
+To update & change a profile, you can use the `UpdateProfile` API, and passing
+properties to update those values.
+
+```
+mixpanelClient.UpdateUserProfile(UserProfileOperation.Set, propertySet);
+```
+
 
 API
 ===
@@ -206,6 +224,48 @@ promises/events to know when it's made it to the service.
 mixpanelClient.Track("LoggedIn", null);
 ```
 
+### Parameters
+`name` — The name of the event that you are wishing to track
+
+`properties` — The properties & values that are associated with this event.
+
+void UpdateUserProfile(UserProfileOperation operation, IPropertySet properties)
+-------------------------------------------------------------------------------
+Updates a users profile with the properties provided, applying the operation
+supplied. These follow the behaviour documented in Mixpanel's [documentation](https://mixpanel.com/help/reference/http#people-analytics-updates).
+
+### Parameters
+`operation` — The type operation to perform with the provided properties.
+
+`properties` — The properties & values to apply with the the provided operation
+
+##### UserProfileOperation
+This enumeration maps to the specific operations that mixpanel [allows for user
+profile operations](https://mixpanel.com/help/reference/http#people-analytics-updates).
+
+`Set` —  Sets the properties to the values provided, overwriting any that might
+already exist. If they don't exist, they're created.
+
+`Set_Once` — If a property already exists, then the value will not be updated.
+If it doesn't, it will be created.
+
+`Add` — Adds the numerical values of a property to an existing value, and saves
+the result in that property. If the proeprty doesn't exist then it the values
+provided are added to 0.
+
+`Append` — Assumes that the values are sets, and appends the set to any existing
+values that might be on the service.
+
+`Union` — Assumes the values are sets, and merges the set to any existing values
+that might be on the service. If an value in the set is already there, it is not
+duplicated.
+
+`Remove` — Assumes values are sets, and removes any items in the set from the
+values that might be on the service.
+
+`Unset` — Removes the entire property from the users profile, like it had never
+been there.
+
 void ClearUserIdentity()
 ------------------------
 Clears any user identity that might be set, so that future events are no longer
@@ -214,6 +274,10 @@ associated with a user.
 This should be called after a `ClearSuperProperties` to truely return to a default
 state.
 
+void DeleteUserProfile()
+------------------------
+Asks Mixpanel to delete the information related to the current user identity.
+It also clears any local user identity that is stored.
 
 ### Parameters
 `name` — Name of the event that is being logged (required)

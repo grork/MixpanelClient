@@ -1,8 +1,10 @@
 #include "pch.h"
+#include "BackgroundWorker.h"
 #include "EventStorageQueue.h"
 #include "MixpanelClient.h"
 #include "PayloadEncoder.h"
 
+using namespace Codevoid::Utilities;
 using namespace Codevoid::Utilities::Mixpanel;
 using namespace concurrency;
 using namespace Platform;
@@ -21,12 +23,14 @@ using namespace Windows::Storage::Streams;
 using namespace Windows::Web::Http;
 using namespace Windows::Web::Http::Headers;
 
-constexpr wchar_t MIXPANEL_TRACK_BASE_URL[] = L"https://api.mixpanel.com/track";
-
+constexpr auto MIXPANEL_BASE_URL = L"https://api.mixpanel.com/";
+constexpr auto MIXPANEL_PROFILE_URL_SUFFIX = L"engage";
+constexpr auto MIXPANEL_TRACK_URI_SUFFIX = L"track";
 constexpr int WINDOWS_TICK = 10000000;
 constexpr long long SEC_TO_UNIX_EPOCH = 11644473600LL;
 constexpr auto SUPER_PROPERTIES_CONTAINER_NAME = L"Codevoid_Utilities_Mixpanel";
-constexpr auto MIXPANEL_QUEUE_FOLDER = L"MixpanelUploadQueue";
+constexpr auto MIXPANEL_TRACK_QUEUE_FOLDER = L"MixpanelUploadQueue";
+constexpr auto MIXPANEL_PROFILE_QUEUE_FOLDER = L"MixpanelUploadQueue\\Profile";
 constexpr auto CRYPTO_TOKEN_HMAC_NAME = L"SHA256";
 constexpr auto DURATION_PROPERTY_NAME = L"duration";
 constexpr auto SESSION_TRACKING_EVENT = L"Session";
@@ -36,6 +40,7 @@ constexpr auto TOKEN_PROPERTY_NAME_ENGAGE = L"$token";
 
 constexpr vector<shared_ptr<PayloadContainer>>::difference_type DEFAULT_UPLOAD_SIZE_STRIDE = 50;
 
+#pragma region Helper Functions
 // Sourced from:
 // http://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
 unsigned Codevoid::Utilities::Mixpanel::WindowsTickToUnixSeconds(const long long windowsTicks)
@@ -122,6 +127,20 @@ JsonArray^ AppendNumberToJsonArray(IVector<T>^ values)
     return target;
 }
 
+void AddItemsToQueue(BackgroundWorker<PayloadContainer>& worker, const vector<shared_ptr<PayloadContainer>>& itemsToUpload)
+{
+    // If there are any normal priority items, we'll make the work we queue
+    // as normal too -- but otherwise, no point in waking up the network stack
+    // to process the low priority items.
+    bool anyNormalPriorityItems = any_of(begin(itemsToUpload), end(itemsToUpload), [](auto item) -> bool {
+        return item->Priority == EventPriority::Normal;
+    });
+
+    worker.AddWork(itemsToUpload, anyNormalPriorityItems ? WorkPriority::Normal : WorkPriority::Low);
+}
+#pragma endregion
+
+#pragma region Initialization
 MixpanelClient::MixpanelClient(String^ token) :
     m_userAgent(ref new HttpProductInfoHeaderValue(L"Codevoid.Utilities.MixpanelClient", L"1.0")),
     m_trackUploadWorker(
@@ -132,7 +151,17 @@ MixpanelClient::MixpanelClient(String^ token) :
         [this](const auto& items) -> void {
             MixpanelClient::HandleCompletedUploadsForQueue(*m_trackStorageQueue, items);
         },
-        wstring(L"UploadToMixpanel")
+        wstring(L"UploadTrackToMixpanel")
+    ),
+    m_profileUploadWorker(
+        [this](const auto& items, const auto& shouldContinueProcessing) -> auto {
+            // Not using std::bind, because ref classes & it don't play nice
+            return this->HandleBatchUploadWithUri(m_engageUri, items, shouldContinueProcessing);
+        },
+        [this](const auto& items) -> void {
+            MixpanelClient::HandleCompletedUploadsForQueue(*m_profileStorageQueue, items);
+        },
+        wstring(L"UploadProfileToMixpanel")
     )
 {
     if (token->IsEmpty())
@@ -153,10 +182,73 @@ IAsyncAction^ MixpanelClient::InitializeAsync()
     });
 }
 
+task<void> MixpanelClient::Initialize()
+{
+    auto trackFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(
+        StringReference(MIXPANEL_TRACK_QUEUE_FOLDER),
+        CreationCollisionOption::OpenIfExists);
+
+    auto profileFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(
+        StringReference(MIXPANEL_PROFILE_QUEUE_FOLDER),
+        CreationCollisionOption::OpenIfExists);
+
+    this->Initialize(
+        trackFolder,
+        profileFolder,
+        ref new Uri(StringReference(MIXPANEL_BASE_URL))
+    );
+
+    auto previousTrackItemsTask = EventStorageQueue::LoadItemsFromStorage(trackFolder);
+    auto previousProfileItemsTask = EventStorageQueue::LoadItemsFromStorage(profileFolder);
+    auto previousTrackItems = co_await previousTrackItemsTask;
+    if (previousTrackItems.size() > 0)
+    {
+        AddItemsToQueue(m_trackUploadWorker, previousTrackItems);
+    }
+
+    auto previousProfileItems = co_await previousProfileItemsTask;
+    if (previousProfileItems.size() > 0)
+    {
+        AddItemsToQueue(m_profileUploadWorker, previousProfileItems);
+    }
+}
+
+void MixpanelClient::Initialize(StorageFolder^ trackQueueFolder,
+                                StorageFolder^ profileQueueFolder,
+                                Uri^ serviceUri)
+{
+    m_trackStorageQueue = make_unique<EventStorageQueue>(trackQueueFolder, [this](auto writtenItems) {
+        if (m_trackWrittenToStorageMockCallback == nullptr)
+        {
+            AddItemsToQueue(m_trackUploadWorker, writtenItems);
+            return;
+        }
+
+        m_trackWrittenToStorageMockCallback(writtenItems);
+    });
+
+    m_profileStorageQueue = make_unique<EventStorageQueue>(profileQueueFolder, [this](auto writtenItems) {
+        if (m_profileWrittenToStorageMockCallback == nullptr)
+        {
+            AddItemsToQueue(m_profileUploadWorker, writtenItems);
+            return;
+        }
+
+        m_profileWrittenToStorageMockCallback(writtenItems);
+    });
+
+    m_trackEventUri = serviceUri->CombineUri(StringReference(MIXPANEL_TRACK_URI_SUFFIX));
+    m_engageUri = serviceUri->CombineUri(StringReference(MIXPANEL_PROFILE_URL_SUFFIX));
+    m_requestHelper = &MixpanelClient::SendRequestToService;
+}
+
 void MixpanelClient::StartWorkers()
 {
     m_trackUploadWorker.Start();
     m_trackStorageQueue->EnableQueuingToStorage();
+
+    m_profileUploadWorker.Start();
+    m_profileStorageQueue->EnableQueuingToStorage();
 }
 
 void MixpanelClient::Start()
@@ -169,6 +261,18 @@ void MixpanelClient::Start()
     m_leavingBackgroundEventToken = CoreApplication::LeavingBackground += ref new EventHandler<LeavingBackgroundEventArgs^>(this, &MixpanelClient::HandleApplicationLeavingBackground);
 }
 
+void MixpanelClient::ThrowIfNotInitialized()
+{
+    if (m_trackStorageQueue != nullptr)
+    {
+        return;
+    }
+
+    throw ref new InvalidArgumentException(L"Client must be initialized");
+}
+#pragma endregion
+
+#pragma region Lifecycle
 void MixpanelClient::HandleApplicationSuspend(Object^, SuspendingEventArgs^ args)
 {
     auto deferral = args->SuspendingOperation->GetDeferral();
@@ -229,7 +333,12 @@ void MixpanelClient::RestartSessionTracking()
 task<void> MixpanelClient::PauseWorkers()
 {
     m_trackUploadWorker.Pause();
-    return m_trackStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
+    auto trackStorageShutdown = m_trackStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
+
+    m_profileUploadWorker.Pause();
+    auto profileStorageShutdown = m_profileStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
+
+    return trackStorageShutdown && profileStorageShutdown;
 }
 
 IAsyncAction^ MixpanelClient::PauseAsync()
@@ -246,6 +355,7 @@ task<void> MixpanelClient::Shutdown()
     // a 'safe' place. We want it to give up as soon as
     // we're trying to get out of dodge.
     m_trackUploadWorker.ShutdownAndDrop();
+    m_profileUploadWorker.ShutdownAndDrop();
 
     // Remove the suspending/resuming events, since we're
     // shutting everythign down. Of note, these can be detatched
@@ -258,56 +368,31 @@ task<void> MixpanelClient::Shutdown()
         m_resumingEventToken = { 0 };
     }
 
-    if (m_trackStorageQueue == nullptr)
+    if ((m_trackStorageQueue == nullptr) && (m_profileStorageQueue == nullptr))
     {
         return;
     }
 
     this->EndSessionTracking();
 
-    co_await m_trackStorageQueue->PersistAllQueuedItemsToStorageAndShutdown();
+    co_await(m_trackStorageQueue->PersistAllQueuedItemsToStorageAndShutdown() && m_profileStorageQueue->PersistAllQueuedItemsToStorageAndShutdown());
     m_trackStorageQueue = nullptr;
+    m_profileStorageQueue = nullptr;
 }
 
 IAsyncAction^ MixpanelClient::ClearStorageAsync()
 {
     this->ThrowIfNotInitialized();
     return create_async([this]() {
-        return m_trackStorageQueue->Clear();
+        auto trackClearTask = m_trackStorageQueue->Clear();
+        auto profileClearTask = m_profileStorageQueue->Clear();
+
+        return trackClearTask && profileClearTask;
     });
 }
+#pragma endregion
 
-task<void> MixpanelClient::Initialize()
-{
-    auto folder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(
-        StringReference(MIXPANEL_QUEUE_FOLDER),
-        CreationCollisionOption::OpenIfExists);
-
-    this->Initialize(folder, ref new Uri(StringReference(MIXPANEL_TRACK_BASE_URL)));
-    auto previousItems = co_await EventStorageQueue::LoadItemsFromStorage(folder);
-    if (previousItems.size() > 0)
-    {
-        this->AddItemsToTrackQueue(previousItems);
-    }
-}
-
-void MixpanelClient::Initialize(StorageFolder^ queueFolder,
-                                Uri^ serviceUri)
-{
-    m_trackStorageQueue = make_unique<EventStorageQueue>(queueFolder, [this](auto writtenItems) {
-        if (m_writtenToStorageMockCallback == nullptr)
-        {
-            this->AddItemsToTrackQueue(writtenItems);
-            return;
-        }
-
-        m_writtenToStorageMockCallback(writtenItems);
-    });
-
-    m_trackEventUri = serviceUri;
-    m_requestHelper = &MixpanelClient::SendRequestToService;
-}
-
+#pragma region Public Operations
 void MixpanelClient::Track(String^ name, IPropertySet^ properties)
 {
     this->ThrowIfNotInitialized();
@@ -329,6 +414,44 @@ void MixpanelClient::Track(String^ name, IPropertySet^ properties)
     m_trackStorageQueue->QueueEventToStorage(payload);
 }
 
+void MixpanelClient::UpdateProfile(UserProfileOperation operation, IPropertySet^ properties)
+{
+    this->UpdateProfileWithOptions(operation, properties, nullptr);
+}
+
+void MixpanelClient::UpdateProfileWithOptions(UserProfileOperation /*operation*/, IPropertySet^ properties, IPropertySet^ options)
+{
+    this->ThrowIfNotInitialized();
+
+    if (this->DropEventsForPrivacy)
+    {
+        return;
+    }
+
+    if (properties == nullptr)
+    {
+        throw ref new InvalidArgumentException("Properties must be provided");
+    }
+
+    if (properties->Size == 0)
+    {
+        throw ref new InvalidArgumentException("Properties must contain at least one property");
+    }
+
+    auto operationOptions = this->GetEngageProperties(options);
+    IJsonValue^ payload = MixpanelClient::GenerateEngageJsonPayload(EngageOperationType::Set, properties, operationOptions);
+    m_profileStorageQueue->QueueEventToStorage(payload);
+}
+
+void MixpanelClient::DeleteProfile()
+{
+    this->ThrowIfNotInitialized();
+
+    auto operationOptions = this->GetEngageProperties(nullptr);
+    IJsonValue^ payload = MixpanelClient::GenerateEngageJsonPayload(EngageOperationType::DeleteProfile, nullptr, operationOptions);
+    m_profileStorageQueue->QueueEventToStorage(payload);
+}
+
 void MixpanelClient::StartTimedEvent(String^ name)
 {
     this->ThrowIfNotInitialized();
@@ -344,19 +467,9 @@ void MixpanelClient::StartTimedEvent(String^ name)
 
     m_durationTracker.StartTimerFor(name->Data());
 }
+#pragma endregion
 
-void MixpanelClient::AddItemsToTrackQueue(const vector<shared_ptr<PayloadContainer>>& itemsToUpload)
-{
-    // If there are any normal priority items, we'll make the work we queue
-    // as normal too -- but otherwise, no point in waking up the network stack
-    // to process the low priority items.
-    bool anyNormalPriorityItems = any_of(begin(itemsToUpload), end(itemsToUpload), [](auto item) -> bool {
-        return item->Priority == EventPriority::Normal;
-    });
-
-    m_trackUploadWorker.AddWork(itemsToUpload, anyNormalPriorityItems ? WorkPriority::Normal : WorkPriority::Low);
-}
-
+#pragma region Queue management
 void MixpanelClient::HandleCompletedUploadsForQueue(EventStorageQueue& queue, const vector<shared_ptr<PayloadContainer>>& items)
 {
     for (auto&& item : items)
@@ -422,6 +535,9 @@ vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleBatchUploadWithUri(Ur
     return successfulItems;
 }
 
+#pragma endregion
+
+#pragma region Network Requests
 task<bool> MixpanelClient::PostPayloadToUri(Uri^ destination, const vector<IJsonValue^>& dataItems)
 {
     auto jsonEvents = ref new JsonArray();
@@ -467,12 +583,9 @@ task<bool> MixpanelClient::SendRequestToService(Uri^ uri, IMap<String^, IJsonVal
         return false;
     }
 }
+#pragma endregion
 
-void MixpanelClient::SetUploadToServiceMock(const function<task<bool>(Uri^, IMap<String^, IJsonValue^>^, HttpProductInfoHeaderValue^)> mock)
-{
-    m_requestHelper = mock;
-}
-
+#pragma region Persistent Properties
 void MixpanelClient::SetSessionPropertyAsString(String^ name, String^ value)
 {
     this->InitializeSessionPropertyCollection()->Insert(name, value);
@@ -644,6 +757,45 @@ void MixpanelClient::ClearSuperProperties()
     }
 }
 
+void MixpanelClient::SetUserIdentityExplicitly(String^ identity)
+{
+    this->InitializeSuperPropertyCollection();
+    this->SetSuperPropertyAsString(StringReference(DISTINCT_ID_PROPERTY_NAME), identity);
+}
+
+void MixpanelClient::GenerateAndSetUserIdentity()
+{
+    auto autoGeneratedId = GenerateGuidAsString();
+    this->SetUserIdentityExplicitly(autoGeneratedId);
+}
+
+bool MixpanelClient::HasUserIdentity()
+{
+    return !this->GetDistinctId()->IsEmpty();
+}
+
+void MixpanelClient::ClearUserIdentity()
+{
+    this->InitializeSuperPropertyCollection();
+    this->RemoveSuperProperty(StringReference(DISTINCT_ID_PROPERTY_NAME));
+}
+
+String^ MixpanelClient::GetDistinctId()
+{
+    this->InitializeSuperPropertyCollection();
+
+    static auto distinctProperty = StringReference(DISTINCT_ID_PROPERTY_NAME);
+    if (!this->HasSuperProperty(distinctProperty))
+    {
+        return nullptr;
+    }
+
+    String^ distinctId = this->GetSuperPropertyAsString(distinctProperty);
+    return distinctId;
+}
+#pragma endregion
+
+#pragma region Payload Generation
 IPropertySet^ MixpanelClient::EmbelishPropertySetForTrack(IPropertySet^ properties)
 {
     this->InitializeSuperPropertyCollection();
@@ -932,68 +1084,40 @@ void MixpanelClient::AppendNumericPropertySetToJsonPayload(IPropertySet^ propert
         throw ref new InvalidCastException(L"Property set includes non-numeric data type: " + kvp->Key);
     }
 }
+#pragma endregion
 
-void MixpanelClient::SetUserIdentityExplicitly(String^ identity)
+#pragma region Test Helpers
+void MixpanelClient::SetUploadToServiceMock(const function<task<bool>(Uri^, IMap<String^, IJsonValue^>^, HttpProductInfoHeaderValue^)> mock)
 {
-    this->InitializeSuperPropertyCollection();
-    this->SetSuperPropertyAsString(StringReference(DISTINCT_ID_PROPERTY_NAME), identity);
+    m_requestHelper = mock;
 }
 
-void MixpanelClient::GenerateAndSetUserIdentity()
+void MixpanelClient::SetTrackWrittenToStorageMock(function<void(vector<shared_ptr<PayloadContainer>>)> mockCallback)
 {
-    auto autoGeneratedId = GenerateGuidAsString();
-    this->SetUserIdentityExplicitly(autoGeneratedId);
+    m_trackWrittenToStorageMockCallback = mockCallback;
 }
-
-bool MixpanelClient::HasUserIdentity()
+ 
+void MixpanelClient::SetProfileWrittenToStorageMock(function<void(vector<shared_ptr<PayloadContainer>>)> mockCallback)
 {
-    return !this->GetDistinctId()->IsEmpty();
-}
-
-void MixpanelClient::ClearUserIdentity()
-{
-    this->InitializeSuperPropertyCollection();
-    this->RemoveSuperProperty(StringReference(DISTINCT_ID_PROPERTY_NAME));
-}
-
-String^ MixpanelClient::GetDistinctId()
-{
-    this->InitializeSuperPropertyCollection();
-
-    static auto distinctProperty = StringReference(DISTINCT_ID_PROPERTY_NAME);
-    if (!this->HasSuperProperty(distinctProperty))
-    {
-        return nullptr;
-    }
-
-    String^ distinctId = this->GetSuperPropertyAsString(distinctProperty);
-    return distinctId;
-}
-
-void MixpanelClient::ThrowIfNotInitialized()
-{
-    if (m_trackStorageQueue != nullptr)
-    {
-        return;
-    }
-
-    throw ref new InvalidArgumentException(L"Client must be initialized");
-}
-
-void MixpanelClient::SetWrittenToStorageMock(function<void(vector<shared_ptr<PayloadContainer>>)> mockCallback)
-{
-    m_writtenToStorageMockCallback = mockCallback;
+    m_profileWrittenToStorageMockCallback = mockCallback;
 }
 
 void MixpanelClient::ConfigureForTesting(const milliseconds& idleTimeout, const size_t& itemThreshold)
 {
-    m_trackStorageQueue->DontWriteToStorageForTestPurposeses();
+    m_trackStorageQueue->DontWriteToStorageForTestPurposes();
     m_trackStorageQueue->SetWriteToStorageIdleLimits(idleTimeout, itemThreshold);
     m_trackUploadWorker.SetIdleTimeout(idleTimeout);
     m_trackUploadWorker.SetItemThreshold(itemThreshold);
+   
+    m_profileStorageQueue->DontWriteToStorageForTestPurposes();
+    m_profileStorageQueue->SetWriteToStorageIdleLimits(idleTimeout, itemThreshold);
+    m_profileUploadWorker.SetIdleTimeout(idleTimeout);
+    m_profileUploadWorker.SetItemThreshold(itemThreshold);
 }
 
 void MixpanelClient::ForceWritingToStorage()
 {
     m_trackStorageQueue->NoReallyWriteToStorageDuringTesting();
+    m_profileStorageQueue->NoReallyWriteToStorageDuringTesting();
 }
+#pragma endregion

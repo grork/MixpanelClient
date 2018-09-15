@@ -96,7 +96,7 @@ namespace Codevoid::Utilities::Mixpanel {
         /// Intended for 2nd level test cases which are validating their composed behaviour
         /// but don't really need anything written to disk.
         /// </summary>
-        void DontWriteToStorageForTestPurposeses();
+        void DontWriteToStorageForTestPurposes();
 
         /// <summary>
         /// Forced the act of writing the payloads to disk to help with testing.
