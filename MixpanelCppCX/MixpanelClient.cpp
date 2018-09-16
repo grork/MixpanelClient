@@ -138,6 +138,36 @@ void AddItemsToQueue(BackgroundWorker<PayloadContainer>& worker, const vector<sh
 
     worker.AddWork(itemsToUpload, anyNormalPriorityItems ? WorkPriority::Normal : WorkPriority::Low);
 }
+
+EngageOperationType ToEngageOperationType(UserProfileOperation operation)
+{
+    switch (operation)
+    {
+        case UserProfileOperation::Set:
+            return EngageOperationType::Set;
+
+        case UserProfileOperation::Set_Once:
+            return EngageOperationType::Set_Once;
+
+        case UserProfileOperation::Append:
+            return EngageOperationType::Append;
+
+        case UserProfileOperation::Add:
+            return EngageOperationType::Add;
+
+        case UserProfileOperation::Union:
+            return EngageOperationType::Union;
+
+        case UserProfileOperation::Remove:
+            return EngageOperationType::Remove;
+
+        case UserProfileOperation::Unset:
+            return EngageOperationType::Unset;
+
+        default:
+            throw ref new InvalidArgumentException("Unexpected UserProfileOperation");
+    }
+}
 #pragma endregion
 
 #pragma region Initialization
@@ -419,7 +449,7 @@ void MixpanelClient::UpdateProfile(UserProfileOperation operation, IPropertySet^
     this->UpdateProfileWithOptions(operation, properties, nullptr);
 }
 
-void MixpanelClient::UpdateProfileWithOptions(UserProfileOperation /*operation*/, IPropertySet^ properties, IPropertySet^ options)
+void MixpanelClient::UpdateProfileWithOptions(UserProfileOperation operation, IPropertySet^ properties, IPropertySet^ options)
 {
     this->ThrowIfNotInitialized();
 
@@ -439,7 +469,7 @@ void MixpanelClient::UpdateProfileWithOptions(UserProfileOperation /*operation*/
     }
 
     auto operationOptions = this->GetEngageProperties(options);
-    IJsonValue^ payload = MixpanelClient::GenerateEngageJsonPayload(EngageOperationType::Set, properties, operationOptions);
+    IJsonValue^ payload = MixpanelClient::GenerateEngageJsonPayload(ToEngageOperationType(operation), properties, operationOptions);
     m_profileStorageQueue->QueueEventToStorage(payload);
 }
 
