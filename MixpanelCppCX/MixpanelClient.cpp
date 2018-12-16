@@ -228,18 +228,20 @@ task<void> MixpanelClient::Initialize()
         ref new Uri(StringReference(MIXPANEL_BASE_URL))
     );
 
-    auto previousTrackItemsTask = EventStorageQueue::LoadItemsFromStorage(trackFolder);
-    auto previousProfileItemsTask = EventStorageQueue::LoadItemsFromStorage(profileFolder);
-    auto previousTrackItems = co_await previousTrackItemsTask;
-    if (previousTrackItems.size() > 0)
-    {
-        AddItemsToQueue(m_trackUploadWorker, previousTrackItems);
-    }
+    if (!this->DropEventsForPrivacy) {
+        auto previousTrackItemsTask = EventStorageQueue::LoadItemsFromStorage(trackFolder);
+        auto previousProfileItemsTask = EventStorageQueue::LoadItemsFromStorage(profileFolder);
+        auto previousTrackItems = co_await previousTrackItemsTask;
+        if (previousTrackItems.size() > 0)
+        {
+            AddItemsToQueue(m_trackUploadWorker, previousTrackItems);
+        }
 
-    auto previousProfileItems = co_await previousProfileItemsTask;
-    if (previousProfileItems.size() > 0)
-    {
-        AddItemsToQueue(m_profileUploadWorker, previousProfileItems);
+        auto previousProfileItems = co_await previousProfileItemsTask;
+        if (previousProfileItems.size() > 0)
+        {
+            AddItemsToQueue(m_profileUploadWorker, previousProfileItems);
+        }
     }
 }
 

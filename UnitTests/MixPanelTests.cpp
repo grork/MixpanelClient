@@ -871,6 +871,38 @@ namespace Codevoid::Tests::Mixpanel
             Assert::AreEqual(0, (int)written.size(), L"Event event shouldn't have been written to disk");
         }
 
+        TEST_METHOD(EventsAlreadyInStorageAreIgnoredWhenDroppingForPrivacyEnabledBeforeStartup)
+        {
+            // Since this test doesn't use the one created
+            // in test init, lets shut it down
+            m_client->Shutdown().wait();
+            m_client = nullptr;
+
+            AsyncHelper::RunSynced(WriteTestPayload(L"MixpanelUploadQueue"));
+            AsyncHelper::RunSynced(WriteTestPayload(L"MixpanelUploadQueue\\Profile"));
+            m_client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+            m_client->DropEventsForPrivacy = true;
+            m_client->PersistSuperPropertiesToApplicationData = false;
+
+            AsyncHelper::RunSynced(m_client->InitializeAsync());
+
+            atomic<int> itemCounts = 0;
+            m_client->SetUploadToServiceMock([&itemCounts](Uri^ uri, auto payloads, auto)
+            {
+                itemCounts += 1;
+                return task_from_result(true);
+            });
+
+            m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
+            m_client->Start();
+
+            AsyncHelper::RunSynced(m_client->ClearStorageAsync());
+            m_client->Shutdown().wait();
+            m_client = nullptr;
+
+            Assert::AreEqual(0, itemCounts.load(), L"Items Shouldn't have been uploaded");
+        }
+
         TEST_METHOD(QueueCanBePaused)
         {
             m_client->Start();
