@@ -23,7 +23,7 @@ constexpr auto DEFAULT_TOKEN = L"DEFAULT_TOKEN";
 constexpr auto OVERRIDE_STORAGE_FOLDER = L"MixpanelClientTests";
 constexpr auto OVERRIDE_PROFILE_STORAGE_FOLDER = L"MixpanelClientTests\\Profile";
 constexpr milliseconds DEFAULT_IDLE_TIMEOUT = 10ms;
-constexpr size_t SPIN_LOOP_LIMIT = 500;
+constexpr size_t SPIN_LOOP_LIMIT = 1000;
 constexpr auto DISTINCT_ENGAGE_KEY = L"$distinct_id";
 constexpr auto TOKEN_ENGAGE_KEY = L"$token";
 

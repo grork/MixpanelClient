@@ -378,7 +378,7 @@ namespace Codevoid::Utilities {
             while (m_state < WorkerState::Shutdown)
             {
                 TRACE_OUT(m_tracePrefix + L": Worker Starting Loop Iteration");
-                ItemTypeVector itemsToPersist;
+                ItemTypeVector itemsToProcess;
 
                 {
                     std::unique_lock<std::mutex> lock(m_itemsLock);
@@ -428,24 +428,24 @@ namespace Codevoid::Utilities {
                         break;
                     }
 
-                    itemsToPersist.assign(begin(m_items), end(m_items));
+                    itemsToProcess.assign(begin(m_items), end(m_items));
                 }
 
                 // When we've got no items, and we're shuting down, theres
                 // no work for us to do (no items), so we're just going to
                 // break out of the loop right now, and let the clean up happen
-                if ((itemsToPersist.size() == 0) && (m_state > WorkerState::Paused))
+                if ((itemsToProcess.size() == 0) && (m_state > WorkerState::Paused))
                 {
                     TRACE_OUT(m_tracePrefix + L": No items, exiting loop");
                     break;
                 }
 
                 // Assume we should have some items if we've gotten this far
-                assert(itemsToPersist.size() > 0);
+                assert(itemsToProcess.size() > 0);
 
                 TRACE_OUT(m_tracePrefix + L": Processing Items");
                 ItemTypeVector successfullyProcessed =
-                    this->m_processItemsCallback(itemsToPersist, bind(&BackgroundWorker<ItemType>::ShouldKeepProcessingItems, this));
+                    this->m_processItemsCallback(itemsToProcess, bind(&BackgroundWorker<ItemType>::ShouldKeepProcessingItems, this));
 
                 // Remove the items from the queue
                 {
@@ -477,6 +477,11 @@ namespace Codevoid::Utilities {
                 if (m_state > WorkerState::Drain)
                 {
                     TRACE_OUT(m_tracePrefix + L": Queue shutting down, skipping post processing");
+                    continue;
+                }
+
+                if (successfullyProcessed.size() < 1) {
+                    TRACE_OUT(m_tracePrefix + L": No items were successfully processed. Skipping post processing.");
                     continue;
                 }
 
