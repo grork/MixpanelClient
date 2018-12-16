@@ -7,6 +7,8 @@ namespace Codevoid::Tests::Mixpanel {
 }
 
 namespace Codevoid::Utilities::Mixpanel {
+    Platform::String^ GetFileNameForId(const long long& id);
+
     enum class EventPriority
     {
         Normal,
@@ -132,7 +134,7 @@ namespace Codevoid::Utilities::Mixpanel {
         /// </summary>
         long long GetNextId();
 
-        concurrency::task<void> WriteItemToStorage(const std::shared_ptr<PayloadContainer> item);
+        concurrency::task<bool> WriteItemToStorage(const std::shared_ptr<PayloadContainer> item);
         std::vector<std::shared_ptr<PayloadContainer>> WriteItemsToStorage(const std::vector<std::shared_ptr<PayloadContainer>>& items, const std::function<bool()>& shouldKeepProcessing);
         void HandleProcessedItems(const std::vector<std::shared_ptr<PayloadContainer>>& itemsToUpload);
         concurrency::task<void> ClearStorage();

@@ -14,7 +14,7 @@ using namespace Windows::Data::Json;
 using PayloadContainer_ptr = shared_ptr<PayloadContainer>;
 using PayloadContainers = vector<PayloadContainer_ptr>;
 
-String^ GetFileNameForId(const long long& id)
+String^ Codevoid::Utilities::Mixpanel::GetFileNameForId(const long long& id)
 {
     return ref new String(to_wstring(id).append(L".json").c_str());
 }
@@ -149,12 +149,15 @@ PayloadContainers EventStorageQueue::WriteItemsToStorage(const PayloadContainers
             break;
         }
 
+        bool didWrite = true;
         if (!m_dontWriteToStorageForTestPurposes)
         {
-            this->WriteItemToStorage(item).wait();
+            didWrite = this->WriteItemToStorage(item).get();
         }
 
-        successfullyProcessedItems.emplace_back(item);
+        if (didWrite) {
+            successfullyProcessedItems.emplace_back(item);
+        }
     }
 
     return successfullyProcessedItems;
@@ -186,13 +189,21 @@ task<void> EventStorageQueue::Clear()
     co_await this->ClearStorage();
 }
 
-task<void> EventStorageQueue::WriteItemToStorage(const PayloadContainer_ptr item)
+task<bool> EventStorageQueue::WriteItemToStorage(const PayloadContainer_ptr item)
 {
     TRACE_OUT(L"Writing File: " + GetFileNameForId(item->Id));
     IJsonValue^ payload = item->Payload;
 
-    auto file = co_await m_localStorage->CreateFileAsync(GetFileNameForId(item->Id));
-    co_await FileIO::WriteTextAsync(file, payload->Stringify());
+    try {
+        auto file = co_await m_localStorage->CreateFileAsync(GetFileNameForId(item->Id));
+        co_await FileIO::WriteTextAsync(file, payload->Stringify());
+    }
+    catch (Exception^ e) {
+        TRACE_OUT(L"Failed to write file: " + e->Message);
+        return false;
+    }
+
+    return true;
 }
 
 task<void> EventStorageQueue::ClearStorage()

@@ -124,6 +124,58 @@ namespace Codevoid::Tests::Mixpanel
             Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
         }
 
+        TEST_METHOD(ItemsQueuedBeforeStartingAreSuccessfullyQueued)
+        {
+            auto result = m_queue->QueueEventToStorage(GenerateSamplePayload());
+            Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");
+            Assert::AreEqual(1, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
+
+            m_queue->EnableQueuingToStorage();
+
+            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorageAndShutdown());
+
+            Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
+            Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
+        }
+
+        TEST_METHOD(CanProcessWholeQueueWhenOneItemFailsToPersistToStorage)
+        {
+            auto result = m_queue->QueueEventToStorage(GenerateSamplePayload());
+
+            // We're going to cheat here, since we'd like at least one of the operations
+            // to persist the file to disk to fail, causing the queue to get all kinds
+            // of confused. What we're going to do is write a file into the location
+            // based on ID so that the write fails.
+            AsyncHelper::RunSynced(this->WriteEmptyPayload(result));
+
+            Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");
+            Assert::AreEqual(1, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
+
+            m_queue->EnableQueuingToStorage();
+
+            auto deleteAfter1Second = this->DelayAndDeleteItemWithId(result);
+
+            AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorageAndShutdown());
+            auto fileWasDeleted = AsyncHelper::RunSynced(deleteAfter1Second);
+            Assert::IsTrue(fileWasDeleted);
+
+            Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
+            Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
+        }
+
+        task<bool> DelayAndDeleteItemWithId(long long id)
+        {
+            std::this_thread::sleep_for(1000ms);
+
+            auto file = co_await m_queueFolder->TryGetItemAsync(GetFileNameForId(id));
+            if (file == nullptr) {
+                return false;
+            }
+
+            co_await file->DeleteAsync();
+            return true;
+        }
+
         TEST_METHOD(QueuingItemsAfterShuttingDownDontGetQueued)
         {
             m_queue->EnableQueuingToStorage();
@@ -370,14 +422,14 @@ namespace Codevoid::Tests::Mixpanel
 
         task<void> WritePayload(long long id, JsonObject^ payload)
         {
-            auto fileName = ref new String(std::to_wstring(id).append(L".json").c_str());
+            auto fileName = GetFileNameForId(id);
             auto file = co_await m_queueFolder->CreateFileAsync(fileName, CreationCollisionOption::ReplaceExisting);
             co_await FileIO::WriteTextAsync(file, payload->Stringify());
         }
 
         task<void> WriteEmptyPayload(long long id)
         {
-            auto fileName = ref new String(std::to_wstring(id).append(L".json").c_str());
+            auto fileName = GetFileNameForId(id);
             auto file = co_await m_queueFolder->CreateFileAsync(fileName, CreationCollisionOption::ReplaceExisting);
             co_await FileIO::WriteTextAsync(file, L"");
         }
