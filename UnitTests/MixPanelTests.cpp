@@ -23,7 +23,7 @@ constexpr auto DEFAULT_TOKEN = L"DEFAULT_TOKEN";
 constexpr auto OVERRIDE_STORAGE_FOLDER = L"MixpanelClientTests";
 constexpr auto OVERRIDE_PROFILE_STORAGE_FOLDER = L"MixpanelClientTests\\Profile";
 constexpr milliseconds DEFAULT_IDLE_TIMEOUT = 10ms;
-constexpr size_t SPIN_LOOP_LIMIT = 1000;
+constexpr size_t SPIN_LOOP_LIMIT = 500;
 constexpr auto DISTINCT_ENGAGE_KEY = L"$distinct_id";
 constexpr auto TOKEN_ENGAGE_KEY = L"$token";
 
@@ -34,16 +34,18 @@ void SetNextClockAccessTime_MixpanelClient(const steady_clock::time_point& advan
     g_overrideNextTimeAccess = advanceTo;
 }
 
-void SpinWaitForItemCount(const int& count, const int target)
+void SpinWaitForItemCount(const atomic<int>& count, const int target)
 {
     size_t loopCount = 0;
-    while ((count < target) && (loopCount < SPIN_LOOP_LIMIT))
+    while ((count.load() < target) && (loopCount < SPIN_LOOP_LIMIT))
     {
         loopCount++;
         this_thread::sleep_for(2ms);
     }
 
-    Assert::IsTrue(count >= target, L"Spin Wait looped too long and never reached target");
+    wstring message = L"Spin Wait looped too long and never reached target. Actual Count: ";
+    message += to_wstring(count);
+    Assert::IsTrue(count.load() >= target, message.c_str());
 }
 
 IPropertySet^ GetPropertySetWithStuffInIt()
@@ -156,25 +158,26 @@ namespace Codevoid::Tests::Mixpanel
             AsyncHelper::RunSynced(WriteTestPayload(L"MixpanelUploadQueue"));
             AsyncHelper::RunSynced(WriteTestPayload(L"MixpanelUploadQueue\\Profile"));
             m_client = ref new MixpanelClient(StringReference(DEFAULT_TOKEN));
+            m_client->DropEventsForPrivacy = false;
             m_client->PersistSuperPropertiesToApplicationData = false;
             
             AsyncHelper::RunSynced(m_client->InitializeAsync());
 
-            vector<vector<IJsonValue^>> trackPayloads;
-            vector<vector<IJsonValue^>> profilePayloads;
 
             atomic<int> itemCounts = 0;
-            m_client->SetUploadToServiceMock([&trackPayloads, &itemCounts, &profilePayloads](Uri^ uri, auto payloads, auto)
+            atomic<int> trackCount = 0;
+            atomic<int> profileCount = 0;
+            m_client->SetUploadToServiceMock([&itemCounts, &trackCount, &profileCount](Uri^ uri, auto payloads, auto)
             {
                 auto convertedPayloads = MixpanelTests::CaptureRequestPayloads(payloads);
                 if (uri->Path == StringReference(L"/track"))
                 {
-                    trackPayloads.push_back(convertedPayloads);
+                    trackCount += (int)convertedPayloads.size();
                 }
 
                 if (uri->Path == StringReference(L"/engage"))
                 {
-                    profilePayloads.push_back(convertedPayloads);
+                    profileCount += (int)convertedPayloads.size();
                 }
 
                 itemCounts += (int)convertedPayloads.size();
@@ -187,6 +190,8 @@ namespace Codevoid::Tests::Mixpanel
             SpinWaitForItemCount(itemCounts, 6);
 
             Assert::AreEqual(6, itemCounts.load(), L"Persisted Items weren't supplied to upload correctly");
+            Assert::AreEqual(3, trackCount.load(), L"Wrong number of track payloads");
+            Assert::AreEqual(3, profileCount.load(), L"Wrong number of profile payloads");
 
             AsyncHelper::RunSynced(m_client->ClearStorageAsync());
             m_client->Shutdown().wait();
@@ -1065,7 +1070,7 @@ namespace Codevoid::Tests::Mixpanel
         {
             shared_ptr<vector<int>> capturedPayloadCounts = make_shared<vector<int>>();
             int itemsSeenCount = 0;
-            int itemsSuccessfullyUploaded = 0;
+            atomic<int> itemsSuccessfullyUploaded = 0;
             constexpr int FAILURE_TRIGGER = 75; // Fail in second batch
 
             m_client->SetUploadToServiceMock([capturedPayloadCounts, &itemsSeenCount, &itemsSuccessfullyUploaded, &FAILURE_TRIGGER](auto, auto payloads, auto)
@@ -1122,7 +1127,7 @@ namespace Codevoid::Tests::Mixpanel
             int event1Count = 0;
             int event2Count = 0;
             int event3Count = 0;
-            int itemCount = 0;
+            atomic<int> itemCount = 0;
 
             m_client->SetUploadToServiceMock([&event1Count, &event2Count, &event3Count, &itemCount](auto, auto payloads, auto)
             {
