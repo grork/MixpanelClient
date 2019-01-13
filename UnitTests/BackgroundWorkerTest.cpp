@@ -40,6 +40,32 @@ namespace Codevoid::Tests
             worker.Start();
         }
 
+        TEST_METHOD(WorkerIsNotStartedByDefault)
+        {
+            BackgroundWorker<int> worker(
+                bind(processAll, placeholders::_1, placeholders::_2),
+                [](auto) {},
+                L"CanInstantiateWorker");
+
+            worker.AddWork(make_shared<int>(7));
+
+            Assert::IsFalse(worker.IsProcessing());
+        }
+
+        TEST_METHOD(WorkerIndicatesItsStartedAfterStarting)
+        {
+            BackgroundWorker<int> worker(
+                bind(processAll, placeholders::_1, placeholders::_2),
+                [](auto) {},
+                L"CanInstantiateWorker");
+
+            worker.AddWork(make_shared<int>(7));
+
+            worker.Start();
+
+            Assert::IsTrue(worker.IsProcessing());
+        }
+
         TEST_METHOD(WorkIsDeqeuedAfterThresholdBeforeTimeout)
         {
             condition_variable workDequeued;
@@ -442,6 +468,7 @@ namespace Codevoid::Tests
 
             Assert::AreEqual(2, (int)worker.GetQueueLength(), L"Expected items in the queue");
             Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
+            Assert::IsFalse(worker.IsProcessing(), L"Queue should indiciate it is not processing");
         }
 
         TEST_METHOD(WorkRemainsUnchangedAfterPausingTwice)
@@ -537,13 +564,14 @@ namespace Codevoid::Tests
 
             Assert::AreEqual(2, (int)worker.GetQueueLength(), L"Expected items in the queue");
             Assert::IsFalse(postProcessCalled, L"Queue was drained, but post process shouldn't have been called");
-
+            Assert::IsFalse(worker.IsProcessing(), L"Queue indicates it's processing, when it shouldn't be");
             worker.Start();
 
             this_thread::sleep_for(250ms);
 
             Assert::AreEqual(0, (int)worker.GetQueueLength(), L"Items still in queue");
             Assert::IsTrue(postProcessCalled, L"Queue was processed, but post process should have been called");
+            Assert::IsTrue(worker.IsProcessing(), L"Queue Should indicate it is started");
         }
 
         TEST_METHOD(WorkProcessedAfterShuttingDownFromPausedState)
@@ -575,6 +603,7 @@ namespace Codevoid::Tests
 
             Assert::AreEqual(0, (int)worker.GetQueueLength(), L"Items still in queue");
             Assert::IsTrue(postProcessCalled, L"Queue was processed, but post process should've have been called");
+            Assert::IsFalse(worker.IsProcessing(), L"Queue shutdown, so shouldn't indiciate it is processing");
         }
 
         TEST_METHOD(WorkerIsNotTriggeredWhenOnlyQueueingNonCriticalWork)
@@ -611,6 +640,7 @@ namespace Codevoid::Tests
 
             Assert::AreEqual(5, (int)queueLength, L"Items still in queue");
             Assert::IsFalse(status, L"Queue didn't reach 0 before timeout");
+            Assert::IsFalse(worker.IsProcessing(), L"Queue indicated it was processing when it had been shutdown");
         }
     };
 }

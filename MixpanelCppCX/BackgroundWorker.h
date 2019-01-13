@@ -164,6 +164,24 @@ namespace Codevoid::Utilities {
             this->TriggerWorkOrWaitForIdle();
         }
 
+        /// <summary>
+        /// Indicates if the worker is currently processing items. e.g. if it's
+        /// not been started, is paused, or has been shutdown, it will return
+        /// false.
+        /// </summary>
+        bool IsProcessing()
+        {
+            switch (m_state) {
+                case WorkerState::None:
+                case WorkerState::Shutdown:
+                case WorkerState::Paused:
+                    return false;
+
+                default:
+                    return true;
+            }
+        }
+
         // <summary>
         // Removes any items that are currently in the queue, even if they're
         // currently being processed.
