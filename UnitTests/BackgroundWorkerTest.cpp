@@ -16,7 +16,7 @@ namespace Codevoid::Tests
 {
     vector<shared_ptr<int>> processAll(const vector<shared_ptr<int>>& current, const function<bool()>& shouldKeepProcessing)
     {
-        if (!shouldKeepProcessing)
+        if (!shouldKeepProcessing())
         {
             return vector<shared_ptr<int>>();
         }
@@ -306,7 +306,7 @@ namespace Codevoid::Tests
             BackgroundWorker<int> worker(
                 [&processWasCalled](auto current, auto shouldKeepProcessing)
             {
-                if (!shouldKeepProcessing)
+                if (!shouldKeepProcessing())
                 {
                     return vector<shared_ptr<int>>();
                 }
@@ -641,6 +641,271 @@ namespace Codevoid::Tests
             Assert::AreEqual(5, (int)queueLength, L"Items still in queue");
             Assert::IsFalse(status, L"Queue didn't reach 0 before timeout");
             Assert::IsFalse(worker.IsProcessing(), L"Queue indicated it was processing when it had been shutdown");
+        }
+
+        TEST_METHOD(WorkIsRetriedOnce)
+        {
+            condition_variable workDequeued;
+            mutex workMutex;
+            unique_lock<mutex> workLock(workMutex);
+            atomic<size_t> attempts = 1;
+            size_t postProcessItemsCount = 0;
+            size_t processItemsCallCount = 0;
+
+            BackgroundWorker<int> worker([&attempts, &processItemsCallCount](auto current, auto shouldKeepProcessing)
+            {
+                processItemsCallCount += 1;
+                vector<shared_ptr<int>> items;
+
+                if (attempts.load() > 0) {
+                    attempts -= 1;
+                    return items;
+                }
+
+                // But when we want to shutdown, let things process normally
+                items.assign(begin(current), end(current));
+                return items;
+            },
+                [&workDequeued, &postProcessItemsCount](auto postProcessItems)
+            {
+                postProcessItemsCount += postProcessItems.size();
+                if (postProcessItemsCount > 1)
+                {
+                    workDequeued.notify_all();
+                }
+            }, L"WorkIsDeqeuedAfterThresholdBeforeTimeout", 1000ms, 1);
+
+            // Enable retry logic
+            worker.EnableBackoffOnRetry();
+            worker.SetRetryLimits(2);
+            worker.SetBackoffDelay(1ms);
+
+            // Start Processing items
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(9));
+
+            // Wait for timeout / stopping processing
+            workDequeued.wait_for(workLock, 200ms);
+
+            // Capture the state before we shutdown so we don't catch any
+            // shutdown processing.
+            size_t queueLength = worker.GetQueueLength();
+            size_t postProcessItemsBeforeShutdown = postProcessItemsCount;
+            size_t processItemsCallCountBeforeShutdown = processItemsCallCount;
+
+            worker.Shutdown();
+
+            Assert::AreEqual(0, (int)queueLength, L"There should be items in the queue");
+            Assert::AreEqual(2, (int)postProcessItemsBeforeShutdown, L"No items should have been post processed before shutdown");
+            
+            // Why only two attempts? The first one fails, and the retry captures the
+            // now-available second item, and they succeed the second time.
+            Assert::AreEqual(2, (int)processItemsCallCountBeforeShutdown, L"Wrong number of attempts made");
+        }
+
+        TEST_METHOD(WorkIsRetriedUntilLimitAndThenQueueIsPaused)
+        {
+            condition_variable workDequeued;
+            mutex workMutex;
+            unique_lock<mutex> workLock(workMutex);
+            atomic<bool> rejectAllItems = true;
+            size_t postProcessItemsCount = 0;
+            size_t processItemsCallCount = 0;
+
+            BackgroundWorker<int> worker([&rejectAllItems, &processItemsCallCount](auto current, auto shouldKeepProcessing)
+            {
+                processItemsCallCount += 1;
+                vector<shared_ptr<int>> items;
+
+                // Skip processing all the items to force us into the retry
+                // code paths
+                if (rejectAllItems.load()) {
+                    return items;
+                }
+
+                // But when we want to shutdown, let things process normally
+                for (auto&& item : current)
+                {
+                    items.emplace_back(item);
+                }
+
+                return items;
+            },
+                [&workDequeued, &postProcessItemsCount](auto postProcessItems)
+            {
+                // Make sure we never get called for post processing
+                postProcessItemsCount += postProcessItems.size();
+                workDequeued.notify_all();
+            }, L"WorkIsDeqeuedAfterThresholdBeforeTimeout", 1000ms, 2);
+
+            // Enable retry logic
+            worker.EnableBackoffOnRetry();
+            worker.SetRetryLimits(2);
+            worker.SetBackoffDelay(1ms);
+
+            // Start Processing items
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(9));
+
+            // Wait for timeout / stopping processing
+            auto status = workDequeued.wait_for(workLock, 200ms, [&worker]() {
+                return !worker.IsProcessing();
+            });
+
+            Assert::IsFalse(worker.IsProcessing(), L"Queue should have stopped");
+
+            // Capture the state before we re-enable processing
+            // (since enabling processing in this test means a clean shutdown)
+            size_t queueLength = worker.GetQueueLength();
+            size_t postProcessItemsBeforeShutdown = postProcessItemsCount;
+            size_t processItemsCallCountBeforeShutdown = processItemsCallCount;
+            
+            // Make sure the queue can shutdown if we have bugs
+            // in the shutdown-while-in-retry-mode
+            rejectAllItems = false;
+            worker.Shutdown();
+
+            Assert::IsTrue(status, L"Queue should have indicated it stopped processing");
+            Assert::AreEqual(2, (int)queueLength, L"There should be items in the queue");
+            Assert::AreEqual(0, (int)postProcessItemsBeforeShutdown, L"No items should have been post processed before shutdown");
+            Assert::AreEqual(3, (int)processItemsCallCountBeforeShutdown, L"Wrong number of retry attempts made");
+        }
+
+        TEST_METHOD(WhenWaitingToRetryAndShutdownQueueDoesNotProcessItems)
+        {
+            condition_variable workDequeued;
+            mutex workMutex;
+            unique_lock<mutex> workLock(workMutex);
+            atomic<size_t> postProcessItemsCount = 0;
+            atomic<size_t> processItemsCallCount = 0;
+
+            BackgroundWorker<int> worker([&processItemsCallCount](auto current, auto shouldKeepProcessing)
+            {
+                processItemsCallCount += 1;
+                vector<shared_ptr<int>> items;
+                return items;
+            },
+                [&workDequeued, &postProcessItemsCount](auto postProcessItems)
+            {
+                // Make sure we never get called for post processing
+                postProcessItemsCount += postProcessItems.size();
+                workDequeued.notify_all();
+            }, L"WorkIsDeqeuedAfterThresholdBeforeTimeout", 1000ms, 2);
+
+            // Enable retry logic
+            worker.EnableBackoffOnRetry();
+            worker.SetRetryLimits(2);
+            worker.SetBackoffDelay(100000ms);
+
+            // Start Processing items
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(9));
+
+            // Wait for timeout
+            auto status = workDequeued.wait_for(workLock, 200ms);
+
+            Assert::IsTrue(worker.IsProcessing(), L"Queue still be processing");
+
+            // Make sure the queue can shutdown if we have bugs
+            // in the shutdown-while-in-retry-mode
+            worker.Shutdown();
+
+            Assert::IsTrue(status == cv_status::timeout, L"Queue should have indicated it stopped processing");
+            Assert::AreEqual(2, (int)worker.GetQueueLength(), L"There should be items in the queue");
+            Assert::AreEqual(0, (int)postProcessItemsCount.load(), L"No items should have been post processed");
+            Assert::AreEqual(1, (int)processItemsCallCount.load(), L"Wrong number of retry attempts made");
+        }
+
+        TEST_METHOD(QueueCanBeRestartedAfterRetryLimitIsReachedAndTheQueueIsPaused)
+        {
+            condition_variable workDequeued;
+            mutex workMutex;
+            unique_lock<mutex> workLock(workMutex);
+            atomic<bool> rejectAllItems = true;
+            size_t postProcessItemsCount = 0;
+            size_t processItemsCallCount = 0;
+
+            BackgroundWorker<int> worker([&rejectAllItems, &processItemsCallCount](auto current, auto shouldKeepProcessing)
+            {
+                processItemsCallCount += 1;
+                vector<shared_ptr<int>> items;
+
+                // Skip processing all the items to force us into the retry
+                // code paths
+                if (rejectAllItems.load()) {
+                    return items;
+                }
+
+                // But when we want to shutdown, let things process normally
+                for (auto&& item : current)
+                {
+                    items.emplace_back(item);
+                }
+
+                return items;
+            },
+                [&workDequeued, &postProcessItemsCount](auto postProcessItems)
+            {
+                // Make sure we never get called for post processing
+                postProcessItemsCount += postProcessItems.size();
+                workDequeued.notify_all();
+            }, L"WorkIsDeqeuedAfterThresholdBeforeTimeout", 1000ms, 2);
+
+            // Enable retry logic
+            worker.EnableBackoffOnRetry();
+            worker.SetRetryLimits(2);
+            worker.SetBackoffDelay(1ms);
+
+            // Start Processing items
+            worker.Start();
+            this_thread::sleep_for(100ms); // Wait for worker to be ready
+            worker.AddWork(make_shared<int>(7));
+            worker.AddWork(make_shared<int>(9));
+
+            // Wait for timeout / stopping processing
+            auto status = workDequeued.wait_for(workLock, 200ms, [&worker]() {
+                return !worker.IsProcessing();
+            });
+
+            Assert::IsFalse(worker.IsProcessing(), L"Queue should have stopped");
+
+            // Capture the state before we re-enable processing
+            // (since enabling processing in this test means a clean shutdown)
+            size_t queueLength = worker.GetQueueLength();
+            size_t postProcessItemsBeforeShutdown = postProcessItemsCount;
+            size_t processItemsCallCountBeforeShutdown = processItemsCallCount;
+
+            // Make sure the queue can shutdown if we have bugs
+            // in the shutdown-while-in-retry-mode
+            rejectAllItems = false;
+
+            Assert::IsTrue(status, L"Queue should have indicated it stopped processing");
+            Assert::AreEqual(2, (int)queueLength, L"There should be items in the queue");
+            Assert::AreEqual(0, (int)postProcessItemsBeforeShutdown, L"No items should have been post processed before shutdown");
+            Assert::AreEqual(3, (int)processItemsCallCountBeforeShutdown, L"Wrong number of retry attempts made");
+
+            queueLength = postProcessItemsCount = postProcessItemsBeforeShutdown = processItemsCallCount = processItemsCallCountBeforeShutdown = 0;
+
+            worker.Start();
+
+            // Wait for the queue to process
+            auto queuePostProcessedStatus = workDequeued.wait_for(workLock, 200ms);
+            Assert::IsTrue(queuePostProcessedStatus == cv_status::no_timeout, L"Didn't expect to timeout");
+            Assert::IsTrue(worker.IsProcessing(), L"Queue should still be processing");
+
+            queueLength = worker.GetQueueLength();
+            postProcessItemsBeforeShutdown = postProcessItemsCount;
+            processItemsCallCountBeforeShutdown = processItemsCallCount;
+
+            Assert::AreEqual(0, (int)queueLength, L"There should be items in the queue");
+            Assert::AreEqual(2, (int)postProcessItemsBeforeShutdown, L"No items should have been post processed before shutdown");
+            Assert::AreEqual(1, (int)processItemsCallCountBeforeShutdown, L"Wrong number of retry attempts made");
         }
     };
 }

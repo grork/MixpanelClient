@@ -60,7 +60,10 @@ namespace Codevoid::Utilities {
             m_tracePrefix(tracePrefix),
             m_state(WorkerState::None),
             m_idleTimeout(idleTimeout),
-            m_itemThreshold(itemThreshold)
+            m_itemThreshold(itemThreshold),
+            m_backoffOnRetryEnabled(false),
+            m_numberOfRetriesToAttempt(3),
+            m_backoffDelayBaseValue(10ms)
         { }
 
         BackgroundWorker<ItemType>(const BackgroundWorker<ItemType>&) = delete;
@@ -147,28 +150,39 @@ namespace Codevoid::Utilities {
 
             if (m_state == WorkerState::Running)
             {
-                TRACE_OUT(m_tracePrefix + L"Write To Storage worker already running");
+                TRACE_OUT(m_tracePrefix + L": Write To Storage worker already running");
                 return;
             }
 
             TRACE_OUT(m_tracePrefix + L": Starting worker");
             {
                 std::unique_lock<mutex> lock(m_workerLock);
+
+                if (m_workerThread.joinable())
+                {
+                    TRACE_OUT(m_tracePrefix + L": Existing worker was joinable, waiting for clean exit");
+                    m_workerThread.join();
+                    TRACE_OUT(m_tracePrefix + L": Existing worker exited");
+                }
+
+                TRACE_OUT(m_tracePrefix + L": Starting worker");
                 m_workerThread = std::thread(&BackgroundWorker::Worker, this);
 
-                TRACE_OUT(m_tracePrefix + L"Waiting to be notified worker has succesfully started");
+                TRACE_OUT(m_tracePrefix + L": Waiting to be notified worker has succesfully started");
                 m_hasWorkerStarted.wait(lock);
+                TRACE_OUT(m_tracePrefix + L": Worker Started!");
+
                 assert(m_state == WorkerState::Running);
             }
 
             this->TriggerWorkOrWaitForIdle();
         }
 
-        /// <summary>
-        /// Indicates if the worker is currently processing items. e.g. if it's
-        /// not been started, is paused, or has been shutdown, it will return
-        /// false.
-        /// </summary>
+        // <summary>
+        // Indicates if the worker is currently processing items. e.g. if it's
+        // not been started, is paused, or has been shutdown, it will return
+        // false.
+        // </summary>
         bool IsProcessing()
         {
             switch (m_state) {
@@ -252,6 +266,39 @@ namespace Codevoid::Utilities {
             m_itemThreshold = itemThreshold;
         }
 
+        // <summary>
+        // Enables behaviour that limits the number of retry attempts to make when
+        // items fail to be processed before pausing the queue. This behaviour
+        // is disabled by default.
+        //
+        // If called after starting, the queue needs to be stoped & restarted for
+        // the retry & backoff behaviour to be enabled.
+        // </summary>
+        void EnableBackoffOnRetry()
+        {
+            m_backoffOnRetryEnabled = true;
+        }
+
+        // <summary>
+        // Number of times to attempt a retry before pauseing the queue
+        // This is can be set any time, but won't be picked up till the
+        // next time a retry scenario is encountered
+        // </summary>
+        void SetRetryLimits(const size_t retryLimit)
+        {
+            m_numberOfRetriesToAttempt = retryLimit;
+        }
+
+        // <summary>
+        // The default delay between retry attempts. This is not the same value
+        // between each attempt, but a base value that is used to gradually
+        // increase the back off until the retry limit has been reached.
+        // </summary>
+        void SetBackoffDelay(const std::chrono::milliseconds retryDelay)
+        {
+            m_backoffDelayBaseValue = retryDelay;
+        }
+
     private:
         enum class WorkerState
         {
@@ -327,6 +374,10 @@ namespace Codevoid::Utilities {
                 return;
             }
 
+            // Ensure that anyone waiting for the backoff shutdown
+            // signal gets unblocked so they can give up waiting.
+            m_backoffShutdown.notify_one();
+
             if ((previousState == WorkerState::Paused) && (targetState != WorkerState::Paused) && (this->GetQueueLength() > 0))
             {
                 TRACE_OUT(m_tracePrefix + L": Worker was paused, starting again to allow draining");
@@ -393,10 +444,53 @@ namespace Codevoid::Utilities {
                 m_hasWorkerStarted.notify_one();
             }
 
+            bool lastBatchWasTotalFailure = false;
+            bool retryAndBackoffEnabled = this->m_backoffOnRetryEnabled.load();
+            size_t retryLimit = this->m_numberOfRetriesToAttempt;
+            size_t retriesRemaining = retryLimit;
+            std::chrono::milliseconds nextRetryDelay = m_backoffDelayBaseValue;
+
             while (m_state < WorkerState::Shutdown)
             {
                 TRACE_OUT(m_tracePrefix + L": Worker Starting Loop Iteration");
                 ItemTypeVector itemsToProcess;
+
+                // Only want to attempt the complex logic of retry backoff if it's enabled
+                // and our last attempt was a total failure
+                if (retryAndBackoffEnabled && lastBatchWasTotalFailure)
+                {
+
+                    TRACE_OUT(m_tracePrefix + L": Last Batch failed, and back off is enabled");
+                    if (retriesRemaining < 1)
+                    {
+                        // Enter paused state
+                        m_state = WorkerState::Paused;
+                        TRACE_OUT(m_tracePrefix + L": Backoff retries exhausted, pausing thread");
+                        break;
+                    }
+
+                    {
+                        TRACE_OUT(m_tracePrefix + L": Backoff retry waiting...");
+                        std::unique_lock<std::mutex> retryLock(m_backoffRetryLock);
+                        auto waitResult = m_backoffShutdown.wait_for(retryLock, nextRetryDelay);
+                        if ((waitResult == std::cv_status::no_timeout) &&
+                            (!this->IsProcessing() || m_state > WorkerState::Paused))
+                        {
+                            // We didn't timeout, and we're not processing items -- this implies
+                            // that we're actually shutting down, so lets stop the queue now.
+                            TRACE_OUT(m_tracePrefix + L": Backoff retry signaled, and not processing so exiting");
+                            break;
+                        }
+
+                        // We timed out, implying we delayed the right amount. So lets decrement
+                        // our retry count, and update our delay value for the next attempt.
+                        // Note, it's possible the wakeup was spurious, but in that case we'll
+                        // just go and retry _anyway_, since, well, why not?
+                        TRACE_OUT(m_tracePrefix + L": Backoff Retry complete; updating for attempt");
+                        retriesRemaining -= 1;
+                        nextRetryDelay = (nextRetryDelay * 2);
+                    }
+                }
 
                 {
                     std::unique_lock<std::mutex> lock(m_itemsLock);
@@ -465,6 +559,23 @@ namespace Codevoid::Utilities {
                 ItemTypeVector successfullyProcessed =
                     this->m_processItemsCallback(itemsToProcess, bind(&BackgroundWorker<ItemType>::ShouldKeepProcessingItems, this));
 
+                // If we fail to process any items in a batch, we should switch
+                // to a mode where we're going wait to attempt the next batch.
+                // This will happen up until the retry limit is reached, at which
+                // point we'll pause the queue to (maybe) be restarted later.
+                if (successfullyProcessed.size() < 1)
+                {
+                    TRACE_OUT(m_tracePrefix + L": No items were successfully processed. Skipping post processing, and starting loop again");
+                    lastBatchWasTotalFailure = true;
+                    continue;
+                }
+
+                // It was not a total failure, so set our retry limits to defaults
+                // to prep for the next failure.
+                lastBatchWasTotalFailure = false;
+                retriesRemaining = retryLimit;
+                nextRetryDelay = m_backoffDelayBaseValue;
+
                 // Remove the items from the queue
                 {
                     lock_guard_mutex lock(m_itemsLock);
@@ -495,11 +606,6 @@ namespace Codevoid::Utilities {
                 if (m_state > WorkerState::Drain)
                 {
                     TRACE_OUT(m_tracePrefix + L": Queue shutting down, skipping post processing");
-                    continue;
-                }
-
-                if (successfullyProcessed.size() < 1) {
-                    TRACE_OUT(m_tracePrefix + L": No items were successfully processed. Skipping post processing.");
                     continue;
                 }
 
@@ -546,6 +652,13 @@ namespace Codevoid::Utilities {
         std::shared_ptr<concurrency::call<int>> m_idleTimerCallback;
         std::chrono::milliseconds m_idleTimeout;
         size_t m_itemThreshold;
+
+        // Retry & Backoff
+        std::atomic<bool> m_backoffOnRetryEnabled;
+        std::atomic<size_t> m_numberOfRetriesToAttempt;
+        std::atomic<std::chrono::milliseconds> m_backoffDelayBaseValue;
+        std::mutex m_backoffRetryLock;
+        std::condition_variable m_backoffShutdown;
 
         // Items & Concurrency
         ItemTypeVector m_items;
