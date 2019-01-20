@@ -537,9 +537,15 @@ vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleBatchUploadWithUri(Ur
         }
 
         TRACE_OUT(L"MixpanelClient: Sending " + to_wstring(eventPayload.size()) + L" events to service");
-        if (!this->PostPayloadToUri(destination, eventPayload).get())
+        auto result = this->PostPayloadToUri(destination, eventPayload).get();
+        if (result != SendToServiceResult::SuccessfullySent)
         {
             TRACE_OUT(L"MixpanelClient: Upload failed");
+            if (result == SendToServiceResult::FailedConnectivity) {
+                TRACE_OUT(L"MixpanelClient: Upload failed due to connectivity reasons. Ending batch.");
+                break;
+            }
+
             if (strideSize != 1)
             {
                 TRACE_OUT(L"MixpanelClient: Switching to single-event upload");
@@ -570,7 +576,7 @@ vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleBatchUploadWithUri(Ur
 #pragma endregion
 
 #pragma region Network Requests
-task<bool> MixpanelClient::PostPayloadToUri(Uri^ destination, const vector<IJsonValue^>& dataItems)
+task<SendToServiceResult> MixpanelClient::PostPayloadToUri(Uri^ destination, const vector<IJsonValue^>& dataItems)
 {
     auto jsonEvents = ref new JsonArray();
     
@@ -585,7 +591,7 @@ task<bool> MixpanelClient::PostPayloadToUri(Uri^ destination, const vector<IJson
     return co_await m_requestHelper(destination, formPayload, m_userAgent);
 }
 
-task<bool> MixpanelClient::SendRequestToService(Uri^ uri, IMap<String^, IJsonValue^>^ payload, HttpProductInfoHeaderValue^ userAgent)
+task<SendToServiceResult> MixpanelClient::SendRequestToService(Uri^ uri, IMap<String^, IJsonValue^>^ payload, HttpProductInfoHeaderValue^ userAgent)
 {
     HttpClient^ client = ref new HttpClient();
     client->DefaultRequestHeaders->UserAgent->Append(userAgent);
@@ -604,15 +610,22 @@ task<bool> MixpanelClient::SendRequestToService(Uri^ uri, IMap<String^, IJsonVal
         auto requestBody = co_await requestResult->Content->ReadAsStringAsync();
         if (requestBody == L"0")
         {
-            return false;
+            // Mixpanel returns 0 in the body if it failed due to an error
+            // in the payload itself.
+            return SendToServiceResult::FailedAtService;
         }
 
         // IsSuccessStatusCode defines success as 200-299 inclusive
-        return requestResult->IsSuccessStatusCode;
+        if (!requestResult->IsSuccessStatusCode)
+        {
+            return SendToServiceResult::FailedAtService;
+        }
+
+        return SendToServiceResult::SuccessfullySent;
     }
     catch (...)
     {
-        return false;
+        return SendToServiceResult::FailedConnectivity;
     }
 }
 #pragma endregion
@@ -1119,7 +1132,7 @@ void MixpanelClient::AppendNumericPropertySetToJsonPayload(IPropertySet^ propert
 #pragma endregion
 
 #pragma region Test Helpers
-void MixpanelClient::SetUploadToServiceMock(const function<task<bool>(Uri^, IMap<String^, IJsonValue^>^, HttpProductInfoHeaderValue^)> mock)
+void MixpanelClient::SetUploadToServiceMock(const function<task<SendToServiceResult>(Uri^, IMap<String^, IJsonValue^>^, HttpProductInfoHeaderValue^)> mock)
 {
     m_requestHelper = mock;
 }

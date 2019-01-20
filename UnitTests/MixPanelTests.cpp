@@ -144,7 +144,7 @@ namespace Codevoid::Tests::Mixpanel
             // internet when we don't really need to.
             m_client->SetUploadToServiceMock([](auto uri, auto payload, auto)
             {
-                return task_from_result(true);
+                return task_from_result(SendToServiceResult::SuccessfullySent);
             });
         }
 
@@ -181,7 +181,7 @@ namespace Codevoid::Tests::Mixpanel
                 }
 
                 itemCounts += (int)convertedPayloads.size();
-                return task_from_result(true);
+                return task_from_result(SendToServiceResult::SuccessfullySent);
             });
 
             m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
@@ -895,7 +895,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->SetUploadToServiceMock([&itemCounts](Uri^ uri, auto payloads, auto)
             {
                 itemCounts += 1;
-                return task_from_result(true);
+                return task_from_result(SendToServiceResult::SuccessfullySent);
             });
 
             m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
@@ -971,7 +971,7 @@ namespace Codevoid::Tests::Mixpanel
                 ref new Uri(L"https://fake.codevoid.net"),
                 payload,
                 ref new HttpProductInfoHeaderValue(L"Codevoid.Mixpanel.MixpanelTests", L"1.0")).get();
-            Assert::IsFalse(wasSuccessful);
+            Assert::IsFalse(SendToServiceResult::SuccessfullySent == wasSuccessful, L"Was not supposed to be successful");
         }
 
         TEST_METHOD(CanMakeRequestToPlaceholderService)
@@ -982,7 +982,7 @@ namespace Codevoid::Tests::Mixpanel
                 ref new Uri(L"https://jsonplaceholder.typicode.com/posts"),
                 payload,
                 ref new HttpProductInfoHeaderValue(L"Codevoid.Mixpanel.MixpanelTests", L"1.0")).get();
-            Assert::IsTrue(wasSuccessful);
+            Assert::IsTrue(SendToServiceResult::SuccessfullySent == wasSuccessful, L"Result was not a success");
         }
 
         TEST_METHOD(QueueIsUploaded)
@@ -1002,7 +1002,7 @@ namespace Codevoid::Tests::Mixpanel
                     profilePayloads.push_back(capturedPayload);
                 }
 
-                return task_from_result(true);
+                return task_from_result(SendToServiceResult::SuccessfullySent);
             });
 
             m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
@@ -1025,7 +1025,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->SetUploadToServiceMock([&capturedPayloads](auto, auto payloads, auto)
             {
                 capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
-                return task_from_result(true);
+                return task_from_result(SendToServiceResult::SuccessfullySent);
             });
             m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 4);
 
@@ -1048,7 +1048,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->SetUploadToServiceMock([&capturedPayloads](auto, auto payloads, auto)
             {
                 capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
-                return task_from_result(true);
+                return task_from_result(SendToServiceResult::SuccessfullySent);
             });
 
             for (int i = 0; i < 150; i++)
@@ -1083,14 +1083,14 @@ namespace Codevoid::Tests::Mixpanel
                     itemsInThisBatch++;
                     if (itemsSeenCount == FAILURE_TRIGGER)
                     {
-                        return task_from_result(false);
+                        return task_from_result(SendToServiceResult::FailedAtService);
                     }
                 }
 
                 capturedPayloadCounts->push_back(itemsInThisBatch);
                 itemsSuccessfullyUploaded += itemsInThisBatch;
 
-                return task_from_result(true);
+                return task_from_result(SendToServiceResult::SuccessfullySent);
             });
 
             for (int i = 0; i < 100; i++)
@@ -1131,7 +1131,7 @@ namespace Codevoid::Tests::Mixpanel
 
             m_client->SetUploadToServiceMock([&event1Count, &event2Count, &event3Count, &itemCount](auto, auto payloads, auto)
             {
-                bool successful = true;
+                SendToServiceResult successful = SendToServiceResult::SuccessfullySent;
 
                 for (auto item : MixpanelTests::CaptureRequestPayloads(payloads))
                 {
@@ -1147,7 +1147,7 @@ namespace Codevoid::Tests::Mixpanel
                         // Fail the batch the first two times
                         if (event2Count < 3)
                         {
-                            successful = false;
+                            successful = SendToServiceResult::FailedAtService;
                         }
                     }
                     else if (eventName == L"TrackEvent3")
@@ -1183,7 +1183,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->SetUploadToServiceMock([&capturedPayloads](auto, auto payloads, auto)
             {
                 capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
-                return task_from_result(true);
+                return task_from_result(SendToServiceResult::SuccessfullySent);
             });
 
             m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
@@ -1215,7 +1215,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->SetUploadToServiceMock([&capturedPayloads](auto, auto payloads, auto)
             {
                 capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
-                return task_from_result(true);
+                return task_from_result(SendToServiceResult::SuccessfullySent);
             });
 
             m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
@@ -1256,7 +1256,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->SetUploadToServiceMock([&capturedPayloads](auto, auto payloads, auto)
             {
                 capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
-                return task_from_result(true);
+                return task_from_result(SendToServiceResult::SuccessfullySent);
             });
 
             m_client->ConfigureForTesting(DEFAULT_IDLE_TIMEOUT, 1);
@@ -1657,7 +1657,7 @@ namespace Codevoid::Tests::Mixpanel
             m_client->SetUploadToServiceMock([&capturedPayloads](auto, auto payloads, auto)
             {
                 capturedPayloads.push_back(MixpanelTests::CaptureRequestPayloads(payloads));
-                return task_from_result(true);
+                return task_from_result(SendToServiceResult::SuccessfullySent);
             });
 
             m_client->GenerateAndSetUserIdentity();

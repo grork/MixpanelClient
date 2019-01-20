@@ -20,6 +20,13 @@ namespace Codevoid::Utilities::Mixpanel {
         DeleteProfile,
     };
 
+    enum SendToServiceResult
+    {
+        SuccessfullySent,
+        FailedAtService,
+        FailedConnectivity,
+    };
+
     /// <summary>
     /// Represents the different type of updates that can be performed on
     /// profile that has been created on the service. See
@@ -458,7 +465,7 @@ namespace Codevoid::Utilities::Mixpanel {
         /// The returned task will be completed when all the supplied items
         /// have been sent to the service.
         /// </summary>
-        concurrency::task<bool> PostPayloadToUri(Windows::Foundation::Uri^ destination, const std::vector<Windows::Data::Json::IJsonValue^>& payload);
+        concurrency::task<SendToServiceResult> PostPayloadToUri(Windows::Foundation::Uri^ destination, const std::vector<Windows::Data::Json::IJsonValue^>& payload);
 
         /// <summary>
         /// Handles suspending event as raised from the platform's CoreApplication object
@@ -485,12 +492,12 @@ namespace Codevoid::Utilities::Mixpanel {
         /// </summary>
         void HandleApplicationLeavingBackground(Platform::Object^ sender, Windows::ApplicationModel::LeavingBackgroundEventArgs^ args);
 
-        static concurrency::task<bool> SendRequestToService(Windows::Foundation::Uri^ uri,
-                                                     Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^ payload,
-                                                     Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ userAgent);
+        static concurrency::task<SendToServiceResult> SendRequestToService(Windows::Foundation::Uri^ uri,
+                                                      Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^ payload,
+                                                      Windows::Web::Http::Headers::HttpProductInfoHeaderValue^ userAgent);
         
         // Helpers to testing upload logic
-        void SetUploadToServiceMock(const std::function<concurrency::task<bool>(
+        void SetUploadToServiceMock(const std::function<concurrency::task<SendToServiceResult>(
             Windows::Foundation::Uri^,
             Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^,
             Windows::Web::Http::Headers::HttpProductInfoHeaderValue^
@@ -537,7 +544,7 @@ namespace Codevoid::Utilities::Mixpanel {
         std::unique_ptr<Codevoid::Utilities::Mixpanel::EventStorageQueue> m_profileStorageQueue;
         Codevoid::Utilities::BackgroundWorker<Codevoid::Utilities::Mixpanel::PayloadContainer> m_trackUploadWorker;
         Codevoid::Utilities::BackgroundWorker<Codevoid::Utilities::Mixpanel::PayloadContainer> m_profileUploadWorker;
-        std::function<concurrency::task<bool>(
+        std::function<concurrency::task<SendToServiceResult>(
             Windows::Foundation::Uri^,
             Windows::Foundation::Collections::IMap<Platform::String^, Windows::Data::Json::IJsonValue^>^,
             Windows::Web::Http::Headers::HttpProductInfoHeaderValue^)> m_requestHelper;
