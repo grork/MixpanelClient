@@ -248,7 +248,7 @@ namespace Codevoid::Utilities {
 
         void SetIdleTimeout(const std::chrono::milliseconds idleTimeout)
         {
-            if (this->HasEverBeenStarted())
+            if (this->IsProcessing())
             {
                 throw std::logic_error("Cannot change debounce timeout while worker is running");
             }
@@ -258,7 +258,7 @@ namespace Codevoid::Utilities {
 
         void SetItemThreshold(const size_t itemThreshold)
         {
-            if (this->HasEverBeenStarted())
+            if (this->IsProcessing())
             {
                 throw std::logic_error("Cannot change debounce item threshold while worker is running");
             }
@@ -355,11 +355,6 @@ namespace Codevoid::Utilities {
         {
             WorkerState currentState = m_state;
             return ((currentState > WorkerState::None) && (currentState < WorkerState::Drop));
-        }
-
-        bool HasEverBeenStarted() const
-        {
-            return (m_state != WorkerState::None);
         }
 
         void Shutdown(const WorkerState targetState)

@@ -849,9 +849,9 @@ namespace Codevoid::Tests
                 }
 
                 return items;
-            },
-                [&workDequeued, &postProcessItemsCount](auto postProcessItems)
+            }, [&workDequeued, &postProcessItemsCount](auto postProcessItems)
             {
+                this_thread::sleep_for(300ms);
                 // Make sure we never get called for post processing
                 postProcessItemsCount += postProcessItems.size();
                 workDequeued.notify_all();
@@ -891,12 +891,10 @@ namespace Codevoid::Tests
             Assert::AreEqual(3, (int)processItemsCallCountBeforeShutdown, L"Wrong number of retry attempts made");
 
             queueLength = postProcessItemsCount = postProcessItemsBeforeShutdown = processItemsCallCount = processItemsCallCountBeforeShutdown = 0;
-
             worker.Start();
 
             // Wait for the queue to process
-            auto queuePostProcessedStatus = workDequeued.wait_for(workLock, 200ms);
-            Assert::IsTrue(queuePostProcessedStatus == cv_status::no_timeout, L"Didn't expect to timeout");
+            workDequeued.wait(workLock);
             Assert::IsTrue(worker.IsProcessing(), L"Queue should still be processing");
 
             queueLength = worker.GetQueueLength();
