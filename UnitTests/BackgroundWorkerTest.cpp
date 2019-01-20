@@ -808,7 +808,7 @@ namespace Codevoid::Tests
             worker.AddWork(make_shared<int>(9));
 
             // Wait for timeout
-            auto status = workDequeued.wait_for(workLock, 200ms);
+            auto status = workDequeued.wait_for(workLock, 100ms);
 
             Assert::IsTrue(worker.IsProcessing(), L"Queue still be processing");
 
@@ -816,10 +816,10 @@ namespace Codevoid::Tests
             // in the shutdown-while-in-retry-mode
             worker.Shutdown();
 
-            Assert::IsTrue(status == cv_status::timeout, L"Queue should have indicated it stopped processing");
             Assert::AreEqual(2, (int)worker.GetQueueLength(), L"There should be items in the queue");
             Assert::AreEqual(0, (int)postProcessItemsCount.load(), L"No items should have been post processed");
             Assert::AreEqual(1, (int)processItemsCallCount.load(), L"Wrong number of retry attempts made");
+            Assert::IsTrue(status == cv_status::timeout, L"Queue should have indicated it stopped processing");
         }
 
         TEST_METHOD(QueueCanBeRestartedAfterRetryLimitIsReachedAndTheQueueIsPaused)

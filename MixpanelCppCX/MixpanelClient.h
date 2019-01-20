@@ -516,6 +516,9 @@ namespace Codevoid::Utilities::Mixpanel {
                 const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items,
                 const std::function<bool()>& shouldKeepProcessing
             );
+        void BeginListeningForNetworkReconnectionToResumeQueueProcessingAfterErrors();
+        void ClearListeningForNetworkReconnectionToResumeQueueProcessingAfterErrors();
+
         static void HandleCompletedUploadsForQueue(Codevoid::Utilities::Mixpanel::EventStorageQueue& queue, const std::vector<std::shared_ptr<Codevoid::Utilities::Mixpanel::PayloadContainer>>& items);
         static Windows::Data::Json::JsonObject^ GenerateTrackJsonPayload(Platform::String^ eventName, Windows::Foundation::Collections::IPropertySet^ properties);
         static Windows::Data::Json::JsonObject^ GenerateEngageJsonPayload(EngageOperationType operation, Windows::Foundation::Collections::IPropertySet^ values, Windows::Foundation::Collections::IPropertySet^ options);
@@ -552,6 +555,7 @@ namespace Codevoid::Utilities::Mixpanel {
         Windows::Foundation::EventRegistrationToken m_resumingEventToken;
         Windows::Foundation::EventRegistrationToken m_enteredBackgroundEventToken;
         Windows::Foundation::EventRegistrationToken m_leavingBackgroundEventToken;
+        Windows::Foundation::EventRegistrationToken m_networkConnectionStateChanged;
         bool m_sessionTrackingStarted = false;
     };
 

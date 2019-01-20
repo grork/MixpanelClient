@@ -16,6 +16,7 @@ using namespace Windows::ApplicationModel::Core;
 using namespace Windows::Data::Json;
 using namespace Windows::Foundation;
 using namespace Windows::Foundation::Collections;
+using namespace Windows::Networking::Connectivity;
 using namespace Windows::Security::Cryptography;
 using namespace Windows::Security::Cryptography::Core;
 using namespace Windows::Storage;
@@ -203,6 +204,8 @@ MixpanelClient::MixpanelClient(String^ token) :
     this->PersistSuperPropertiesToApplicationData = true;
     this->AutomaticallyAttachTimeToEvents = true;
     this->AutomaticallyTrackSessions = true;
+    this->m_trackUploadWorker.EnableBackoffOnRetry();
+    this->m_profileUploadWorker.EnableBackoffOnRetry();
 }
 
 IAsyncAction^ MixpanelClient::InitializeAsync()
@@ -400,6 +403,8 @@ task<void> MixpanelClient::Shutdown()
         m_resumingEventToken = { 0 };
     }
 
+    this->ClearListeningForNetworkReconnectionToResumeQueueProcessingAfterErrors();
+
     if ((m_trackStorageQueue == nullptr) && (m_profileStorageQueue == nullptr))
     {
         return;
@@ -542,6 +547,7 @@ vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleBatchUploadWithUri(Ur
         {
             TRACE_OUT(L"MixpanelClient: Upload failed");
             if (result == SendToServiceResult::FailedConnectivity) {
+                this->BeginListeningForNetworkReconnectionToResumeQueueProcessingAfterErrors();
                 TRACE_OUT(L"MixpanelClient: Upload failed due to connectivity reasons. Ending batch.");
                 break;
             }
@@ -573,6 +579,39 @@ vector<shared_ptr<PayloadContainer>> MixpanelClient::HandleBatchUploadWithUri(Ur
     return successfulItems;
 }
 
+void MixpanelClient::BeginListeningForNetworkReconnectionToResumeQueueProcessingAfterErrors()
+{
+    auto connectionProfile = NetworkInformation::GetInternetConnectionProfile();
+    if ((connectionProfile != nullptr) && (connectionProfile->GetNetworkConnectivityLevel() == NetworkConnectivityLevel::InternetAccess))
+    {
+        // Nothing to do here, we're (apparently) connected to the internet, so theres nothing for us to do
+        return;
+    }
+
+    if (m_networkConnectionStateChanged.Value != 0)
+    {
+        // Already listening, so lets not listen again!
+        return;
+    }
+
+    m_networkConnectionStateChanged = NetworkInformation::NetworkStatusChanged += ref new NetworkStatusChangedEventHandler([this](Object^) {
+        TRACE_OUT(L"MixpanelClient: Network status changed, restarting queues");
+        this->ClearListeningForNetworkReconnectionToResumeQueueProcessingAfterErrors();
+        this->m_trackUploadWorker.Start();
+        this->m_profileUploadWorker.Start();
+    });
+}
+
+void MixpanelClient::ClearListeningForNetworkReconnectionToResumeQueueProcessingAfterErrors()
+{
+    if (m_networkConnectionStateChanged.Value == 0)
+    {
+        return;
+    }
+
+    NetworkInformation::NetworkStatusChanged -= m_networkConnectionStateChanged;
+    m_networkConnectionStateChanged = { 0 };
+}
 #pragma endregion
 
 #pragma region Network Requests
