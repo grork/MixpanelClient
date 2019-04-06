@@ -140,7 +140,7 @@ void EventStorageQueue::EnableQueuingToStorage()
 
 PayloadContainers EventStorageQueue::WriteItemsToStorage(const PayloadContainers& items, const function<bool()>& shouldKeepProcessing)
 {
-    PayloadContainers successfullyProcessedItems;
+    PayloadContainers processedItems;
 
     for (auto&& item : items)
     {
@@ -155,12 +155,14 @@ PayloadContainers EventStorageQueue::WriteItemsToStorage(const PayloadContainers
             didWrite = this->WriteItemToStorage(item).get();
         }
 
-        if (didWrite) {
-            successfullyProcessedItems.emplace_back(item);
+        processedItems.emplace_back(item);
+
+        if (!didWrite) {
+            TRACE_OUT(L"Item couldn't be persisted to disk");
         }
     }
 
-    return successfullyProcessedItems;
+    return processedItems;
 }
 
 void EventStorageQueue::HandleProcessedItems(const PayloadContainers& itemsWrittenToStorage)
@@ -254,7 +256,7 @@ void EventStorageQueue::SetWriteToStorageIdleLimits(const std::chrono::milliseco
     m_writeToStorageWorker.SetItemThreshold(idleItemThreshold);
 }
 
-void EventStorageQueue::DontWriteToStorageForTestPurposes()
+void EventStorageQueue::DontWriteToStorageFolder()
 {
     m_dontWriteToStorageForTestPurposes = true;
 }

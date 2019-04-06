@@ -94,11 +94,15 @@ namespace Codevoid::Utilities::Mixpanel {
         void SetWriteToStorageIdleLimits(const std::chrono::milliseconds& idleTimeout, const size_t& idleItemThreshold);
 
         /// <summary>
-        /// Disables the act of writing the payloads to disk to help with testing.
-        /// Intended for 2nd level test cases which are validating their composed behaviour
+        /// Disables the act of writing the payloads to disk to, despite that being the primary
+        /// purpose of this class. This is because there are corner cases in obtaining storage folders
+        /// fails. This allows you to supply a StorageFolder that might not be available for writing to
+        /// but keep the rest of the functionality of queue management.
+        ///
+        /// It also helps with 2nd level test cases which are validating their composed behaviour
         /// but don't really need anything written to disk.
         /// </summary>
-        void DontWriteToStorageForTestPurposes();
+        void DontWriteToStorageFolder();
 
         /// <summary>
         /// Forced the act of writing the payloads to disk to help with testing.

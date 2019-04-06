@@ -217,13 +217,24 @@ IAsyncAction^ MixpanelClient::InitializeAsync()
 
 task<void> MixpanelClient::Initialize()
 {
-    auto trackFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(
-        StringReference(MIXPANEL_TRACK_QUEUE_FOLDER),
-        CreationCollisionOption::OpenIfExists);
+    StorageFolder^ trackFolder;
+    StorageFolder^ profileFolder;
+    bool couldNotCreateUniquePersistenceFolders = false;
+    try
+    {
+        trackFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(
+            StringReference(MIXPANEL_TRACK_QUEUE_FOLDER),
+            CreationCollisionOption::OpenIfExists);
 
-    auto profileFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(
-        StringReference(MIXPANEL_PROFILE_QUEUE_FOLDER),
-        CreationCollisionOption::OpenIfExists);
+        profileFolder = co_await ApplicationData::Current->LocalFolder->CreateFolderAsync(
+            StringReference(MIXPANEL_PROFILE_QUEUE_FOLDER),
+            CreationCollisionOption::OpenIfExists);
+    }
+    catch (Exception^ e)
+    {
+        couldNotCreateUniquePersistenceFolders = true;
+        trackFolder = profileFolder = ApplicationData::Current->TemporaryFolder;
+    }
 
     this->Initialize(
         trackFolder,
@@ -231,7 +242,12 @@ task<void> MixpanelClient::Initialize()
         ref new Uri(StringReference(MIXPANEL_BASE_URL))
     );
 
-    if (!this->DropEventsForPrivacy) {
+    if (couldNotCreateUniquePersistenceFolders) {
+        m_trackStorageQueue->DontWriteToStorageFolder();
+        m_profileStorageQueue->DontWriteToStorageFolder();
+    }
+
+    if (!this->DropEventsForPrivacy && !couldNotCreateUniquePersistenceFolders) {
         auto previousTrackItemsTask = EventStorageQueue::LoadItemsFromStorage(trackFolder);
         auto previousProfileItemsTask = EventStorageQueue::LoadItemsFromStorage(profileFolder);
         auto previousTrackItems = co_await previousTrackItemsTask;
@@ -1188,12 +1204,12 @@ void MixpanelClient::SetProfileWrittenToStorageMock(function<void(vector<shared_
 
 void MixpanelClient::ConfigureForTesting(const milliseconds& idleTimeout, const size_t& itemThreshold)
 {
-    m_trackStorageQueue->DontWriteToStorageForTestPurposes();
+    m_trackStorageQueue->DontWriteToStorageFolder();
     m_trackStorageQueue->SetWriteToStorageIdleLimits(idleTimeout, itemThreshold);
     m_trackUploadWorker.SetIdleTimeout(idleTimeout);
     m_trackUploadWorker.SetItemThreshold(itemThreshold);
    
-    m_profileStorageQueue->DontWriteToStorageForTestPurposes();
+    m_profileStorageQueue->DontWriteToStorageFolder();
     m_profileStorageQueue->SetWriteToStorageIdleLimits(idleTimeout, itemThreshold);
     m_profileUploadWorker.SetIdleTimeout(idleTimeout);
     m_profileUploadWorker.SetItemThreshold(itemThreshold);

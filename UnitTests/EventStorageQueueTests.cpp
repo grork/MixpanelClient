@@ -138,29 +138,30 @@ namespace Codevoid::Tests::Mixpanel
             Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
         }
 
-        TEST_METHOD(CanProcessWholeQueueWhenOneItemFailsToPersistToStorage)
+        TEST_METHOD(ItemsThatFailToWriteToDiskAreStillPassedToNextStageHandler)
         {
-            auto result = m_queue->QueueEventToStorage(GenerateSamplePayload());
+            auto payloadId = m_queue->QueueEventToStorage(GenerateSamplePayload());
 
             // We're going to cheat here, since we'd like at least one of the operations
             // to persist the file to disk to fail, causing the queue to get all kinds
             // of confused. What we're going to do is write a file into the location
             // based on ID so that the write fails.
-            AsyncHelper::RunSynced(this->WriteEmptyPayload(result));
+            AsyncHelper::RunSynced(this->WriteEmptyPayload(payloadId));
 
-            Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");
+            Assert::AreNotEqual(0, (int)payloadId, L"Didn't get a id back from queueing the event");
             Assert::AreEqual(1, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Incorrect number of items");
 
             m_queue->EnableQueuingToStorage();
 
-            auto deleteAfter1Second = this->DelayAndDeleteItemWithId(result);
+            auto deleteAfter1Second = this->DelayAndDeleteItemWithId(payloadId);
 
             AsyncHelper::RunSynced(m_queue->PersistAllQueuedItemsToStorageAndShutdown());
             auto fileWasDeleted = AsyncHelper::RunSynced(deleteAfter1Second);
             Assert::IsTrue(fileWasDeleted);
 
             Assert::AreEqual(0, (int)m_queue->GetWaitingToWriteToStorageLength(), L"Shouldn't find items waiting to be written to disk");
-            Assert::AreEqual(1, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
+            Assert::AreEqual(0, (int)AsyncHelper::RunSynced(this->GetCurrentFileCountInQueueFolder()), L"Incorrect file count found");
+            Assert::AreEqual(1, (int)m_writtenItems.size(), L"Items weren't passed to the next stage");
         }
 
         task<bool> DelayAndDeleteItemWithId(long long id)
@@ -225,7 +226,7 @@ namespace Codevoid::Tests::Mixpanel
 
         TEST_METHOD(ItemsAreNotWrittenToDiskWhenAskedToSkipForTesting)
         {
-            m_queue->DontWriteToStorageForTestPurposes();
+            m_queue->DontWriteToStorageFolder();
             m_queue->EnableQueuingToStorage();
             auto result = m_queue->QueueEventToStorage(GenerateSamplePayload());
             Assert::AreNotEqual(0, (int)result, L"Didn't get a token back from queueing the event");
