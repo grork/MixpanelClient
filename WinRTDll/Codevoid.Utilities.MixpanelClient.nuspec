@@ -11,7 +11,8 @@
     <title>Mixpanel Client for UWP in C++</title>
     <description>A client library for uploading events to Mixpanel. Written in C++.</description>
     <releaseNotes>
-        Updated behaviour to no longer to longer consider failing to write to storage a catastrophic failure
+        - Updated handling of date-time stringificiation to handle intermittent failures on some machines
+        - Updated behaviour to no longer to longer consider failing to write to storage a catastrophic failure
     </releaseNotes>
     <copyright>Copyright 2019</copyright>
     <tags>Mixpanel UWP analytics telemetry client C++ javascript typescript</tags>
